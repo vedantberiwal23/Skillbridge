@@ -22,6 +22,11 @@ export const config = {
     baseUrl: process.env.SARVAM_BASE_URL ?? 'https://api.sarvam.ai',
     realtimeUrl:
       process.env.SARVAM_REALTIME_URL ?? 'wss://api.sarvam.ai/speech-to-text-realtime/ws',
+    ttsStreamUrl: process.env.SARVAM_TTS_WS_URL ?? 'wss://api.sarvam.ai/text-to-speech/ws',
+    timeoutMs: Number(process.env.SARVAM_TIMEOUT_MS ?? 30000),
+    // How long to wait after release for the final transcript before settling for
+    // the last partial. A stalled socket must not hold the whole turn hostage.
+    finalTimeoutMs: Number(process.env.SARVAM_FINAL_TIMEOUT_MS ?? 4000),
     sttModel: 'saaras:v3-realtime',
     ttsModel: 'bulbul:v3',
     translateModel: 'mayura:v1',

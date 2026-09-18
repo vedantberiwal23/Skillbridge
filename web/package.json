@@ -9,11 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.1135.0",
     "@aws-sdk/client-dynamodb": "^3.1134.0",
     "@aws-sdk/lib-dynamodb": "^3.1134.0",
     "@base-ui/react": "^1.8.0",
     "@google/model-viewer": "^4.3.1",
     "aws-amplify": "^6.20.0",
+    "aws-jwt-verify": "^5.2.1",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.3.0",
     "framer-motion": "^13.4.0",

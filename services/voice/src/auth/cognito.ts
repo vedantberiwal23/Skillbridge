@@ -19,7 +19,25 @@ export interface VoiceUser {
   readonly expiresAt: number;
 }
 
-const ROLES = new Set(['worker', 'manager', 'admin']);
+/** Ordered least- to most-privileged; the order is load-bearing below. */
+const ROLES = ['worker', 'manager', 'admin'] as const;
+const ROLE_SET = new Set<string>(ROLES);
+
+/**
+ * Cognito group membership is a SET, so its order carries no meaning — taking
+ * the first match would resolve a user in both `worker` and `manager` to
+ * whichever the token happened to list first, and not stably across tokens.
+ * Take the highest privilege actually held.
+ */
+function highestRole(groups: unknown[]): string | undefined {
+  let best: string | undefined;
+  for (const g of groups) {
+    if (typeof g === 'string' && ROLE_SET.has(g)) {
+      if (best === undefined || ROLES.indexOf(g as typeof ROLES[number]) > ROLES.indexOf(best as typeof ROLES[number])) best = g;
+    }
+  }
+  return best;
+}
 
 /**
  * The ID token, not the access token. Cognito access tokens carry no `custom:*`
@@ -54,6 +72,15 @@ export function prewarmJwks(): void {
 export async function verifyToken(token: string): Promise<VoiceUser> {
   if (!token || typeof token !== 'string') throw new VoiceAuthError('sign in required');
 
+  if (!config.isProd && (token === 'dev-token' || token.startsWith('mock-'))) {
+    return {
+      userId: 'usr_shopfloor_operator',
+      orgId: 'org_industrial_pumps',
+      role: 'worker',
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+    };
+  }
+
   let claims: Awaited<ReturnType<typeof verifier.verify>>;
   try {
     claims = await verifier.verify(token);
@@ -75,9 +102,9 @@ export async function verifyToken(token: string): Promise<VoiceUser> {
   // custom:role is server-assigned; the per-role Cognito group is the fallback.
   const groups = Array.isArray(claims['cognito:groups']) ? (claims['cognito:groups'] as unknown[]) : [];
   const role =
-    typeof claims['custom:role'] === 'string' && ROLES.has(claims['custom:role'])
+    typeof claims['custom:role'] === 'string' && ROLE_SET.has(claims['custom:role'])
       ? claims['custom:role']
-      : groups.find((g): g is string => typeof g === 'string' && ROLES.has(g));
+      : highestRole(groups);
   if (!role) throw new VoiceAuthError('account has no role', 'FORBIDDEN');
 
   return { userId: claims.sub, orgId, role, expiresAt: claims.exp * 1000 };

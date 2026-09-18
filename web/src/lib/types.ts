@@ -1,6 +1,13 @@
 /** Domain types. Key scheme and access patterns: DATA-MODEL.md */
 
-export type Role = 'worker' | 'manager' | 'admin';
+/**
+ * Ordered least- to most-privileged. The order is load-bearing: it is what
+ * `requireSession` uses to resolve a role deterministically when a user is in
+ * more than one Cognito group, and mirrors the groups `AuthStack` creates.
+ */
+export const ROLES = ['worker', 'manager', 'admin'] as const;
+
+export type Role = (typeof ROLES)[number];
 
 export type LearningMode = 'speech' | 'text';
 
@@ -106,13 +113,24 @@ export interface Assessment {
   lessonId: string | null;
 }
 
+/**
+ * An attempt is written unscored. The assessment scorer is an async-tier agent
+ * (FEATURES.md §13), so the submit request must not wait on it — the handler
+ * persists the submission and the client re-fetches for the result.
+ */
+export type AttemptStatus = 'pending' | 'scored';
+
 export interface AssessmentAttempt {
   userId: string;
   assessmentId: string;
   submittedAt: string;
-  score: number;
+  status: AttemptStatus;
+  /** The worker's raw submission — the scorer's input. Shape varies by kind. */
+  response: unknown;
+  /** null until the scorer has run. Never supplied by the client. */
+  score: number | null;
   /** Scored on the reasoning path, not only the final answer. */
-  feedback: string;
+  feedback: string | null;
 }
 
 /** Derived by the async profiler — never computed on read. */

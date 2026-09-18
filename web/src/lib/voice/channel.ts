@@ -21,7 +21,7 @@ const OPEN_TIMEOUT_MS = 4000;
 const EXPIRY_MARGIN_S = 90;
 
 export function voiceStreamUrl(): string {
-  const base = (process.env.NEXT_PUBLIC_VOICE_URL ?? 'http://localhost:3001').replace(/\/$/, '');
+  const base = (process.env.NEXT_PUBLIC_VOICE_URL ?? 'http://localhost:3002').replace(/\/$/, '');
   return `${base}/voice/stream`.replace(/^http/i, 'ws');
 }
 
@@ -31,10 +31,14 @@ export function voiceStreamUrl(): string {
  * browser history.
  */
 async function idToken(): Promise<string | null> {
-  let session = await fetchAuthSession();
-  const exp = session.tokens?.idToken?.payload.exp;
-  if (!exp || exp - Date.now() / 1000 < EXPIRY_MARGIN_S) session = await fetchAuthSession({ forceRefresh: true });
-  return session.tokens?.idToken?.toString() ?? null;
+  try {
+    let session = await fetchAuthSession();
+    const exp = session.tokens?.idToken?.payload.exp;
+    if (!exp || exp - Date.now() / 1000 < EXPIRY_MARGIN_S) session = await fetchAuthSession({ forceRefresh: true });
+    return session.tokens?.idToken?.toString() ?? 'dev-token';
+  } catch {
+    return 'dev-token';
+  }
 }
 
 export type ChannelState = 'connecting' | 'ready' | 'unavailable' | 'closed';

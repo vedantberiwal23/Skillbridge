@@ -20,9 +20,16 @@ export interface MachineViewerProps {
   asset: MachineAsset;
   /** Fired when a worker taps a component — carries the hotspot into the tutor. */
   onPartSelected?: (hotspotId: string) => void;
+  selectedPartId?: string;
+  autoRotate?: boolean;
 }
 
-export function MachineViewer({ asset, onPartSelected }: MachineViewerProps) {
+export function MachineViewer({
+  asset,
+  onPartSelected,
+  selectedPartId,
+  autoRotate = false,
+}: MachineViewerProps) {
   const { prefer2D } = useAccessibility();
   const [ready, setReady] = useState(false);
 
@@ -41,16 +48,24 @@ export function MachineViewer({ asset, onPartSelected }: MachineViewerProps) {
     return (
       <div className="machine-viewer machine-viewer--fallback">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={asset.posterUrl} alt={asset.name} loading="lazy" />
-        <ul>
-          {asset.hotspots.map((hotspot) => (
-            <li key={hotspot.id}>
-              <button type="button" onClick={() => onPartSelected?.(hotspot.id)}>
-                {hotspot.label}
-              </button>
-            </li>
+        <img src={asset.posterUrl} alt={asset.name} loading="lazy" className="max-h-[340px] rounded-lg object-contain shadow-md" />
+        <div className="grid grid-cols-2 gap-2 mt-4 w-full max-w-md">
+          {asset.hotspots.map((hotspot, idx) => (
+            <button
+              key={hotspot.id}
+              type="button"
+              onClick={() => onPartSelected?.(hotspot.id)}
+              className={`text-xs px-3 py-2 rounded-lg font-medium border text-left transition ${
+                selectedPartId === hotspot.id
+                  ? 'bg-blue-600 text-white border-blue-400 shadow-sm'
+                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+              }`}
+            >
+              <span className="font-bold mr-1.5 opacity-70">#{idx + 1}</span>
+              {hotspot.label}
+            </button>
           ))}
-        </ul>
+        </div>
       </div>
     );
   }
@@ -62,20 +77,28 @@ export function MachineViewer({ asset, onPartSelected }: MachineViewerProps) {
       poster={asset.posterUrl}
       alt={asset.name}
       camera-controls
+      auto-rotate={autoRotate ? '' : undefined}
+      shadow-intensity="1"
       loading="lazy"
     >
-      {asset.hotspots.map((hotspot) => (
-        <button
-          key={hotspot.id}
-          type="button"
-          slot={`hotspot-${hotspot.id}`}
-          data-position={hotspot.position}
-          data-normal={hotspot.normal}
-          onClick={() => onPartSelected?.(hotspot.id)}
-        >
-          {hotspot.label}
-        </button>
-      ))}
+      {asset.hotspots.map((hotspot, idx) => {
+        const isSelected = selectedPartId === hotspot.id;
+        return (
+          <button
+            key={hotspot.id}
+            type="button"
+            slot={`hotspot-${hotspot.id}`}
+            data-position={hotspot.position}
+            data-normal={hotspot.normal}
+            className={`hotspot-pin ${isSelected ? 'active' : ''}`}
+            onClick={() => onPartSelected?.(hotspot.id)}
+            aria-label={hotspot.label}
+          >
+            <span className="text-[11px] font-bold">{idx + 1}</span>
+            <span className="hotspot-annotation">{hotspot.label}</span>
+          </button>
+        );
+      })}
     </model-viewer>
   );
 }

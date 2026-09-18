@@ -19,11 +19,11 @@ export interface VoiceUser {
 const verifier = CognitoJwtVerifier.create({
   userPoolId: config.cognito.userPoolId,
   clientId: config.cognito.clientId,
-  tokenUse: 'access',
+  tokenUse: 'id',
 });
 
 /**
- * Verify a Cognito access token arriving in a socket's FIRST FRAME.
+ * Verify a Cognito ID token arriving in a socket's FIRST FRAME.
  *
  * Never accept the token from the connection URL: query strings end up in proxy
  * logs, access logs and browser history.
@@ -32,7 +32,30 @@ const verifier = CognitoJwtVerifier.create({
  * token without an `orgId` is malformed and must be rejected rather than
  * defaulted.
  */
-export async function verifyToken(_token: string): Promise<VoiceUser> {
-  void verifier;
-  throw new Error('not implemented');
+export async function verifyToken(token: string): Promise<VoiceUser> {
+  try {
+    const payload = await verifier.verify(token);
+    const userId = payload.sub;
+    const orgId = payload['custom:orgId'] as string | undefined;
+    const role =
+      (payload['custom:role'] as string | undefined) ||
+      (payload['cognito:groups'] as string[] | undefined)?.[0] ||
+      'worker';
+
+    if (!orgId) {
+      throw new VoiceAuthError('Token missing custom:orgId attribute', 'UNAUTHORIZED');
+    }
+
+    return {
+      userId,
+      orgId,
+      role,
+    };
+  } catch (err) {
+    if (err instanceof VoiceAuthError) {
+      throw err;
+    }
+    const message = err instanceof Error ? err.message : 'Invalid token';
+    throw new VoiceAuthError(message, 'UNAUTHORIZED');
+  }
 }

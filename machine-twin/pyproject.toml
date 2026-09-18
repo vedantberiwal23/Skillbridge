@@ -1,0 +1,89 @@
+[project]
+name = "machine-twin"
+version = "0.1.0"
+description = "SkillBridge Machine Twin Studio - industrial machine reconstruction pipeline"
+readme = "README.txt"
+# Pinned to 3.12 deliberately. The system interpreter is 3.14, which is ahead of
+# the wheel ecosystem for Open3D, PyTorch, ultralytics and pycolmap; building
+# those from source on 3.14 fails or silently produces no wheel at all.
+requires-python = ">=3.12,<3.13"
+
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy>=2.0",
+    "alembic>=1.14",
+    "python-multipart>=0.0.12",
+    "pillow>=11.0",
+    "numpy>=1.26,<3",
+    "pymupdf>=1.24",
+]
+
+[project.optional-dependencies]
+# Heavy CV stack, installed at M2 rather than up front: it is multi-gigabyte and
+# is not needed to run the API, the schema or the capability probe.
+vision = [
+    "opencv-python-headless>=4.10",
+    "ultralytics>=8.3",
+    "torch>=2.5",
+    "torchvision>=0.20",
+]
+# Geometry stack, installed at M3-M4.
+geometry = [
+    "trimesh>=4.5",
+    "open3d>=0.18",
+    "pycolmap>=3.10",
+]
+
+[project.scripts]
+machine-twin = "machine_twin.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.28",
+    "ruff>=0.8",
+    "mypy>=1.13",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["machine_twin"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+
+# pymupdf ships incomplete type information, so calls into it read as untyped.
+# Scoped to the two modules that touch it rather than relaxing the project.
+[[tool.mypy.overrides]]
+module = [
+    "machine_twin.pipeline.ingest.metadata",
+    "machine_twin.pipeline.ingest.thumbnails",
+]
+disallow_untyped_calls = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# Integration tests that render and solve take about a minute and need the full
+# toolchain. Deselected by default so `make check` stays usable; `make test-slow`
+# runs them.
+addopts = '-m "not slow"'
+markers = [
+    "slow: requires COLMAP and/or Blender and takes tens of seconds",
+]

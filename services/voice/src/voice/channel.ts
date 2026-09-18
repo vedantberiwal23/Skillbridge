@@ -1,29 +1,9 @@
-import type { WebSocket } from 'ws';
-import type { Server } from 'node:http';
-
-/**
- * The live voice channel.  ws://<service>/voice/stream
- *
- * A channel is warmed when the panel OPENS, not at button-down: TCP, TLS, the
- * HTTP upgrade and token verification all happen while the worker is still
- * deciding what to ask, so button-down has nothing left to do but listen. A
- * channel also outlives a turn, so the second question is as fast as the first.
- *
- * Wire protocol — client → server:
- *   { t: 'start',  token }              panel open; authenticates the channel
- *   { t: 'begin',  language, history }  button down
- *   { t: 'audio',  b64 }                50ms linear16 @16k frames
- *   { t: 'stop' }                       button up
- *   { t: 'cancel' }                     turn abandoned
- *
- * Server → client:
- *   ready, listening, partial, final, thinking, delta,
- *   audio_start { rate }, audio { seq, b64 }, audio_end,
- *   reply, empty, expired, error, done
- *
- * 50ms frames rather than the 100ms Sarvam suggests: that buffer is paid on the
- * FIRST word, which is the one being watched for.
- */
+import { WebSocketServer, WebSocket } from 'ws';
+import type { Server, IncomingMessage } from 'node:http';
+import type { Socket } from 'node:net';
+import { config } from '../config.js';
+import { verifyToken, VoiceUser } from '../auth/cognito.js';
+import { createTurn, Turn } from './turn.js';
 
 export const PATH = '/voice/stream';
 
@@ -41,28 +21,245 @@ const MAX_SOCKETS_PER_USER = 3;
 const CHANNEL_MAX_MS = 15 * 60 * 1000;
 const CHANNEL_IDLE_MS = 5 * 60 * 1000;
 
-void MAX_AUDIO_FRAMES;
-void MAX_SOCKETS_PER_USER;
-void CHANNEL_MAX_MS;
-void CHANNEL_IDLE_MS;
+// Track active sockets per user to enforce MAX_SOCKETS_PER_USER
+const activeSocketsPerUser = new Map<string, Set<WebSocket>>();
+
+function isOriginAllowed(origin: string | undefined): boolean {
+  if (!origin) return !config.isProd;
+
+  try {
+    const parsed = new URL(origin);
+    const host = parsed.hostname;
+
+    // Localhost loopback allowed in non-prod
+    if (!config.isProd && (host === 'localhost' || host === '127.0.0.1')) {
+      return true;
+    }
+
+    if (config.allowedOrigins.length === 0) {
+      return !config.isProd;
+    }
+
+    return config.allowedOrigins.some((allowed) => {
+      if (allowed.startsWith('*.')) {
+        return host.endsWith(allowed.slice(1));
+      }
+      return allowed === origin || allowed === host;
+    });
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Attach the WebSocket endpoint to the HTTP server.
- *
- * Takes the http.Server, not the Express app: a WebSocket arrives as a protocol
- * upgrade and never reaches Express middleware. That also means this path gets
- * no rate limiting, no body parsing and no 401 handling for free — auth and
- * limits are re-implemented here deliberately.
- *
- * The Origin check is not optional. A WebSocket is not subject to the
- * same-origin policy and an upgrade never reaches CORS middleware, so without it
- * any site on the internet could open a socket here. The loopback exemption is
- * hard-gated on NODE_ENV.
  */
-export function attach(_server: Server): void {
-  throw new Error('not implemented');
+export function attach(server: Server): void {
+  const wss = new WebSocketServer({ noServer: true });
+
+  server.on('upgrade', (req: IncomingMessage, socket: Socket, head: Buffer) => {
+    const { pathname } = new URL(req.url ?? '', `http://${req.headers.host}`);
+
+    if (pathname !== PATH) {
+      return;
+    }
+
+    // Origin guard: WebSockets are not subject to CORS/same-origin policy
+    const origin = req.headers.origin;
+    if (!isOriginAllowed(origin)) {
+      socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+
+    wss.handleUpgrade(req, socket, head, (ws) => {
+      wss.emit('connection', ws, req);
+    });
+  });
+
+  wss.on('connection', (ws: WebSocket) => {
+    handleConnection(ws);
+  });
 }
 
-export function handleConnection(_ws: WebSocket): void {
-  throw new Error('not implemented');
+/**
+ * Handle one WebSocket connection through the voice wire protocol.
+ */
+export function handleConnection(ws: WebSocket): void {
+  let user: VoiceUser | null = null;
+  let activeTurn: Turn | null = null;
+  let audioFrameCount = 0;
+  let idleTimer: NodeJS.Timeout | null = null;
+  let maxTimer: NodeJS.Timeout | null = null;
+
+  function send(data: Record<string, unknown>) {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(data));
+    }
+  }
+
+  function resetIdleTimer() {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      send({ t: 'expired', reason: 'idle_timeout' });
+      cleanup();
+      ws.close(1000, 'Idle timeout');
+    }, CHANNEL_IDLE_MS);
+  }
+
+  function cleanup() {
+    if (idleTimer) clearTimeout(idleTimer);
+    if (maxTimer) clearTimeout(maxTimer);
+    if (activeTurn) {
+      activeTurn.cancel();
+      activeTurn = null;
+    }
+    if (user) {
+      const userSockets = activeSocketsPerUser.get(user.userId);
+      if (userSockets) {
+        userSockets.delete(ws);
+        if (userSockets.size === 0) {
+          activeSocketsPerUser.delete(user.userId);
+        }
+      }
+    }
+  }
+
+  // Set hard session cap
+  maxTimer = setTimeout(() => {
+    send({ t: 'expired', reason: 'max_lifetime' });
+    cleanup();
+    ws.close(1000, 'Max lifetime reached');
+  }, CHANNEL_MAX_MS);
+
+  resetIdleTimer();
+
+  ws.on('message', async (raw: WebSocket.RawData) => {
+    resetIdleTimer();
+
+    try {
+      const msg = JSON.parse(raw.toString('utf-8'));
+      const type = msg.t;
+
+      switch (type) {
+        // Authenticate channel
+        case 'start': {
+          if (!msg.token || typeof msg.token !== 'string') {
+            send({ t: 'error', code: 'UNAUTHORIZED', message: 'Token is required' });
+            ws.close(4001, 'Unauthorized');
+            return;
+          }
+
+          try {
+            const verified = await verifyToken(msg.token);
+
+            // Check max sockets per user
+            let sockets = activeSocketsPerUser.get(verified.userId);
+            if (!sockets) {
+              sockets = new Set();
+              activeSocketsPerUser.set(verified.userId, sockets);
+            }
+
+            if (sockets.size >= MAX_SOCKETS_PER_USER) {
+              send({
+                t: 'error',
+                code: 'TOO_MANY_SOCKETS',
+                message: 'Concurrent socket limit reached for user',
+              });
+              ws.close(4029, 'Too many sockets');
+              return;
+            }
+
+            user = verified;
+            sockets.add(ws);
+            send({ t: 'ready' });
+          } catch (err) {
+            const message = err instanceof Error ? err.message : 'Invalid token';
+            send({ t: 'error', code: 'UNAUTHORIZED', message });
+            ws.close(4001, 'Unauthorized');
+          }
+          break;
+        }
+
+        // Button down: begin turn
+        case 'begin': {
+          if (!user) {
+            send({ t: 'error', code: 'UNAUTHORIZED', message: 'Not authenticated' });
+            return;
+          }
+
+          if (activeTurn) {
+            activeTurn.cancel();
+            activeTurn = null;
+          }
+
+          audioFrameCount = 0;
+
+          activeTurn = createTurn({
+            send,
+            fail: (message, code) => send({ t: 'error', code, message }),
+            language: msg.language || 'hi-IN',
+            history: Array.isArray(msg.history) ? msg.history : [],
+          });
+
+          send({ t: 'listening' });
+          break;
+        }
+
+        // Audio frame arriving
+        case 'audio': {
+          if (!user || !activeTurn) return;
+
+          audioFrameCount++;
+          if (audioFrameCount > MAX_AUDIO_FRAMES) {
+            send({
+              t: 'error',
+              code: 'AUDIO_LIMIT_EXCEEDED',
+              message: 'Stuck button: turn exceeded maximum audio duration',
+            });
+            activeTurn.cancel();
+            activeTurn = null;
+            return;
+          }
+
+          if (msg.b64 && typeof msg.b64 === 'string') {
+            activeTurn.sendAudio(msg.b64);
+          }
+          break;
+        }
+
+        // Button up: finish question and stream response
+        case 'stop': {
+          if (!user || !activeTurn) return;
+
+          const turnToFinish = activeTurn;
+          activeTurn = null;
+          await turnToFinish.finish();
+          break;
+        }
+
+        // Turn cancelled
+        case 'cancel': {
+          if (activeTurn) {
+            activeTurn.cancel();
+            activeTurn = null;
+          }
+          break;
+        }
+
+        default:
+          break;
+      }
+    } catch {
+      send({ t: 'error', code: 'BAD_REQUEST', message: 'Malformed frame JSON' });
+    }
+  });
+
+  ws.on('close', () => {
+    cleanup();
+  });
+
+  ws.on('error', () => {
+    cleanup();
+  });
 }

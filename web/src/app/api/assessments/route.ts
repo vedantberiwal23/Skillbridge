@@ -2,17 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { GetCommand, QueryCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { ddb, TABLE_NAME } from '@/lib/ddb';
-import { orgPk, userPk, keys, eventTtl } from '@/lib/keys';
-import { requireSession, handleApiError } from '@/lib/auth';
+import { orgPk, userPk, keys, prefixes, eventTtl } from '@/lib/keys';
+import { requireSession, handleApiError, AuthError } from '@/lib/auth';
+import { parseBody, submitAttemptSchema } from '@/lib/validation';
 import { Assessment, AssessmentAttempt } from '@/lib/types';
 
 /**
- * GET /api/assessments — Definitions and worker attempt history (Pattern W4).
+ * GET /api/assessments — Definitions and the caller's attempt history (W4).
  *
- * If ?assessmentId=<id> is supplied:
- *   Fetches assessment definition from ORG#<orgId> and user's attempts from USER#<userId>.
- * If no assessmentId is supplied:
- *   Queries all assessment definitions under the organization.
+ * With ?assessmentId=<id>: the definition from ORG#<orgId> plus this worker's
+ * attempts from their own USER# partition.
+ * Without: every assessment definition for the organization.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -24,6 +24,8 @@ export async function GET(req: NextRequest) {
       const asmtRes = await ddb.send(
         new GetCommand({
           TableName: TABLE_NAME,
+          // orgId comes from the verified session, so this cannot address
+          // another tenant's assessment.
           Key: keys.assessment(session.orgId, assessmentId),
         })
       );
@@ -39,7 +41,7 @@ export async function GET(req: NextRequest) {
           KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
           ExpressionAttributeValues: {
             ':pk': userPk(session.userId),
-            ':skPrefix': `ATTEMPT#${assessmentId}#`,
+            ':skPrefix': prefixes.attemptsFor(assessmentId),
           },
         })
       );
@@ -48,14 +50,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ assessment, attempts });
     }
 
-    // List all assessment definitions for the org
     const listRes = await ddb.send(
       new QueryCommand({
         TableName: TABLE_NAME,
         KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
         ExpressionAttributeValues: {
           ':pk': orgPk(session.orgId),
-          ':skPrefix': 'ASMT#',
+          ':skPrefix': prefixes.assessment,
         },
       })
     );
@@ -68,20 +69,35 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/assessments — Submit an attempt for scoring (Pattern W4 & S1).
+ * POST /api/assessments — Submit an attempt (Pattern W4).
  *
- * Writes the attempt under USER#<userId> with an ISO-8601 UTC sort key.
- * Also emits an async activity EVT# item carrying the mandatory 90-day ttl attribute
- * for the background skill profiler pipeline.
+ * The attempt is written UNSCORED. Scoring is the assessment scorer agent's job
+ * (FEATURES.md §13) and it runs on the async tier, so this handler must not wait
+ * on it — it persists the submission and returns, and the client re-fetches for
+ * the result once `status` turns to `scored`.
+ *
+ * The client never supplies `score`. It previously did, defaulting to 100, which
+ * let any worker pass any assessment by posting their own mark.
+ *
+ * Still to wire (BACKEND.md work order item 5): the handoff that takes a pending
+ * attempt and invokes the scorer. Until it exists, attempts stay `pending` —
+ * which is visibly incomplete rather than silently wrong.
  */
 export async function POST(req: NextRequest) {
   try {
     const session = await requireSession(undefined, req);
-    const body = await req.json();
-    const { assessmentId, score = 100, feedback = 'Completed assessment' } = body;
+    const { assessmentId, response } = parseBody(submitAttemptSchema, await req.json());
 
-    if (!assessmentId || typeof assessmentId !== 'string') {
-      return NextResponse.json({ error: 'assessmentId is required' }, { status: 400 });
+    // An attempt against an assessment this org does not own would be scored
+    // against nothing and would feed the profiler a dangling reference.
+    const asmtRes = await ddb.send(
+      new GetCommand({
+        TableName: TABLE_NAME,
+        Key: keys.assessment(session.orgId, assessmentId),
+      })
+    );
+    if (!asmtRes.Item) {
+      throw new AuthError('Assessment not found', 404);
     }
 
     const ts = new Date().toISOString();
@@ -94,12 +110,13 @@ export async function POST(req: NextRequest) {
       orgId: session.orgId,
       assessmentId,
       submittedAt: ts,
-      score: Number(score),
-      feedback: String(feedback),
+      status: 'pending',
+      response: response ?? null,
+      score: null,
+      feedback: null,
     };
 
-    const eventId = crypto.randomUUID();
-    const eventKey = keys.event(session.userId, ts, eventId);
+    const eventKey = keys.event(session.userId, ts, crypto.randomUUID());
     const eventItem = {
       PK: eventKey.PK,
       SK: eventKey.SK,
@@ -107,23 +124,15 @@ export async function POST(req: NextRequest) {
       orgId: session.orgId,
       type: 'ASSESSMENT_ATTEMPT',
       assessmentId,
-      score: Number(score),
-      ttl: eventTtl(), // Mandatory 90-day epoch seconds TTL
+      // `ttl`, spelled exactly that way and in epoch seconds — the table's
+      // timeToLiveAttribute is 'ttl', and any other name is silently ignored,
+      // making raw events a permanent record.
+      ttl: eventTtl(),
     };
 
     await Promise.all([
-      ddb.send(
-        new PutCommand({
-          TableName: TABLE_NAME,
-          Item: attemptItem,
-        })
-      ),
-      ddb.send(
-        new PutCommand({
-          TableName: TABLE_NAME,
-          Item: eventItem,
-        })
-      ),
+      ddb.send(new PutCommand({ TableName: TABLE_NAME, Item: attemptItem })),
+      ddb.send(new PutCommand({ TableName: TABLE_NAME, Item: eventItem })),
     ]);
 
     return NextResponse.json({ attempt: attemptItem }, { status: 201 });

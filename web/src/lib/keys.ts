@@ -86,6 +86,41 @@ export const keys = {
   }),
 };
 
+/**
+ * Sort-key prefixes for `begins_with` queries. They live here for the same
+ * reason the builders do: a prefix typed inline at a call site drifts from the
+ * builder it is meant to match, and the resulting Query returns nothing with no
+ * error to show for it.
+ *
+ * `planScope` is deliberately not a bare `PLAN#<planId>` prefix match — that
+ * would also match `PLAN#<planId>0`, so plan `p1` would swallow plan `p10`'s
+ * modules. Query with it, then narrow with `isPlanItem`.
+ */
+export const prefixes = {
+  department: 'DEPT#',
+  invite: 'INVITE#',
+  doc: 'DOC#',
+  lesson: 'LESSON#',
+  assessment: 'ASMT#',
+  asset: 'ASSET#',
+  deptAggregate: 'AGG#DEPT#',
+  plan: 'PLAN#',
+  planScope: (planId: string) => `PLAN#${planId}`,
+  planModules: (planId: string) => `PLAN#${planId}#MOD#`,
+  attemptsFor: (assessmentId: string) => `ATTEMPT#${assessmentId}#`,
+  badge: 'BADGE#',
+  event: 'EVT#',
+  session: 'SESSION#',
+};
+
+/** True when `sk` is the plan header for `planId` or one of its modules. */
+export const isPlanItem = (sk: string, planId: string) =>
+  sk === prefixes.planScope(planId) || sk.startsWith(prefixes.planModules(planId));
+
+/** True when `sk` is a plan header (`PLAN#<planId>`) rather than a module. */
+export const isPlanHeader = (sk: string) =>
+  sk.startsWith(prefixes.plan) && !sk.includes('#MOD#');
+
 /** GSI1 — org directory. begins_with on the sort key serves org / dept / role. */
 export const gsi1 = {
   pk: (orgId: string) => orgPk(orgId),

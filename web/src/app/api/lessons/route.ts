@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { ddb, TABLE_NAME } from '@/lib/ddb';
-import { orgPk, keys } from '@/lib/keys';
+import { orgPk, keys, prefixes } from '@/lib/keys';
 import { requireSession, handleApiError } from '@/lib/auth';
 import { Lesson, MachineAsset } from '@/lib/types';
 
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
         KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
         ExpressionAttributeValues: {
           ':pk': orgPk(session.orgId),
-          ':skPrefix': 'LESSON#',
+          ':skPrefix': prefixes.lesson,
         },
       })
     );

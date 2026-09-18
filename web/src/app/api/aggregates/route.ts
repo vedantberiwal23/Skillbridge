@@ -19,8 +19,19 @@ export async function GET(req: NextRequest) {
   try {
     const session = await requireSession('manager', req);
     const { searchParams } = new URL(req.url);
+    const requestedDeptId = searchParams.get('deptId');
 
-    const deptId = searchParams.get('deptId') || session.deptId;
+    /**
+     * `orgId` already comes from the verified session, so no query parameter can
+     * cross a tenant boundary here. The department boundary is a separate
+     * question: a manager's scope is their own department (FEATURES.md §11), so
+     * only an admin — org root — may name a different one.
+     */
+    if (requestedDeptId && requestedDeptId !== session.deptId && session.role !== 'admin') {
+      throw new AuthError('Forbidden: managers may only read their own department', 403);
+    }
+
+    const deptId = requestedDeptId ?? session.deptId;
     if (!deptId) {
       return NextResponse.json(
         { error: 'Department ID (deptId) is required' },

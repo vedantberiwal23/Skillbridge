@@ -5,17 +5,27 @@ import { config } from '../config.js';
  * Sarvam streaming text-to-speech — `bulbul:v3` over `/text-to-speech/ws`.
  *
  * Model deltas are piped in as they arrive so audio starts on the first sentence
- * rather than the last.
+ * rather than the last. Audio for one connection arrives IN ORDER, and the
+ * `final` event fires once per flush — a reliable end-of-reply signal.
  *
- * TRAP: the streaming endpoint KILLS THE ENTIRE REPLY on a text message it considers
- * empty. A lone " ", "\n\n", ",", "." or "(" is rejected outright, losing all audio.
- * speakable(text) must guard every single sendText invocation. Any unspeakable text
- * is accumulated in a pending buffer and merged with the next speakable chunk.
+ * TRAP, and it is severe: the streaming endpoint KILLS THE ENTIRE REPLY on a
+ * text message it considers empty — and "empty" is broader than it looks. A lone
+ * " ", "\n\n", ",", "." or "(" is rejected outright, and one such message loses
+ * ALL of the reply's audio. Streaming models emit exactly these as deltas. So
+ * only send text containing a letter or a combining mark; anything else rides
+ * along with the word before it. Do not loosen this.
+ *
+ * Also: v3 caps one input at ~500 characters, rejects `pitch` and `loudness`
+ * outright (only `pace` survives), and the v2 voices such as `anushka` now 400.
  */
 
+/**
+ * linear16 raw PCM, no RIFF header — the browser schedules it gaplessly through
+ * Web Audio with no decoding step. Sent to the client in `audio_start`.
+ */
 export const SAMPLE_RATE = 22050;
 
-/** True only if the text contains a letter or combining mark. */
+/** True only if the text contains a letter or combining mark — see the trap above. */
 export function speakable(text: string): boolean {
   return /[\p{L}\p{M}]/u.test(text);
 }
@@ -25,7 +35,6 @@ export interface StreamingTtsOptions {
   readonly onDone: () => void;
   readonly onError: (message: string) => void;
   readonly speaker?: string;
-  readonly pace?: number;
 }
 
 export interface StreamingTtsSession {
@@ -38,162 +47,172 @@ export interface StreamingTtsSession {
   close(): void;
 }
 
+/** Longest run held back waiting for a word to end. */
+const MAX_HELD = 60;
+
+/** The socket closes itself after 60s idle; a ping keeps a slow turn alive. */
+const PING_MS = 25_000;
+
+type Outgoing = { type: 'text'; data: { text: string } } | { type: 'flush' };
+
+/**
+ * Opened at BUTTON-DOWN so the ~200ms handshake overlaps the question, and
+ * configured later, once the reply's language is known. Text that arrives
+ * before the socket is open and configured is queued, never dropped.
+ */
 export function openStreamingTts(options: StreamingTtsOptions): StreamingTtsSession {
-  const wsUrl = `${config.sarvam.baseUrl.replace(/^http/, 'ws')}/text-to-speech/ws`;
+  const { onAudio, onDone, onError, speaker = config.sarvam.defaultSpeaker } = options;
+  const model = config.sarvam.ttsModel;
 
-  let ws: WebSocket | null = null;
-  let isOpen = false;
-  let isClosed = false;
-  let selectedLanguage: string | null = null;
-  let currentSeq = 0;
-  let unsentBuffer = '';
-  const preHandshakeTextQueue: string[] = [];
+  const ws = new WebSocket(`${config.sarvam.ttsStreamUrl}?model=${model}&send_completion_event=true`, {
+    headers: { 'Api-Subscription-Key': config.sarvam.apiKey },
+  });
 
-  function connect() {
-    ws = new WebSocket(wsUrl, {
-      headers: {
-        'api-subscription-key': config.sarvam.apiKey,
+  let open = false;
+  let configured = false;
+  let language: string | null = null;
+  let failed = false;
+  let finished = false;
+  let seq = 0;
+  let ping: NodeJS.Timeout | null = null;
+  const pending: Outgoing[] = [];
+  // Letterless text before the first real piece, and the latest real piece held
+  // until we see what follows it — see sendText.
+  let lead = '';
+  let held = '';
+
+  const raw = (obj: unknown) => {
+    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+  };
+
+  const drain = () => {
+    if (!open || !configured) return;
+    while (pending.length) raw(pending.shift());
+  };
+
+  const sendConfig = () => {
+    raw({
+      type: 'config',
+      data: {
+        language_code: language,
+        speaker,
+        model,
+        pace: 1.0,
+        speech_sample_rate: String(SAMPLE_RATE),
+        output_audio_codec: 'linear16',
+        // The smallest allowed: start after 30 characters rather than 50.
+        min_buffer_size: 30,
+        max_chunk_length: 150,
       },
     });
+    configured = true;
+    drain();
+  };
 
-    ws.on('open', () => {
-      isOpen = true;
-      // Send initial configuration if language was already configured
-      if (selectedLanguage) {
-        sendConfigMessage();
-      }
-      // Flush any queued text
-      while (preHandshakeTextQueue.length > 0 && ws?.readyState === WebSocket.OPEN) {
-        const text = preHandshakeTextQueue.shift();
-        if (text) {
-          sendPayload(text);
-        }
-      }
-    });
+  const fail = (message: string) => {
+    if (failed || finished) return;
+    failed = true;
+    onError(message);
+  };
 
-    ws.on('message', (raw: WebSocket.RawData) => {
-      try {
-        const data = JSON.parse(raw.toString('utf-8'));
+  ws.on('open', () => {
+    open = true;
+    if (language) sendConfig();
+    ping = setInterval(() => raw({ type: 'ping' }), PING_MS);
+  });
 
-        if (data.audio || data.data?.audio) {
-          const base64Audio = data.audio || data.data.audio;
-          options.onAudio(currentSeq++, base64Audio);
-        }
-
-        if (data.type === 'done' || data.event === 'done' || data.is_final) {
-          options.onDone();
-        }
-      } catch {
-        // Ignore parse errors from vendor ping/pong
-      }
-    });
-
-    ws.on('error', (err: Error) => {
-      options.onError(err.message);
-    });
-
-    ws.on('close', () => {
-      isClosed = true;
-      isOpen = false;
-    });
-  }
-
-  function sendConfigMessage() {
-    if (!ws || ws.readyState !== WebSocket.OPEN || !selectedLanguage) return;
-
-    ws.send(
-      JSON.stringify({
-        type: 'config',
-        model: config.sarvam.ttsModel,
-        language_code: selectedLanguage,
-        speaker: options.speaker ?? config.sarvam.defaultSpeaker,
-        pace: options.pace ?? 1.0,
-      })
-    );
-  }
-
-  function sendPayload(text: string) {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-
-    // Cap single input chunk at ~500 characters
-    const chunks = text.match(/.{1,480}/gs) || [text];
-    for (const chunk of chunks) {
-      ws.send(
-        JSON.stringify({
-          type: 'text',
-          text: chunk,
-        })
-      );
+  ws.on('message', (buf) => {
+    let m: { type?: string; data?: { audio?: string; event_type?: string; message?: string } };
+    try {
+      m = JSON.parse(buf.toString());
+    } catch {
+      return;
     }
-  }
+    if (m.type === 'audio' && m.data?.audio) {
+      onAudio(seq++, m.data.audio);
+    } else if (m.type === 'event' && m.data?.event_type === 'final') {
+      finished = true;
+      onDone();
+    } else if (m.type === 'error') {
+      fail(m.data?.message ?? 'speech synthesis failed');
+    }
+  });
 
-  // Connect socket immediately so handshake overlaps speech
-  connect();
+  ws.on('error', (err) => fail(err.message));
+  ws.on('close', () => {
+    open = false;
+    if (ping) clearInterval(ping);
+    // Closed before the reply finished speaking is a failure, not an end.
+    if (!finished) fail('speech stream closed early');
+  });
+
+  const emit = (t: string) => {
+    const msg: Outgoing = { type: 'text', data: { text: t.replace(/\s*\n+\s*/g, ' ') } };
+    if (open && configured) raw(msg);
+    else pending.push(msg);
+  };
 
   return {
-    configure(language: string): boolean {
-      selectedLanguage = language;
-      if (isOpen && ws?.readyState === WebSocket.OPEN) {
-        sendConfigMessage();
-      }
+    ok: () => !failed,
+    language: () => language,
+
+    /**
+     * The protocol takes config ONCE per connection, so this is a no-op after the
+     * first call — a caller that learns the language was wrong needs a new stream.
+     */
+    configure(code) {
+      if (configured || language) return false;
+      language = code;
+      if (open) sendConfig();
       return true;
     },
 
-    language(): string | null {
-      return selectedLanguage;
-    },
-
-    sendText(text: string) {
-      if (isClosed) return;
-
-      // Accumulate with pending unsent fragments (e.g. leading punctuation/whitespace)
-      const combined = unsentBuffer + text;
-
-      if (!speakable(combined)) {
-        // Does not contain letters or combining marks — hold for the next word
-        unsentBuffer = combined;
+    /*
+     * A message is only sent if it contains a letter or a combining mark.
+     * Anything else attaches to the piece BEFORE it — where punctuation belongs —
+     * by holding the latest real piece back until the next one arrives.
+     *
+     * Whole words, not fragments: models split Indic text BELOW the syllable
+     * ("त", "ु", "म्", "ही"), so a piece that neither starts with a space nor
+     * follows one continues the word being held. MAX_HELD bounds the wait for
+     * text with no spaces in it.
+     */
+    sendText(text) {
+      if (failed || text == null) return;
+      const piece = String(text);
+      if (!speakable(piece)) {
+        if (held) held += piece;
+        else lead += piece;
         return;
       }
-
-      // Valid speakable text
-      unsentBuffer = '';
-      if (!isOpen || ws?.readyState !== WebSocket.OPEN) {
-        preHandshakeTextQueue.push(combined);
-      } else {
-        sendPayload(combined);
+      const continuesWord = held && !/\s$/.test(held) && !/^\s/.test(piece);
+      if (continuesWord && held.length < MAX_HELD) {
+        held += piece;
+        return;
       }
+      if (held) emit(held);
+      held = lead + piece;
+      lead = '';
     },
 
+    /** Once, when the model is done: speak whatever is still buffered. */
     flush() {
-      // If remaining buffer is speakable, send it; otherwise drop lone trailing symbols
-      if (unsentBuffer && speakable(unsentBuffer)) {
-        this.sendText('');
-      }
-      unsentBuffer = '';
-
-      if (ws?.readyState === WebSocket.OPEN) {
-        try {
-          ws.send(JSON.stringify({ type: 'flush' }));
-        } catch {
-          // Ignore
-        }
-      }
-    },
-
-    ok(): boolean {
-      return !isClosed && (isOpen || ws?.readyState === WebSocket.CONNECTING);
+      if (held && !failed) emit(held);
+      held = '';
+      lead = '';
+      if (failed) return;
+      const msg: Outgoing = { type: 'flush' };
+      if (open && configured) raw(msg);
+      else pending.push(msg);
     },
 
     close() {
-      isClosed = true;
-      unsentBuffer = '';
-      preHandshakeTextQueue.length = 0;
+      finished = true;
+      if (ping) clearInterval(ping);
       try {
-        if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) {
-          ws.close();
-        }
+        ws.close();
       } catch {
-        // Ignore
+        /* best effort */
       }
     },
   };

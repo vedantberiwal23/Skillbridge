@@ -26,6 +26,8 @@ import {
 import { MachineViewer } from '@/components/viewer/machine-viewer';
 import { useAccessibility } from '@/components/providers/accessibility-provider';
 import type { MachineAsset } from '@/lib/types';
+import { openVoiceChannel, type VoiceChannel, type ChannelState, type VoiceTurn } from '@/lib/voice/channel';
+import * as player from '@/lib/voice/player';
 
 // Live Machine Twin Photogrammetry Model (Loaded from port 8000)
 const MACHINE_TWIN_ASSET: MachineAsset = {
@@ -253,6 +255,11 @@ export default function SimulationStudioPage() {
 
   // Voice Diagnostics State
   const [isRecording, setIsRecording] = useState(false);
+  const [channelState, setChannelState] = useState<ChannelState>('connecting');
+  const [micLevel, setMicLevel] = useState<number>(0);
+  const [isVoiceStreaming, setIsVoiceStreaming] = useState(false);
+  const voiceChannelRef = useRef<VoiceChannel | null>(null);
+  const currentTurnRef = useRef<VoiceTurn | null>(null);
   const [manualInput, setManualInput] = useState('');
   const [transcript, setTranscript] = useState('');
   const [aiThinking, setAiThinking] = useState(false);
@@ -283,6 +290,34 @@ export default function SimulationStudioPage() {
   const [apiDuration, setApiDuration] = useState<number | null>(null);
 
   const streamIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Initialize Voice Channel WebSocket connection on mount
+  useEffect(() => {
+    let ch: VoiceChannel | null = null;
+    try {
+      ch = openVoiceChannel({
+        onState: (st) => {
+          setChannelState(st);
+        },
+        onFatal: (code, msg) => {
+          console.warn('[VoiceChannel fatal]', code, msg);
+        },
+      });
+      voiceChannelRef.current = ch;
+    } catch (err) {
+      console.warn('[VoiceChannel init error]', err);
+    }
+
+    const unsub = player.subscribe((speaking) => {
+      setIsSpeaking(speaking);
+    });
+
+    return () => {
+      unsub();
+      ch?.close();
+      voiceChannelRef.current = null;
+    };
+  }, []);
   const currentPart = COMPONENTS[selectedPartId] || COMPONENTS['relief-valve'];
 
   // Handle Part Tap on 3D viewer
@@ -354,18 +389,99 @@ export default function SimulationStudioPage() {
     }, 450);
   };
 
-  // Push-To-Talk Handlers
+  // Push-To-Talk Handlers with AudioWorklet & WebSocket Streaming
   const handleHoldStart = () => {
+    if (isRecording) return;
     setIsRecording(true);
-    setTranscript(language === 'hi' ? 'दुकान तल पर सुन रहा हूँ...' : 'Listening on shop floor...');
     setAiResponse('');
+    setTranscript('');
+    setMicLevel(0);
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    player.stopSpeech();
+
+    const ch = voiceChannelRef.current;
+    if (ch && ch.state() === 'ready') {
+      setIsVoiceStreaming(true);
+      setTranscript(
+        language === 'hi'
+          ? 'माइक्रोफ़ोन सक्रिय (AudioWorklet)... बोलिए...'
+          : 'AudioWorklet 16kHz stream active... Speak now...'
+      );
+      const startTime = Date.now();
+
+      const turn = ch.startTurn(
+        {
+          language: language === 'hi' ? 'hi-IN' : 'en-IN',
+          explicit: true,
+          part: currentPart.name,
+          history: history.slice(-6).map((h) => ({
+            role: h.role === 'worker' ? 'user' : 'assistant',
+            content: h.text,
+          })),
+        },
+        {
+          onListening: () => {
+            setTranscript(language === 'hi' ? 'दुकान तल पर सुन रहा हूँ...' : 'Listening on shop floor...');
+          },
+          onLevel: (lvl) => {
+            setMicLevel(lvl);
+          },
+          onPartial: (text) => {
+            setTranscript(text);
+          },
+          onFinal: (text) => {
+            setTranscript(text);
+          },
+          onThinking: () => {
+            setAiThinking(true);
+            setLatencyMs(Date.now() - startTime);
+          },
+          onDelta: (delta) => {
+            setAiThinking(false);
+            setAiResponse((prev) => prev + delta);
+          },
+          onReply: (reply) => {
+            setAiThinking(false);
+            setAiResponse(reply.text);
+            const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            setHistory((prev) => [
+              ...prev,
+              { role: 'worker', text: reply.transcript || transcript || 'Audio question', timestamp: nowStr },
+              { role: 'tutor', text: reply.text, timestamp: nowStr, sop: currentPart.sop.id },
+            ]);
+          },
+          onError: (code, msg) => {
+            console.warn('[VoiceTurn error]', code, msg);
+            setIsVoiceStreaming(false);
+            if (code === 'NOT_READY' || code === 'UNAVAILABLE' || code === 'UNAUTHORIZED') {
+              triggerDiagnostic();
+            }
+          },
+          onDone: () => {
+            setIsVoiceStreaming(false);
+            setMicLevel(0);
+          },
+        }
+      );
+      currentTurnRef.current = turn;
+    } else {
+      // Fallback: Web Speech API diagnostic
+      setIsVoiceStreaming(false);
+      setTranscript(language === 'hi' ? 'दुकान तल पर सुन रहा हूँ...' : 'Listening on shop floor...');
+    }
   };
 
   const handleHoldEnd = () => {
     if (!isRecording) return;
     setIsRecording(false);
-    triggerDiagnostic();
+    setMicLevel(0);
+
+    if (currentTurnRef.current) {
+      currentTurnRef.current.stop();
+      currentTurnRef.current = null;
+    } else {
+      triggerDiagnostic();
+    }
   };
 
   const handleHoldStartRef = useRef(handleHoldStart);
@@ -842,18 +958,41 @@ export default function SimulationStudioPage() {
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-sm text-white">Voice Diagnostic Copilot</span>
-                      <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono font-bold">
-                        AWS Bedrock Haiku 4.5
-                      </span>
+                      {channelState === 'ready' ? (
+                        <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono font-bold flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          WS:3002 Live (16kHz PCM16)
+                        </span>
+                      ) : channelState === 'connecting' ? (
+                        <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-mono font-bold flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                          WS:3002 Connecting...
+                        </span>
+                      ) : (
+                        <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full font-mono font-bold flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                          AudioWorklet Ready
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      Grounded in factory SOPs · Sarvam Speech Multi-Lingual
+                      Grounded in factory SOPs · Bedrock Haiku SigV4 · Sarvam Speech Multi-Lingual
                     </p>
                   </div>
 
-                  {/* Latency & Voice Equalizer */}
+                  {/* Latency & Live VU Equalizer */}
                   <div className="flex items-center gap-2">
-                    {(isRecording || isSpeaking) && (
+                    {isRecording && micLevel > 0 ? (
+                      <div className="flex items-center gap-0.5 h-5 px-2 bg-rose-950/60 border border-rose-800/80 rounded-md">
+                        {[0.3, 0.7, 1.0, 0.8, 0.5, 0.9, 0.4].map((mult, idx) => (
+                          <span
+                            key={idx}
+                            className="w-1 bg-rose-500 rounded-full transition-all duration-75"
+                            style={{ height: `${Math.max(4, Math.min(18, micLevel * 26 * mult + 4))}px` }}
+                          />
+                        ))}
+                      </div>
+                    ) : (isRecording || isSpeaking) ? (
                       <div className="flex items-center gap-1 h-5 px-2 bg-blue-950/60 border border-blue-800/80 rounded-md">
                         <span className="soundwave-bar" />
                         <span className="soundwave-bar" />
@@ -861,7 +1000,7 @@ export default function SimulationStudioPage() {
                         <span className="soundwave-bar" />
                         <span className="soundwave-bar" />
                       </div>
-                    )}
+                    ) : null}
                     <div className="text-[10px] font-mono text-slate-400 bg-slate-950 px-2 py-1 rounded border border-slate-800">
                       {latencyMs}ms
                     </div>
@@ -1024,7 +1163,7 @@ export default function SimulationStudioPage() {
                   >
                     <Mic className="w-4 h-4" />
                     <span className="tracking-wide">
-                      {isRecording ? 'RELEASE TO SEND AUDIO TO SARVAM' : 'HOLD TO TALK [SPACEBAR]'}
+                      {isRecording ? (isVoiceStreaming ? 'STREAMING 16KHZ AUDIO WORKLET → RELEASE TO SEND' : 'RELEASE TO SEND AUDIO TO SARVAM') : 'HOLD TO TALK [SPACEBAR]'}
                     </span>
                   </button>
                   <span className="text-[10px] text-slate-500 mt-1">

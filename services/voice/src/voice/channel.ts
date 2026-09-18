@@ -1,9 +1,37 @@
-import { WebSocketServer, WebSocket } from 'ws';
-import type { Server, IncomingMessage } from 'node:http';
-import type { Socket } from 'node:net';
+import { WebSocketServer, type WebSocket } from 'ws';
+import type { IncomingMessage, Server } from 'node:http';
+import type { Duplex } from 'node:stream';
 import { config } from '../config.js';
-import { verifyToken, VoiceUser } from '../auth/cognito.js';
-import { createTurn, Turn } from './turn.js';
+import { verifyToken, type VoiceUser } from '../auth/cognito.js';
+import { ModelError } from '../bedrock/stream.js';
+import { isLanguage } from '../sarvam/client.js';
+import { grounderFor } from './grounding.js';
+import { createTurn, type Turn, type TurnOptions } from './turn.js';
+
+/**
+ * The live voice channel.  ws://<service>/voice/stream
+ *
+ * A channel is warmed when the panel OPENS, not at button-down: TCP, TLS, the
+ * HTTP upgrade and token verification all happen while the worker is still
+ * deciding what to ask, so button-down has nothing left to do but listen. A
+ * channel also outlives a turn, so the second question is as fast as the first.
+ *
+ * Wire protocol — client → server:
+ *   { t: 'start',  token }              panel open; authenticates the channel
+ *   { t: 'begin',  language, history }  button down  (+ optional explicit, part)
+ *   { t: 'audio',  b64 }                50ms linear16 @16k frames
+ *   { t: 'stop' }                       button up
+ *   { t: 'cancel' }                     turn abandoned
+ *
+ * Server → client:
+ *   ready, listening, partial, final, thinking, delta,
+ *   audio_start { rate }, audio { seq, b64 }, audio_end,
+ *   say { i, text, audio } (fallback clips, play by i),
+ *   reply, empty, expired, error, done
+ *
+ * 50ms frames rather than the 100ms Sarvam suggests: that buffer is paid on the
+ * FIRST word, which is the one being watched for.
+ */
 
 export const PATH = '/voice/stream';
 
@@ -21,245 +49,258 @@ const MAX_SOCKETS_PER_USER = 3;
 const CHANNEL_MAX_MS = 15 * 60 * 1000;
 const CHANNEL_IDLE_MS = 5 * 60 * 1000;
 
-// Track active sockets per user to enforce MAX_SOCKETS_PER_USER
-const activeSocketsPerUser = new Map<string, Set<WebSocket>>();
+/** A socket that never authenticates is not a channel. */
+const START_TIMEOUT_MS = 10_000;
 
-function isOriginAllowed(origin: string | undefined): boolean {
-  if (!origin) return !config.isProd;
+/** Test seam: replaces Bedrock / the KB for the whole channel. */
+export interface ChannelDeps {
+  readonly streamText?: TurnOptions['streamText'];
+  readonly grounder?: typeof grounderFor;
+  readonly verify?: typeof verifyToken;
+}
 
+const isLoopback = (origin: string): boolean => {
   try {
-    const parsed = new URL(origin);
-    const host = parsed.hostname;
-
-    // Localhost loopback allowed in non-prod
-    if (!config.isProd && (host === 'localhost' || host === '127.0.0.1')) {
-      return true;
-    }
-
-    if (config.allowedOrigins.length === 0) {
-      return !config.isProd;
-    }
-
-    return config.allowedOrigins.some((allowed) => {
-      if (allowed.startsWith('*.')) {
-        return host.endsWith(allowed.slice(1));
-      }
-      return allowed === origin || allowed === host;
-    });
+    const { hostname } = new URL(origin);
+    return ['localhost', '127.0.0.1', '[::1]', '::1'].includes(hostname);
   } catch {
     return false;
   }
+};
+
+/**
+ * Exact-match allowlist. A missing Origin is allowed outside production only:
+ * CLI tools and tests send none, a browser always sends one. The loopback
+ * exemption is gated on config.isProd, never on the origin string.
+ */
+export function originAllowed(origin: string | undefined): boolean {
+  if (!origin) return !config.isProd;
+  if (config.allowedOrigins.includes(origin)) return true;
+  return !config.isProd && isLoopback(origin);
 }
 
 /**
  * Attach the WebSocket endpoint to the HTTP server.
+ *
+ * Takes the http.Server, not the Express app: a WebSocket arrives as a protocol
+ * upgrade and never reaches Express middleware. That also means this path gets
+ * no rate limiting, no body parsing and no 401 handling for free — auth and
+ * limits are re-implemented here deliberately.
+ *
+ * The Origin check is not optional. A WebSocket is not subject to the
+ * same-origin policy and an upgrade never reaches CORS middleware, so without it
+ * any site on the internet could open a socket here. The loopback exemption is
+ * hard-gated on NODE_ENV.
  */
-export function attach(server: Server): void {
-  const wss = new WebSocketServer({ noServer: true });
+export function attach(server: Server, deps: ChannelDeps = {}): WebSocketServer {
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 1 << 20 });
+  const perUser = new Map<string, number>();
 
-  server.on('upgrade', (req: IncomingMessage, socket: Socket, head: Buffer) => {
-    const { pathname } = new URL(req.url ?? '', `http://${req.headers.host}`);
-
-    if (pathname !== PATH) {
-      return;
+  server.on('upgrade', (req: IncomingMessage, socket: Duplex, head: Buffer) => {
+    let pathname: string;
+    try {
+      pathname = new URL(req.url ?? '', 'http://localhost').pathname;
+    } catch {
+      pathname = req.url ?? '';
     }
-
-    // Origin guard: WebSockets are not subject to CORS/same-origin policy
-    const origin = req.headers.origin;
-    if (!isOriginAllowed(origin)) {
-      socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+    if (pathname !== PATH) {
+      socket.write('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n');
       socket.destroy();
       return;
     }
 
-    wss.handleUpgrade(req, socket, head, (ws) => {
-      wss.emit('connection', ws, req);
-    });
+    // Before any frame is read.
+    if (!originAllowed(req.headers.origin)) {
+      console.warn('[voice/channel] refused upgrade from origin:', req.headers.origin ?? '(none)');
+      socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+
+    wss.handleUpgrade(req, socket, head, (ws) => handleConnection(ws, perUser, deps));
   });
 
-  wss.on('connection', (ws: WebSocket) => {
-    handleConnection(ws);
-  });
+  return wss;
 }
 
-/**
- * Handle one WebSocket connection through the voice wire protocol.
- */
-export function handleConnection(ws: WebSocket): void {
+export function handleConnection(
+  ws: WebSocket,
+  perUser: Map<string, number> = new Map(),
+  deps: ChannelDeps = {}
+): void {
+  const verify = deps.verify ?? verifyToken;
+  const makeGrounder = deps.grounder ?? grounderFor;
+
   let user: VoiceUser | null = null;
-  let activeTurn: Turn | null = null;
-  let audioFrameCount = 0;
-  let idleTimer: NodeJS.Timeout | null = null;
-  let maxTimer: NodeJS.Timeout | null = null;
+  let started = false;
+  let counted = false;
+  let turn: Turn | null = null;
+  let busy = false;
+  let closed = false;
+  let frames = 0;
+  // The language heard on this channel's last question: a worker who asked in
+  // Marathi once will very likely ask in Marathi again, and knowing it lets the
+  // next early start answer in Marathi instead of restarting.
+  let lastLanguage: string | null = null;
+  let ground: ReturnType<typeof grounderFor> | undefined;
 
-  function send(data: Record<string, unknown>) {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(data));
-    }
-  }
-
-  function resetIdleTimer() {
-    if (idleTimer) clearTimeout(idleTimer);
-    idleTimer = setTimeout(() => {
-      send({ t: 'expired', reason: 'idle_timeout' });
-      cleanup();
-      ws.close(1000, 'Idle timeout');
-    }, CHANNEL_IDLE_MS);
-  }
-
-  function cleanup() {
-    if (idleTimer) clearTimeout(idleTimer);
-    if (maxTimer) clearTimeout(maxTimer);
-    if (activeTurn) {
-      activeTurn.cancel();
-      activeTurn = null;
-    }
-    if (user) {
-      const userSockets = activeSocketsPerUser.get(user.userId);
-      if (userSockets) {
-        userSockets.delete(ws);
-        if (userSockets.size === 0) {
-          activeSocketsPerUser.delete(user.userId);
-        }
-      }
-    }
-  }
-
-  // Set hard session cap
-  maxTimer = setTimeout(() => {
-    send({ t: 'expired', reason: 'max_lifetime' });
-    cleanup();
-    ws.close(1000, 'Max lifetime reached');
-  }, CHANNEL_MAX_MS);
-
-  resetIdleTimer();
-
-  ws.on('message', async (raw: WebSocket.RawData) => {
-    resetIdleTimer();
-
+  const send = (obj: Record<string, unknown>) => {
+    if (ws.readyState !== ws.OPEN) return;
     try {
-      const msg = JSON.parse(raw.toString('utf-8'));
-      const type = msg.t;
-
-      switch (type) {
-        // Authenticate channel
-        case 'start': {
-          if (!msg.token || typeof msg.token !== 'string') {
-            send({ t: 'error', code: 'UNAUTHORIZED', message: 'Token is required' });
-            ws.close(4001, 'Unauthorized');
-            return;
-          }
-
-          try {
-            const verified = await verifyToken(msg.token);
-
-            // Check max sockets per user
-            let sockets = activeSocketsPerUser.get(verified.userId);
-            if (!sockets) {
-              sockets = new Set();
-              activeSocketsPerUser.set(verified.userId, sockets);
-            }
-
-            if (sockets.size >= MAX_SOCKETS_PER_USER) {
-              send({
-                t: 'error',
-                code: 'TOO_MANY_SOCKETS',
-                message: 'Concurrent socket limit reached for user',
-              });
-              ws.close(4029, 'Too many sockets');
-              return;
-            }
-
-            user = verified;
-            sockets.add(ws);
-            send({ t: 'ready' });
-          } catch (err) {
-            const message = err instanceof Error ? err.message : 'Invalid token';
-            send({ t: 'error', code: 'UNAUTHORIZED', message });
-            ws.close(4001, 'Unauthorized');
-          }
-          break;
-        }
-
-        // Button down: begin turn
-        case 'begin': {
-          if (!user) {
-            send({ t: 'error', code: 'UNAUTHORIZED', message: 'Not authenticated' });
-            return;
-          }
-
-          if (activeTurn) {
-            activeTurn.cancel();
-            activeTurn = null;
-          }
-
-          audioFrameCount = 0;
-
-          activeTurn = createTurn({
-            send,
-            fail: (message, code) => send({ t: 'error', code, message }),
-            language: msg.language || 'hi-IN',
-            history: Array.isArray(msg.history) ? msg.history : [],
-          });
-
-          send({ t: 'listening' });
-          break;
-        }
-
-        // Audio frame arriving
-        case 'audio': {
-          if (!user || !activeTurn) return;
-
-          audioFrameCount++;
-          if (audioFrameCount > MAX_AUDIO_FRAMES) {
-            send({
-              t: 'error',
-              code: 'AUDIO_LIMIT_EXCEEDED',
-              message: 'Stuck button: turn exceeded maximum audio duration',
-            });
-            activeTurn.cancel();
-            activeTurn = null;
-            return;
-          }
-
-          if (msg.b64 && typeof msg.b64 === 'string') {
-            activeTurn.sendAudio(msg.b64);
-          }
-          break;
-        }
-
-        // Button up: finish question and stream response
-        case 'stop': {
-          if (!user || !activeTurn) return;
-
-          const turnToFinish = activeTurn;
-          activeTurn = null;
-          await turnToFinish.finish();
-          break;
-        }
-
-        // Turn cancelled
-        case 'cancel': {
-          if (activeTurn) {
-            activeTurn.cancel();
-            activeTurn = null;
-          }
-          break;
-        }
-
-        default:
-          break;
-      }
+      ws.send(JSON.stringify(obj));
     } catch {
-      send({ t: 'error', code: 'BAD_REQUEST', message: 'Malformed frame JSON' });
+      /* best effort */
+    }
+  };
+  const fail = (message: string, code?: string) => send({ t: 'error', message, code: code ?? null });
+
+  /** End the whole channel politely, so the client warms a fresh one. */
+  const expire = () => {
+    send({ t: 'expired' });
+    ws.close();
+  };
+
+  let idle: NodeJS.Timeout | undefined;
+  const bump = () => {
+    clearTimeout(idle);
+    idle = setTimeout(expire, CHANNEL_IDLE_MS);
+  };
+  const lifetime = setTimeout(expire, CHANNEL_MAX_MS);
+  const unauthenticated = setTimeout(() => {
+    if (!user) ws.close();
+  }, START_TIMEOUT_MS);
+  let tokenExpiry: NodeJS.Timeout | undefined;
+
+  ws.on('message', async (raw) => {
+    let msg: Record<string, unknown>;
+    try {
+      msg = JSON.parse(raw.toString());
+    } catch {
+      return;
+    }
+    if (!msg || typeof msg !== 'object') return;
+    bump();
+
+    /* ── start: authenticate the CHANNEL, once ── */
+    if (msg.t === 'start') {
+      if (started) return;
+      started = true;
+      let verified: VoiceUser;
+      try {
+        verified = await verify(String(msg.token ?? ''));
+      } catch (e) {
+        const err = e as { message: string; code?: string };
+        fail(err.message, err.code ?? 'UNAUTHORIZED');
+        ws.close();
+        return;
+      }
+      if (closed) return;
+
+      const open = perUser.get(verified.userId) ?? 0;
+      if (open >= MAX_SOCKETS_PER_USER) {
+        fail('too many voice sessions open', 'BUSY');
+        ws.close();
+        return;
+      }
+      perUser.set(verified.userId, open + 1);
+      counted = true;
+      user = verified;
+      clearTimeout(unauthenticated);
+
+      // Mid-session token expiry ends the whole CHANNEL — no in-place refresh,
+      // not just the current turn. The client warms a new one, which re-verifies.
+      const remaining = verified.expiresAt - Date.now();
+      if (remaining <= 0) return expire();
+      if (remaining < CHANNEL_MAX_MS) tokenExpiry = setTimeout(expire, remaining);
+
+      // Bound to the VERIFIED orgId. Also warms the org's KB id lookup now,
+      // while the worker is still deciding what to ask.
+      ground = makeGrounder(verified.orgId);
+      send({ t: 'ready' });
+      return;
+    }
+
+    if (!user) return;
+
+    /* ── begin: button down, one turn ── */
+    if (msg.t === 'begin') {
+      if (busy || turn) return;
+      frames = 0;
+      const language = typeof msg.language === 'string' && isLanguage(msg.language) ? msg.language : 'hi-IN';
+      // An explicit pick beats inference; otherwise what was heard last.
+      const known = msg.explicit === true && isLanguage(language) ? language : lastLanguage;
+      turn = createTurn({
+        send,
+        fail,
+        language,
+        history: Array.isArray(msg.history) ? msg.history : [],
+        known,
+        onHeard: (l) => {
+          lastLanguage = l;
+        },
+        ground,
+        part: typeof msg.part === 'string' ? msg.part : null,
+        streamText: deps.streamText,
+      });
+      send({ t: 'listening' });
+      return;
+    }
+
+    if (!turn) return;
+
+    if (msg.t === 'audio') {
+      if (++frames > MAX_AUDIO_FRAMES) return;
+      if (typeof msg.b64 === 'string' && msg.b64) turn.sendAudio(msg.b64);
+      return;
+    }
+
+    if (msg.t === 'stop') {
+      if (busy) return;
+      busy = true;
+      const current = turn;
+      try {
+        await current.finish();
+      } catch (e) {
+        if (e instanceof ModelError) fail(e.message, e.code);
+        else {
+          console.error('[voice/channel] turn failed:', (e as Error).message);
+          fail('voice turn failed');
+        }
+      } finally {
+        // The CHANNEL survives the turn; only the turn's own sockets close.
+        current.cancel();
+        turn = null;
+        busy = false;
+        if (!closed) send({ t: 'done' });
+      }
+      return;
+    }
+
+    if (msg.t === 'cancel') {
+      if (!busy) {
+        turn.cancel();
+        turn = null;
+      }
     }
   });
 
-  ws.on('close', () => {
-    cleanup();
-  });
+  const teardown = () => {
+    if (closed) return;
+    closed = true;
+    clearTimeout(idle);
+    clearTimeout(lifetime);
+    clearTimeout(unauthenticated);
+    clearTimeout(tokenExpiry);
+    if (counted && user) {
+      const n = (perUser.get(user.userId) ?? 1) - 1;
+      if (n <= 0) perUser.delete(user.userId);
+      else perUser.set(user.userId, n);
+      counted = false;
+    }
+    turn?.cancel();
+  };
+  ws.on('close', teardown);
+  ws.on('error', teardown);
 
-  ws.on('error', () => {
-    cleanup();
-  });
+  bump();
 }

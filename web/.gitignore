@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Amplify deployment-specification bundle (built by infra/scripts/deploy-web.mjs)
+.amplify-hosting/
+.amplify-hosting.zip

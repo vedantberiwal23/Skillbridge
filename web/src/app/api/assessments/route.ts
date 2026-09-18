@@ -6,6 +6,7 @@ import { orgPk, userPk, keys, prefixes, eventTtl } from '@/lib/keys';
 import { requireSession, handleApiError, AuthError } from '@/lib/auth';
 import { parseBody, submitAttemptSchema } from '@/lib/validation';
 import { Assessment, AssessmentAttempt } from '@/lib/types';
+import { requestScoring } from '@/lib/agents';
 
 /**
  * GET /api/assessments — Definitions and the caller's attempt history (W4).
@@ -79,9 +80,9 @@ export async function GET(req: NextRequest) {
  * The client never supplies `score`. It previously did, defaulting to 100, which
  * let any worker pass any assessment by posting their own mark.
  *
- * Still to wire (BACKEND.md work order item 5): the handoff that takes a pending
- * attempt and invokes the scorer. Until it exists, attempts stay `pending` —
- * which is visibly incomplete rather than silently wrong.
+ * The handoff is an SQS send to the scorer's own queue, after the attempt is
+ * durable. It is deliberately not awaited for success: losing the message costs
+ * a retry, while throwing would turn a saved submission into a 500.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -135,7 +136,17 @@ export async function POST(req: NextRequest) {
       ddb.send(new PutCommand({ TableName: TABLE_NAME, Item: eventItem })),
     ]);
 
-    return NextResponse.json({ attempt: attemptItem }, { status: 201 });
+    // Hand scoring to the async tier. The attempt is already durable, so this
+    // does not fail the request if it fails — the client polls the attempt and
+    // sees `pending` until a worker picks it up.
+    const queued = await requestScoring({
+      userId: session.userId,
+      orgId: session.orgId,
+      assessmentId,
+      submittedAt: ts,
+    });
+
+    return NextResponse.json({ attempt: attemptItem, queued }, { status: 201 });
   } catch (error) {
     return handleApiError(error);
   }

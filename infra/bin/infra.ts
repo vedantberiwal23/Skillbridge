@@ -23,7 +23,7 @@ const data = new DataStack(app, stackName('data'), {
 
 const auth = new AuthStack(app, stackName('auth'), { env });
 
-new AiStack(app, stackName('ai'), {
+const ai = new AiStack(app, stackName('ai'), {
   env,
   table: data.table,
   orgDocsBucket: data.orgDocsBucket,
@@ -32,11 +32,20 @@ new AiStack(app, stackName('ai'), {
 new ComputeStack(app, stackName('compute'), {
   env,
   table: data.table,
+  userPoolId: auth.userPool.userPoolId,
+  userPoolClientId: auth.userPoolClient.userPoolClientId,
+  // The deployed web origin plus local development. The voice socket checks
+  // this in its upgrade handler, before any frame is read.
+  allowedOrigins: app.node.tryGetContext('allowedOrigins') ?? 'http://localhost:3000',
 });
 
 new WebStack(app, stackName('web'), {
   env,
-  userPoolId: auth.userPool.userPoolId,
+  // Constructs, not ids: the SSR compute role is granted against both, and a
+  // name string cannot mutate a resource policy.
+  userPool: auth.userPool,
   userPoolClientId: auth.userPoolClient.userPoolClientId,
-  tableName: data.table.tableName,
+  table: data.table,
+  assessmentScorerQueue: ai.assessmentScorerQueue,
+  learningPlanQueue: ai.learningPlanQueue,
 });

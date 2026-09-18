@@ -1,18 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireSession, handleApiError } from '@/lib/auth';
 
 const MACHINE_TWIN_URL = process.env.MACHINE_TWIN_URL || 'http://127.0.0.1:8000';
+
+/**
+ * Ids arriving from the client are interpolated straight into the upstream URL,
+ * so anything but a plain slug could walk out of `/projects/<id>` and reach
+ * another path on the twin service. Reject rather than escape.
+ */
+const SLUG = /^[A-Za-z0-9_-]{1,64}$/;
+
+function safeId(value: string | null): string | null {
+  return value && SLUG.test(value) ? value : null;
+}
+
+/** The upstream host is an internal detail; do not hand it to the browser. */
+function upstreamUnreachable(err: unknown) {
+  console.error('[api/twin] machine-twin engine unreachable:', err);
+  return NextResponse.json({ error: 'Machine Twin engine is unavailable' }, { status: 502 });
+}
 
 /**
  * GET /api/twin
  * Proxy endpoint to communicate with the Machine Twin photogrammetry engine (port 8000).
  */
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const action = searchParams.get('action') || 'projects';
-  const projectId = searchParams.get('projectId');
-  const lod = searchParams.get('lod') || '0';
-
   try {
+    // Every other /api route verifies the session; this one proxies into an
+    // internal service, so it must too.
+    await requireSession(undefined, req);
+
+    const { searchParams } = new URL(req.url);
+    const action = searchParams.get('action') || 'projects';
+    const projectId = safeId(searchParams.get('projectId'));
+    const lod = /^\d{1,2}$/.test(searchParams.get('lod') ?? '') ? searchParams.get('lod') : '0';
+
     if (action === 'capabilities') {
       const res = await fetch(`${MACHINE_TWIN_URL}/capabilities`, { cache: 'no-store' });
       const data = await res.json();
@@ -81,11 +103,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json(
-      { error: `Machine Twin Engine unreachable at ${MACHINE_TWIN_URL}: ${msg}` },
-      { status: 502 }
-    );
+    // An auth failure must surface as 401/403, not as a 502 about the engine.
+    if (err instanceof Error && err.name === 'AuthError') return handleApiError(err);
+    return upstreamUnreachable(err);
   }
 }
 
@@ -94,12 +114,16 @@ export async function GET(req: NextRequest) {
  * Create project, trigger photogrammetry stages, or upload assets to Machine Twin.
  */
 export async function POST(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const action = searchParams.get('action') || 'create';
-  const projectId = searchParams.get('projectId');
-  const stage = searchParams.get('stage') || 'reconstruct';
-
   try {
+    // Creating projects and triggering photogrammetry stages is a manager-level
+    // content operation, not something an anonymous caller may do.
+    await requireSession('manager', req);
+
+    const { searchParams } = new URL(req.url);
+    const action = searchParams.get('action') || 'create';
+    const projectId = safeId(searchParams.get('projectId'));
+    const stage = safeId(searchParams.get('stage')) ?? 'reconstruct';
+
     if (action === 'create') {
       const body = await req.json();
       const res = await fetch(`${MACHINE_TWIN_URL}/projects`, {
@@ -131,10 +155,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json(
-      { error: `Machine Twin Engine unreachable at ${MACHINE_TWIN_URL}: ${msg}` },
-      { status: 502 }
-    );
+    // An auth failure must surface as 401/403, not as a 502 about the engine.
+    if (err instanceof Error && err.name === 'AuthError') return handleApiError(err);
+    return upstreamUnreachable(err);
   }
 }

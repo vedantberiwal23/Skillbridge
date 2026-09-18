@@ -43,10 +43,10 @@ export function GlobeSection({ heading, eyebrow }: { heading: string; eyebrow: s
       ) : null}
 
       <div className="relative mx-auto max-w-7xl px-10 py-16 pointer-events-none">
-        <p className="mb-3 text-xs font-data uppercase tracking-widest text-primary-foreground/50">
+        <p className="mb-3 text-xs font-data uppercase tracking-widest text-foreground/50">
           {eyebrow}
         </p>
-        <h2 className="max-w-md text-2xl font-semibold tracking-tight text-primary-foreground md:text-3xl">
+        <h2 className="max-w-md text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
           {heading}
         </h2>
       </div>

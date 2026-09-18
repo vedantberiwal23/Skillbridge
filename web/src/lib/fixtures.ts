@@ -14,6 +14,7 @@ import type {
   Assessment,
   Badge,
   DeptAggregate,
+  JobOpportunity,
   Lesson,
   LearningPlan,
   MachineAsset,
@@ -212,6 +213,28 @@ export const fixtureDeptWorkers = [
   { userId: 'u-priya', name: 'Priya Nair', weakest: null, progress: 91 },
   { userId: 'u-suresh', name: 'Suresh Rao', weakest: 'Safety', progress: 64 },
   { userId: 'u-deepa', name: 'Deepa Verma', weakest: 'Machine setup', progress: 57 },
+];
+
+/**
+ * Job opportunities, matched against the worker's verified skills
+ * (fixtureSkillProfile.strengths + fixtureBadges titles). Readiness is
+ * computed on the client from that overlap — see (worker)/opportunities.
+ */
+export const fixtureOpportunities: JobOpportunity[] = [
+  {
+    opportunityId: 'opp-industrial-electrician',
+    title: 'Industrial Electrician',
+    location: 'Pune, Maharashtra',
+    payRange: '₹28,000–₹38,000/month',
+    requiredSkills: ['Machine safety', 'Power unit basics', 'Fault diagnosis', 'PLC basics'],
+  },
+  {
+    opportunityId: 'opp-senior-maintenance-tech',
+    title: 'Senior Maintenance Technician',
+    location: 'Nashik, Maharashtra',
+    payRange: '₹32,000–₹42,000/month',
+    requiredSkills: ['Machine safety', 'Start-up procedure', 'Preventive maintenance'],
+  },
 ];
 
 export const findLesson = (lessonId: string): Lesson | undefined =>

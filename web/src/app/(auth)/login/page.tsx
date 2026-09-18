@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'aws-amplify/auth';
 
-import { BrandPanel } from '@/components/visual/brand-panel';
+import { GlobeBrandPanel } from '@/components/visual/globe-brand-panel';
 import { configureAmplify } from '@/lib/amplify';
 import { useI18n } from '@/i18n/provider';
 import type { Locale } from '@/i18n/config';
@@ -118,7 +118,7 @@ export default function LoginPage() {
     <main className="flex min-h-screen flex-1 neu-bg">
       {/* Brand panel: desktop only */}
       <div className="hidden w-1/2 overflow-hidden lg:block">
-        <BrandPanel text="SkillBridge" />
+        <GlobeBrandPanel text="SkillBridge" />
       </div>
 
       <div className="flex w-full flex-col justify-between px-6 py-8 lg:w-1/2 lg:px-14">

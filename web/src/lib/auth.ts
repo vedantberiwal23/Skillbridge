@@ -146,7 +146,7 @@ export async function getSession(): Promise<Session | null> {
 }
 
 export const HOME_FOR_ROLE: Record<Role, string> = {
-  worker: '/plan',
+  worker: '/home',
   manager: '/dashboard',
   admin: '/users',
 };

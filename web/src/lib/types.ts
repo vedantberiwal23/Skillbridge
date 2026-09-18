@@ -140,3 +140,17 @@ export interface Badge {
   title: string;
   awardedAt: string;
 }
+
+/**
+ * A role a worker's verified skills can qualify them for. Skill names here
+ * are matched against SkillProfile.strengths / fixtureBadges by exact string —
+ * fine for the fixture stage, but the real version needs a stable skill id,
+ * not a title, once this reads from the database.
+ */
+export interface JobOpportunity {
+  opportunityId: string;
+  title: string;
+  location: string;
+  payRange: string;
+  requiredSkills: string[];
+}

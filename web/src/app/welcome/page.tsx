@@ -65,7 +65,7 @@ export default function LandingPage() {
               Train your workforce,
               <br />
               in their own{" "}
-              <span className="text-[#2B5278]">language</span>
+              <span className="text-primary">language</span>
             </h1>
 
             <p className="mt-6 max-w-lg text-base leading-relaxed text-muted-foreground md:text-lg">
@@ -135,17 +135,17 @@ export default function LandingPage() {
               style={{
                 clipPath: "polygon(5% 0, 10.5% 0, -2.5% 100%, -8% 100%)",
                 background:
-                  "linear-gradient(to right, rgba(28,61,90,0) 0%, rgba(28,61,90,0.06) 100%)",
+                  "linear-gradient(to right, rgba(232,163,61,0) 0%, rgba(232,163,61,0.10) 100%)",
               }}
             />
 
-            {/* Dark navy angled accent stripe along the diagonal cut */}
+            {/* Amber rim-light along the diagonal cut */}
             <div
               aria-hidden
               className="pointer-events-none absolute inset-0 hidden sm:block"
               style={{
                 clipPath: "polygon(10.5% 0, 13% 0, 0% 100%, -2.5% 100%)",
-                backgroundColor: "#1C3D5A",
+                backgroundColor: "#e8a33d",
               }}
             />
 
@@ -162,7 +162,7 @@ export default function LandingPage() {
                 className="pointer-events-none absolute inset-y-0 right-0 w-1/4"
                 style={{
                   backgroundImage:
-                    "linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(15,23,42,0.12) 60%, rgba(15,23,42,0.28) 100%)",
+                    "linear-gradient(to right, rgba(10,15,22,0) 0%, rgba(10,15,22,0.35) 60%, rgba(10,15,22,0.6) 100%)",
                 }}
               />
 
@@ -188,7 +188,7 @@ export default function LandingPage() {
             </div>
 
             {/* Overlay: module progress */}
-            <div className="absolute -left-2 top-8 z-10 w-[270px] rounded-xl border border-border/80 bg-card p-4 shadow-[0_12px_32px_rgba(0,0,0,0.08)] sm:left-[-12px] lg:left-[-24px] lg:top-12">
+            <div className="absolute -left-2 top-8 z-10 w-[270px] rounded-xl border border-border/80 bg-card p-4 shadow-[0_16px_40px_rgba(0,0,0,0.55)] sm:left-[-12px] lg:left-[-24px] lg:top-12">
               <div className="flex items-center gap-3">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
                   <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7} aria-hidden>
@@ -198,7 +198,7 @@ export default function LandingPage() {
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-foreground">CNC Operator</p>
                   <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div className="h-full w-1/2 rounded-full bg-[#1C3D5A]" />
+                    <div className="h-full w-1/2 rounded-full bg-primary" />
                   </div>
                 </div>
               </div>
@@ -209,13 +209,13 @@ export default function LandingPage() {
             </div>
 
             {/* Overlay: the voice moment, in the worker's own words */}
-            <div className="absolute -left-4 bottom-14 z-10 w-[290px] rounded-xl border border-border/80 bg-card p-4 shadow-[0_12px_32px_rgba(0,0,0,0.08)] sm:left-[-16px] lg:left-[-28px] lg:bottom-20">
+            <div className="absolute -left-4 bottom-14 z-10 w-[290px] rounded-xl border border-border/80 bg-card p-4 shadow-[0_16px_40px_rgba(0,0,0,0.55)] sm:left-[-16px] lg:left-[-28px] lg:bottom-20">
               <div className="flex items-start gap-3.5">
                 <span className="mt-1 flex items-end gap-[3px]" aria-hidden>
                   {[10, 18, 24, 14, 22, 12].map((h, i) => (
                     <span
                       key={i}
-                      className="w-[3px] rounded-full bg-[#2563EB]"
+                      className="w-[3px] rounded-full bg-[#5b9bd5]"
                       style={{ height: h }}
                     />
                   ))}
@@ -230,8 +230,8 @@ export default function LandingPage() {
             </div>
 
             {/* Overlay: what the platform did with it */}
-            <div className="absolute right-0 top-[52%] z-10 flex w-[235px] -translate-y-1/2 items-center gap-3 rounded-xl border border-border/80 bg-card p-3.5 shadow-[0_12px_32px_rgba(0,0,0,0.08)] sm:right-[-4px] lg:right-[-12px]">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#2E7D32] text-white">
+            <div className="absolute right-0 top-[52%] z-10 flex w-[235px] -translate-y-1/2 items-center gap-3 rounded-xl border border-border/80 bg-card p-3.5 shadow-[0_16px_40px_rgba(0,0,0,0.55)] sm:right-[-4px] lg:right-[-12px]">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground">
                 <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
@@ -261,11 +261,18 @@ export default function LandingPage() {
             className="object-cover"
             aria-hidden
           />
-          <div className="absolute inset-0 bg-black/5" aria-hidden />
+          <div
+            className="absolute inset-0"
+            aria-hidden
+            style={{
+              background:
+                "linear-gradient(180deg, rgba(10,15,22,0.55) 0%, rgba(10,15,22,0.75) 60%, rgba(10,15,22,0.9) 100%)",
+            }}
+          />
 
           {/* Browser mockup */}
           <div className="relative px-4 md:px-16 py-10 md:py-16">
-            <div className="bg-white rounded-xl border border-black/5 shadow-[0_30px_70px_-20px_rgba(9,29,48,0.45)] overflow-hidden flex" style={{ height: 460 }}>
+            <div className="bg-card rounded-xl border border-border shadow-[0_30px_70px_-20px_rgba(0,0,0,0.7)] overflow-hidden flex" style={{ height: 460 }}>
               {/* Mock sidebar */}
               <div className="hidden sm:flex w-44 md:w-52 bg-card border-r border-border flex-shrink-0 flex-col">
                 <div className="px-3 py-3 border-b border-border flex items-center justify-between">
@@ -469,19 +476,19 @@ export default function LandingPage() {
         <div
           className="max-w-7xl mx-auto rounded-2xl px-8 py-14 md:px-16 flex flex-col md:flex-row md:items-center md:justify-between gap-8"
           style={{
-            background: "linear-gradient(135deg, #0F2540 0%, #1C3D5A 55%, #3A6896 100%)",
+            background: "linear-gradient(135deg, #161d25 0%, #1a2430 55%, #2b2013 100%)",
           }}
         >
           <div className="max-w-lg">
-            <h2 className="text-2xl md:text-3xl font-semibold text-primary-foreground tracking-tight">
+            <h2 className="text-2xl md:text-3xl font-semibold text-foreground tracking-tight">
               See it with your own SOPs
             </h2>
-            <p className="text-primary-foreground/70 mt-3 leading-relaxed">
+            <p className="text-muted-foreground mt-3 leading-relaxed">
               We&rsquo;ll walk through onboarding a worker on your actual procedures — book a
               time with the team.
             </p>
           </div>
-          <button className="bg-primary-foreground text-primary text-sm font-medium px-6 py-3 rounded-md hover:opacity-90 transition-opacity whitespace-nowrap flex-shrink-0">
+          <button className="bg-primary text-primary-foreground text-sm font-medium px-6 py-3 rounded-md hover:opacity-90 transition-opacity whitespace-nowrap flex-shrink-0">
             Book a demo
           </button>
         </div>

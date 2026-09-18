@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { useI18n } from '@/i18n/provider';
+import { GlobeBrandPanel } from '@/components/visual/globe-brand-panel';
 
 interface InviteRedeemViewProps {
   code: string;
@@ -79,7 +80,14 @@ export function InviteRedeemView({ code }: InviteRedeemViewProps) {
   };
 
   return (
-    <main className="flex min-h-screen flex-col justify-center bg-background px-6 py-12">
+    <main className="flex min-h-screen flex-1">
+      {/* Same brand panel as /login — a new worker's first screen should feel
+          like part of the same product as sign-in, not a bare form. */}
+      <div className="hidden w-1/2 overflow-hidden lg:block">
+        <GlobeBrandPanel text="SkillBridge" />
+      </div>
+
+      <div className="flex w-full flex-col justify-center bg-background px-6 py-12 lg:w-1/2">
       <div className="mx-auto w-full max-w-sm">
         <Link href="/welcome" className="inline-flex items-center gap-2 mb-8">
           <span className="size-2 rounded-full bg-primary" />
@@ -192,6 +200,7 @@ export function InviteRedeemView({ code }: InviteRedeemViewProps) {
             {t('auth.alreadyActivated')}
           </Link>
         </div>
+      </div>
       </div>
     </main>
   );

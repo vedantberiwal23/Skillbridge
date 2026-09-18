@@ -9,6 +9,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-data: var(--font-geist-mono);
   --font-heading: var(--font-geist-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -62,95 +63,100 @@
 }
 
 :root {
-  --background: #f5f4f0;
-  --foreground: #1c1c1e;
+  /* SkillBridge — light, warm, premium consumer product. This is the
+     product's only theme (no light/dark toggle), so it lives directly on
+     :root. Warm off-white shell, deep charcoal text, one accent — a growth
+     green — that carries progress, success and primary actions. Everything
+     else is neutral so the green always reads as meaningful, not decorative. */
+  --background: #faf8f4;
+  --foreground: #221e1a;
   --card: #ffffff;
-  --card-foreground: #1c1c1e;
+  --card-foreground: #221e1a;
   --popover: #ffffff;
-  --popover-foreground: #1c1c1e;
+  --popover-foreground: #221e1a;
 
-  --primary: #1c3d5a;
+  --primary: #15803d;
   --primary-foreground: #ffffff;
-  --secondary: #ebf3fa;
-  --secondary-foreground: #1c3d5a;
-  --muted: #eeede8;
-  --muted-foreground: #5a5a5c;
-  --accent: #ebf3fa;
-  --accent-foreground: #1c3d5a;
+  --secondary: #eaf4ec;
+  --secondary-foreground: #15803d;
+  --muted: #f0ece3;
+  --muted-foreground: #71675a;
+  --accent: #eaf4ec;
+  --accent-foreground: #15803d;
 
-  --destructive: #b91c1c;
-  --border: #e2e0d9;
-  --input: #e2e0d9;
-  --ring: #3a6896;
+  --destructive: #c0392b;
+  --border: #e7e1d4;
+  --input: #e7e1d4;
+  --ring: #15803d;
 
-  --success: #2d7a4f;
+  --success: #15803d;
   --success-foreground: #ffffff;
-  --success-muted: #e8f5ee;
-  --warning: #b45309;
+  --success-muted: #eaf4ec;
+  --warning: #b8791a;
   --warning-foreground: #ffffff;
-  --warning-muted: #fffbf0;
-  --danger: #b91c1c;
+  --warning-muted: #fbf1de;
+  --danger: #c0392b;
   --danger-foreground: #ffffff;
-  --danger-muted: #fff0f0;
+  --danger-muted: #fbeae8;
 
-  --chart-1: #1c3d5a;
-  --chart-2: #3a8c60;
-  --chart-3: #c8811a;
-  --chart-4: #c53030;
-  --chart-5: #8c8c8e;
+  --chart-1: #15803d;
+  --chart-2: #b8791a;
+  --chart-3: #3a6896;
+  --chart-4: #c0392b;
+  --chart-5: #8c8577;
 
-  --radius: 0.5rem;
+  --radius: 1rem;
 
   --sidebar: #ffffff;
-  --sidebar-foreground: #1c1c1e;
-  --sidebar-primary: #1c3d5a;
+  --sidebar-foreground: #221e1a;
+  --sidebar-primary: #15803d;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f5f4f0;
-  --sidebar-accent-foreground: #1c3d5a;
-  --sidebar-border: #e2e0d9;
-  --sidebar-ring: #3a6896;
+  --sidebar-accent: #eaf4ec;
+  --sidebar-accent-foreground: #15803d;
+  --sidebar-border: #e7e1d4;
+  --sidebar-ring: #15803d;
 }
 
 .dark {
-  --background: #0f2540;
-  --foreground: #ebf3fa;
-  --card: #14304f;
-  --card-foreground: #ebf3fa;
-  --popover: #14304f;
-  --popover-foreground: #ebf3fa;
+  --background: #faf8f4;
+  --foreground: #221e1a;
+  --card: #ffffff;
+  --card-foreground: #221e1a;
+  --popover: #ffffff;
+  --popover-foreground: #221e1a;
 
-  --primary: #a8c4d8;
-  --primary-foreground: #091d30;
-  --secondary: #1c3d5a;
-  --secondary-foreground: #ebf3fa;
-  --muted: #1c3d5a;
-  --muted-foreground: #a8c4d8;
-  --accent: #1c3d5a;
-  --accent-foreground: #ebf3fa;
+  --primary: #15803d;
+  --primary-foreground: #ffffff;
+  --secondary: #eaf4ec;
+  --secondary-foreground: #15803d;
+  --muted: #f0ece3;
+  --muted-foreground: #71675a;
+  --accent: #eaf4ec;
+  --accent-foreground: #15803d;
 
-  --destructive: #e57373;
-  --border: color-mix(in oklch, #a8c4d8 18%, transparent);
-  --input: color-mix(in oklch, #a8c4d8 22%, transparent);
-  --ring: #a8c4d8;
+  --destructive: #c0392b;
+  --border: #e7e1d4;
+  --input: #e7e1d4;
+  --ring: #15803d;
 
-  --success: #3a8c60;
-  --success-foreground: #091d30;
-  --success-muted: #1c3d5a;
-  --warning: #c8811a;
-  --warning-foreground: #091d30;
-  --warning-muted: #1c3d5a;
-  --danger: #c53030;
-  --danger-foreground: #091d30;
-  --danger-muted: #1c3d5a;
+  --success: #15803d;
+  --success-foreground: #ffffff;
+  --success-muted: #eaf4ec;
+  --warning: #b8791a;
+  --warning-foreground: #ffffff;
+  --warning-muted: #fbf1de;
+  --danger: #c0392b;
+  --danger-foreground: #ffffff;
+  --danger-muted: #fbeae8;
 
-  --sidebar: #0f2540;
-  --sidebar-foreground: #ebf3fa;
-  --sidebar-primary: #a8c4d8;
-  --sidebar-primary-foreground: #091d30;
-  --sidebar-accent: #1c3d5a;
-  --sidebar-accent-foreground: #ebf3fa;
-  --sidebar-border: color-mix(in oklch, #a8c4d8 18%, transparent);
-  --sidebar-ring: #a8c4d8;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #221e1a;
+  --sidebar-primary: #15803d;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eaf4ec;
+  --sidebar-accent-foreground: #15803d;
+  --sidebar-border: #e7e1d4;
+  --sidebar-ring: #15803d;
 }
 
 @layer base {
@@ -277,84 +283,85 @@
 }
 
 /* ==========================================================================
-   Neumorphic (Soft UI) Tactile Utilities
+   Neumorphic (Soft UI) Tactile Utilities — cast in the warm off-white panel
+   colour, with the growth-green accent for the primary action.
    ========================================================================== */
 .neu-bg {
-  background-color: #ebedf2;
+  background-color: #f0ece3;
 }
 
 .neu-card {
-  background: #ebedf2;
+  background: #f0ece3;
   box-shadow:
-    10px 10px 22px #c8cbd5,
+    10px 10px 22px #d6d1c4,
     -10px -10px 22px #ffffff;
   border-radius: 1.5rem;
 }
 
 .neu-raised {
-  background: #ebedf2;
+  background: #f0ece3;
   box-shadow:
-    4px 4px 8px #c8cbd5,
+    4px 4px 8px #d6d1c4,
     -4px -4px 8px #ffffff;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .neu-raised:hover {
   box-shadow:
-    5px 5px 11px #c8cbd5,
+    5px 5px 11px #d6d1c4,
     -5px -5px 11px #ffffff;
 }
 
 .neu-raised:active {
   box-shadow:
-    inset 2px 2px 4px #c8cbd5,
+    inset 2px 2px 4px #d6d1c4,
     inset -2px -2px 4px #ffffff;
 }
 
 .neu-sunken {
-  background: #ebedf2;
+  background: #f0ece3;
   box-shadow:
-    inset 3px 3px 6px #c8cbd5,
+    inset 3px 3px 6px #d6d1c4,
     inset -3px -3px 6px #ffffff;
 }
 
 .neu-input {
-  background: #ebedf2;
+  background: #f0ece3;
   box-shadow:
-    inset 2.5px 2.5px 5px #c8cbd5,
+    inset 2.5px 2.5px 5px #d6d1c4,
     inset -2.5px -2.5px 5px #ffffff;
-  border: 1px solid rgba(200, 203, 213, 0.3);
+  border: 1px solid rgba(34, 30, 26, 0.08);
   transition: all 0.2s ease;
 }
 
 .neu-input:focus {
-  border-color: rgba(28, 61, 90, 0.4);
+  border-color: rgba(21, 128, 61, 0.4);
   box-shadow:
-    inset 2.5px 2.5px 5px #c8cbd5,
+    inset 2.5px 2.5px 5px #d6d1c4,
     inset -2.5px -2.5px 5px #ffffff,
-    0 0 0 2px rgba(28, 61, 90, 0.18);
+    0 0 0 2px rgba(21, 128, 61, 0.18);
 }
 
 .neu-btn-primary {
-  background: linear-gradient(145deg, #1f4363, #17334b);
+  background: linear-gradient(145deg, #18944a, #0f6e35);
   box-shadow:
-    5px 5px 12px #c8cbd5,
+    5px 5px 12px #d6d1c4,
     -4px -4px 10px #ffffff;
   color: #ffffff;
   transition: all 0.15s ease;
 }
 
 .neu-btn-primary:hover {
-  background: linear-gradient(145deg, #244c70, #193852);
+  background: linear-gradient(145deg, #1ba354, #0f6e35);
   box-shadow:
-    6px 6px 14px #c8cbd5,
+    6px 6px 14px #d6d1c4,
     -5px -5px 12px #ffffff;
 }
 
 .neu-btn-primary:active {
   box-shadow:
-    inset 2px 2px 5px #0f2231,
-    inset -2px -2px 5px #27557d;
+    inset 2px 2px 5px #0a4d25,
+    inset -2px -2px 5px #22b25c;
   transform: translateY(1px);
 }
 

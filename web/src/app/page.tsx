@@ -1,11 +1,27 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import {
+  Wrench,
+  Volume2,
+  Mic,
+  CheckCircle2,
+  AlertTriangle,
+  FileText,
+  BarChart3,
+  Database,
+  Cpu,
+  Layers,
+  Radio,
+  RefreshCw,
+  Send,
+  CheckSquare,
+} from 'lucide-react';
 import { MachineViewer } from '@/components/viewer/machine-viewer';
 import { useAccessibility } from '@/components/providers/accessibility-provider';
 import type { MachineAsset } from '@/lib/types';
 
-// Sample machine asset for the industrial maintenance vertical
+// Industrial 3D Machine Asset Definition
 const SAMPLE_MACHINE_ASSET: MachineAsset = {
   orgId: 'org_tata_motors_pune',
   assetId: 'asset_hydraulic_pump_a10v',
@@ -15,107 +31,232 @@ const SAMPLE_MACHINE_ASSET: MachineAsset = {
   hotspots: [
     {
       id: 'relief-valve',
-      label: 'Pressure Relief Valve (SOP §4.2)',
-      position: '0.15m 0.22m 0.18m',
+      label: '1. Pilot Relief Valve (210 bar)',
+      position: '0.22m 0.28m 0.15m',
       normal: '0m 1m 0m',
     },
     {
       id: 'solenoid-coil',
-      label: 'Directional Solenoid Valve 24V DC',
-      position: '-0.2m 0.1m 0.15m',
+      label: '2. Directional Solenoid Valve (24V DC)',
+      position: '-0.25m 0.18m 0.12m',
       normal: '-1m 0m 0m',
     },
     {
       id: 'swashplate',
-      label: 'Swashplate & Control Piston',
-      position: '0.05m -0.08m 0.22m',
+      label: '3. Swashplate & Control Piston (14.2°)',
+      position: '0.02m -0.05m 0.32m',
       normal: '0m 0m 1m',
     },
     {
       id: 'bearing-flange',
-      label: 'Shaft Seal & Roller Bearing',
-      position: '-0.02m -0.22m 0.05m',
+      label: '4. Shaft Seal & Roller Bearing',
+      position: '-0.12m -0.26m 0.05m',
       normal: '0m -1m 0m',
     },
   ],
 };
 
-const PART_DATA: Record<
-  string,
-  {
-    name: string;
-    tag: string;
-    sop: string;
-    defaultQuestionEn: string;
-    defaultQuestionHi: string;
-    answerEn: string;
-    answerHi: string;
-    safetyHazard: string;
-  }
-> = {
+interface ComponentDetail {
+  id: string;
+  name: string;
+  code: string;
+  subsystem: string;
+  status: 'OPTIMAL' | 'ATTENTION' | 'LOTO_REQUIRED';
+  specs: {
+    pressure: string;
+    flow: string;
+    tempLimit: string;
+    torque: string;
+  };
+  sop: {
+    id: string;
+    title: string;
+    hazardAlert: string;
+    tools: string[];
+    steps: string[];
+  };
+  questions: {
+    en: string;
+    hi: string;
+  };
+  diagnosticAnswer: {
+    en: string;
+    hi: string;
+  };
+}
+
+const COMPONENTS: Record<string, ComponentDetail> = {
   'relief-valve': {
-    name: 'Pressure Relief Valve',
-    tag: 'Hydraulic Pressure Circuit',
-    sop: 'SOP-HYD-042: Section B (Pressure Calibration)',
-    defaultQuestionEn: 'Why is this pressure relief valve chattering under high load?',
-    defaultQuestionHi: 'उच्च दबाव पर यह प्रेशर रिलीफ वॉल्व आवाज क्यों कर रहा है?',
-    answerEn:
-      'The pressure relief valve chatters when the pilot orifice is partially clogged with varnish or the main spring has lost tension. Follow LOTO protocol, bleed the system pressure to 0 bar, and inspect the pilot poppet seat for cavitation pitting.',
-    answerHi:
-      'जब पायलट ओरिफिस में कचरा आ जाता है या स्प्रिंग की टेंशन कम हो जाती है, तो रिलीफ वॉल्व चैटरिंग करता है। पहले LOTO प्रोटोकॉल का पालन करें, प्रेशर को 0 bar पर लाएं, और पॉकेट सीट की जांच करें।',
-    safetyHazard: 'HIGH PRESSURE: Depressurize accumulator to 0 bar before loosening the cartridge.',
+    id: 'relief-valve',
+    name: 'Main Pilot Relief Valve Cartridge',
+    code: 'RV-A10-210',
+    subsystem: 'Primary Circuit Pressure Regulation',
+    status: 'ATTENTION',
+    specs: {
+      pressure: '210 bar (Max 280 bar)',
+      flow: '45 L/min bypass',
+      tempLimit: '65°C max operating',
+      torque: '35 Nm ± 2 Nm locknut',
+    },
+    sop: {
+      id: 'SOP-HYD-042',
+      title: 'Section B: High-Pressure Relief Valve Calibration & Descaling',
+      hazardAlert: 'HIGH PRESSURE STORED ENERGY: Accumulator holds 210 bar residual pressure. Discharge via manual bleed valve HV-01 before loosening cartridge.',
+      tools: ['19mm Open-End Torque Wrench', '0-400 bar Calibrated Test Gauge', 'Viton O-Ring Pick', 'Threadlock 242'],
+      steps: [
+        'Tag out main pump 415V 3-phase breaker with padlocked hasp (LOTO #L-4412).',
+        'Verify system pressure gauge reads exactly 0.0 bar on accumulator port M1.',
+        'Loosen 19mm locking jam nut counter-clockwise by 1.5 turns.',
+        'Connect 0-400 bar calibrated gauge to test port G1.',
+        'Rotate hex adjusting stem clockwise to raise cracking pressure or CCW to lower.',
+        'Torque jam nut to 35 Nm once cracking pressure stabilizes at 210 bar.',
+      ],
+    },
+    questions: {
+      en: 'Why is this pressure relief valve chattering violently under load?',
+      hi: 'भारी लोड के दौरान यह प्रेशर रिलीफ वॉल्व बहुत तेज कंपन और आवाज क्यों कर रहा है?',
+    },
+    diagnosticAnswer: {
+      en: 'Chattering indicates pilot poppet seat cavitation or a compromised dampening orifice (0.8mm). Trapped aeration in the case drain line can also trigger instability. Follow SOP-HYD-042: Inspect the pilot seat for micro-pitting, replace the 90-durometer Viton backup ring, and verify case drain pressure is below 1.5 bar.',
+      hi: 'रिलीफ वॉल्व का कांपना और आवाज करना पायलट पॉपेट सीट में कैविटेशन (हवा का दबाव) या 0.8mm डैम्पिंग ओरिफिस के जाम होने का संकेत है। SOP-HYD-042 के अनुसार: पहले हाइड्रोलिक एक्यूमलेटर को 0 bar तक डिस्चार्ज करें, 19mm रिंच से लॉकनट ढीला करें, और केवल पायलट कार्ट्रिज की सील बदलें।',
+    },
   },
   'solenoid-coil': {
-    name: 'Directional Solenoid Valve (24V DC)',
-    tag: 'Electrical Control Circuit',
-    sop: 'SOP-ELEC-118: Solenoid Inspection & Resistance Test',
-    defaultQuestionEn: 'The solenoid is energizing but the spool is not shifting. How do I test it?',
-    defaultQuestionHi: 'सोलेनोइड को करंट मिल रहा है लेकिन स्पूल नहीं घूम रहा, कैसे टेस्ट करें?',
-    answerEn:
-      'Check resistance across the coil pins using a multimeter (normal is 18–24 Ohms). If coil resistance is normal, mechanical contamination is jamming the spool. De-energize the VFD and use a manual override pin to check spool travel.',
-    answerHi:
-      'मल्टीमीटर से कॉइल का रेजिस्टेंस चेक करें (18-24 Ohms होना चाहिए)। अगर रेजिस्टेंस सही है तो स्पूल में कचरा फंसा हो सकता है। मैन्युअल ओवरराइड पिन दबाकर स्पूल की मूवमेंट देखें।',
-    safetyHazard: 'ELECTRICAL HAZARD: Disconnect 24V supply and verify with multimeter before contact.',
+    id: 'solenoid-coil',
+    name: 'Directional Proportional Solenoid Valve',
+    code: 'SOL-4WE6-24DC',
+    subsystem: 'Electro-Hydraulic Flow Direction Control',
+    status: 'OPTIMAL',
+    specs: {
+      pressure: '315 bar max rated',
+      flow: '60 L/min nominal',
+      tempLimit: '85°C coil thermal cap',
+      torque: '9 Nm M5 mounting bolts',
+    },
+    sop: {
+      id: 'SOP-ELE-089',
+      title: 'Proportional Solenoid Dither Tuning & PWM Diagnostics',
+      hazardAlert: '24V DC INDUCTIVE FLYBACK: Isolate DC power supply prior to removing Hirschmann plug.',
+      tools: ['Fluke 87V Digital Multimeter', '2.5mm Hex T-Key', 'Oscilloscope probe (PWM)', 'Contact Cleaner'],
+      steps: [
+        'Disconnect DIN 43650 Hirschmann connector and verify 24.0V DC bus voltage.',
+        'Measure coil resistance across pins 1 and 2 (Nominal: 19.5 Ohms at 20°C).',
+        'Inspect spool movement manually using manual override pin.',
+        'Check PWM dither signal frequency (120 Hz ± 5 Hz recommended).',
+        'Torque the 4x M5 mounting cap screws in an X-pattern to 9 Nm.',
+      ],
+    },
+    questions: {
+      en: 'The spool is sluggish and coil temperature reached 78°C. What is the root cause?',
+      hi: 'स्पूल वॉल्व धीमा चल रहा है और सोलेनोइड कॉइल 78°C तक गर्म हो गया है। क्या समस्या है?',
+    },
+    diagnosticAnswer: {
+      en: 'Elevated coil temperature with sluggish actuation points to varnish deposition inside the spool bore or supply PWM under-voltage (<21.6V DC). Check the coil resistance across pins 1-2. If resistance reads <16 ohms, the winding has inter-turn shorting and must be replaced per SOP-ELE-089.',
+      hi: 'कॉइल का 78°C तक गर्म होना और स्पूल का अटकना वॉल्व के अंदर वार्निश (जला हुआ तेल) जमने या वोल्टेज ड्रॉप का संकेत है। मल्टीमीटर से कॉइल रेसिस्टेंस नापें (19.5 Ohms होना चाहिए)। यदि रेसिस्टेंस कम है, तो सोलेनोइड कॉइल बदलें।',
+    },
   },
-  swashplate: {
-    name: 'Swashplate & Control Piston',
-    tag: 'Mechanical Displacement Unit',
-    sop: 'SOP-HYD-085: Variable Displacement Overhaul',
-    defaultQuestionEn: 'What causes the swashplate angle to stick at minimum displacement?',
-    defaultQuestionHi: 'स्वैशप्लेट मिनिमम एंगल पर क्यों अटक जाता है?',
-    answerEn:
-      'A sticking swashplate typically indicates scoring on the bronze cradle bearings or insufficient bias spring pressure. Check case drain flow — excessive leakage past the control piston prevents swashplate repositioning.',
-    answerHi:
-      'स्वैशप्लेट का अटकना क्रैडल बेयरिंग में घिसाव या बायस स्प्रिंग में खराबी दर्शाता है। केस ड्रेन फ्लो चेक करें, ज्यादा लीकेज होने पर कंट्रोल पिस्टन एंगल नहीं बदल पाता।',
-    safetyHazard: 'PINCH POINT: Keep fingers clear of swashplate cradle during manual stroking test.',
+  'swashplate': {
+    id: 'swashplate',
+    name: 'Swashplate Angle & Displacement Control Piston',
+    code: 'SW-A10-71CC',
+    subsystem: 'Variable Displacement Stroke Modulation',
+    status: 'ATTENTION',
+    specs: {
+      pressure: '280 bar nominal continuous',
+      flow: '0 to 103 L/min variable',
+      tempLimit: '90°C fluid maximum',
+      torque: '65 Nm housing clamp bolts',
+    },
+    sop: {
+      id: 'SOP-MEC-029',
+      title: 'Swashplate Cradle Bearing Inspection & Neutral Angle Zeroing',
+      hazardAlert: 'MECHANICAL CRUSH RISK: Ensure spring-return control piston is fully locked out before internal inspection.',
+      tools: ['Dial Test Indicator (0.01mm)', 'Feeler Gauge Set', '8mm Hex Socket', 'Clean Lint-Free Wipes'],
+      steps: [
+        'Depressurize and drain pump casing into a clean 20L oil catch pan.',
+        'Remove displacement control valve block.',
+        'Measure cradle PTFE composite bearing clearance (Max allowable: 0.12mm).',
+        'Inspect mirror finish on bronze slipper foot shoes for scoring.',
+        'Calibrate mechanical zero-angle stop screw using dial test indicator.',
+      ],
+    },
+    questions: {
+      en: 'Pump output flow is hunting between 40L and 80L/min without control input. Why?',
+      hi: 'बिना किसी इनपुट के पंप का ऑयल फ्लो 40 से 80 लीटर के बीच क्यों भटक रहा है?',
+    },
+    diagnosticAnswer: {
+      en: 'Flow hunting is caused by stick-slip friction on the swashplate cradle polymer bearings or a clogged bias piston pilot orifice. When the swashplate binds, the DFR1 compensator overshoots. Disassemble per SOP-MEC-029, measure cradle bearing wear, and inspect the slipper retaining plate.',
+      hi: 'ऑयल फ्लो का बार-बार घटना-बढ़ना स्वैशप्लेट क्रैडल बेयरिंग में घिसाव या कंट्रोल पिस्टन ओरिफिस में कचरा फंसने के कारण होता है। SOP-MEC-029 के अनुसार पंप का केसिंग ड्रेन खोलकर तेल की जांच करें और क्रैडल बेयरिंग का गैप 0.12mm से कम चेक करें।',
+    },
   },
   'bearing-flange': {
-    name: 'Shaft Seal & Roller Bearing',
-    tag: 'Drive Assembly',
-    sop: 'SOP-MEC-014: Shaft Seal Replacement & Alignment',
-    defaultQuestionEn: 'Oil is weeping from the shaft coupling. Does the pump need replacement?',
-    defaultQuestionHi: 'शाफ्ट सील से तेल टपक रहा है, क्या पूरी मोटर बदलनी पड़ेगी?',
-    answerEn:
-      'Weeping oil indicates high case pressure or a hardened Viton lip seal. Check that case drain pressure does not exceed 1.5 bar. If bearing runout is within 0.05mm, you can replace the radial lip seal without replacing the entire pump.',
-    answerHi:
-      'तेल टपकने का मतलब है कि केस प्रेशर 1.5 bar से ज्यादा हो गया है या सील कट गई है। अगर बेयरिंग में प्ले 0.05mm से कम है, तो केवल रेडियल लिप सील बदलकर काम हो जाएगा।',
-    safetyHazard: 'ROTATING MACHINERY: Ensure motor breaker is locked out with padlocked hasp.',
+    id: 'bearing-flange',
+    name: 'Input Drive Shaft Seal & Tapered Roller Bearing',
+    code: 'SEAL-A10-45V',
+    subsystem: 'Mechanical Drive Transmission & Case Containment',
+    status: 'LOTO_REQUIRED',
+    specs: {
+      pressure: '1.5 bar max case drain',
+      flow: '3.0 L/min maximum drain',
+      tempLimit: '110°C Viton seal rating',
+      torque: '85 Nm coupling clamping hub',
+    },
+    sop: {
+      id: 'SOP-MEC-014',
+      title: 'Radial Lip Seal Replacement & Laser Shaft Alignment',
+      hazardAlert: 'ROTATING SHAFT HAZARD: 1,450 RPM direct coupled 30kW motor. Mandatory padlocked lockout on motor drive isolator (LOTO #L-1029).',
+      tools: ['Laser Shaft Alignment Kit', 'Seal Extraction Hook', 'Precision Seal Driver 45mm', 'Torque Wrench 1/2" (85 Nm)'],
+      steps: [
+        'Apply safety padlock and danger tag to motor power distribution board.',
+        'Disengage flexible spider coupling and measure radial runout (Max: 0.05mm).',
+        'Extract damaged Viton radial seal using brass puller to avoid scoring shaft.',
+        'Coat new Viton lip seal with clean ISO VG 46 oil prior to seating.',
+        'Drive seal evenly until flush with bearing housing bore.',
+        'Re-align motor and pump shafts using laser alignment kit within 0.03mm tolerance.',
+      ],
+    },
+    questions: {
+      en: 'Oil is weeping past the drive shaft coupling. Does the whole pump need to be swapped?',
+      hi: 'ड्राइव शाफ्ट कपलिंग से लगातार हाइड्रोलिक तेल टपक रहा है। क्या पूरा पंप बदलना होगा?',
+    },
+    diagnosticAnswer: {
+      en: 'Do not replace the whole pump. Weeping oil usually means case drain pressure spiked above 1.5 bar or the Viton lip seal is worn. Verify that the case drain filter is not restricted. If shaft radial runout is under 0.05mm, replace only the 45mm Viton shaft seal cartridge per SOP-MEC-014.',
+      hi: 'पूरा पंप बदलने की जरूरत नहीं है! तेल टपकना केस ड्रेन प्रेशर 1.5 bar से अधिक होने या शाफ्ट सील कटने के कारण होता है। पहले LOTO लॉकआउट लगाएं, कपलिंग खोलें, और SOP-MEC-014 के तहत केवल 45mm विटन लिप सील बदलें। बेयरिंग रनआउट 0.05mm से कम होना चाहिए।',
+    },
   },
 };
 
 export default function SimulationStudioPage() {
   const { enabled: a11yEnabled, setEnabled: setA11yEnabled, prefer2D } = useAccessibility();
-  const [activeTab, setActiveTab] = useState<'demo' | 'api'>('demo');
+
+  // Navigation & Product State
+  const [activeTab, setActiveTab] = useState<'twin' | 'sop' | 'analytics' | 'api'>('twin');
   const [language, setLanguage] = useState<'en' | 'hi'>('hi');
   const [selectedPartId, setSelectedPartId] = useState<string>('relief-valve');
+  const [autoRotate, setAutoRotate] = useState<boolean>(false);
 
-  // Voice Tutor State
+  // Voice Diagnostics State
   const [isRecording, setIsRecording] = useState(false);
+  const [manualInput, setManualInput] = useState('');
   const [transcript, setTranscript] = useState('');
   const [aiThinking, setAiThinking] = useState(false);
   const [aiResponse, setAiResponse] = useState('');
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [history, setHistory] = useState<{ role: 'user' | 'assistant'; text: string }[]>([]);
+  const [latencyMs, setLatencyMs] = useState<number>(382);
+  const [history, setHistory] = useState<
+    { role: 'worker' | 'tutor'; text: string; timestamp: string; sop?: string }[]
+  >([]);
+
+  // SOP Work Order State
+  const [checklist, setChecklist] = useState<Record<string, boolean>>({
+    'chk-0': true,
+    'chk-1': true,
+    'chk-2': false,
+    'chk-3': false,
+    'chk-4': false,
+    'chk-5': false,
+  });
+  const [workOrderSigned, setWorkOrderSigned] = useState(false);
 
   // API Tester State
   const [apiEndpoint, setApiEndpoint] = useState('/api/me');
@@ -123,29 +264,30 @@ export default function SimulationStudioPage() {
   const [apiPayload, setApiPayload] = useState('{}');
   const [apiResult, setApiResult] = useState<string | null>(null);
   const [apiLoading, setApiLoading] = useState(false);
+  const [apiDuration, setApiDuration] = useState<number | null>(null);
 
   const streamIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const part = PART_DATA[selectedPartId] || PART_DATA['relief-valve'];
+  const currentPart = COMPONENTS[selectedPartId] || COMPONENTS['relief-valve'];
 
   // Handle Part Tap on 3D viewer
   const handlePartSelected = (hotspotId: string) => {
     const cleanId = hotspotId.replace(/^hotspot-/, '');
-    if (PART_DATA[cleanId]) {
+    if (COMPONENTS[cleanId]) {
       setSelectedPartId(cleanId);
-      // Speak audio feedback on tap
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
+      speakAudioNotification(
+        language === 'hi'
+          ? `चयनित: ${COMPONENTS[cleanId].name}`
+          : `Selected: ${COMPONENTS[cleanId].name}`
+      );
     }
   };
 
-  // Play spoken reply
-  const speakText = (text: string, lang: 'en' | 'hi') => {
+  const speakAudioNotification = (text: string) => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = lang === 'hi' ? 'hi-IN' : 'en-IN';
-      utterance.rate = 1.0;
+      utterance.lang = language === 'hi' ? 'hi-IN' : 'en-IN';
+      utterance.rate = 1.05;
       utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => setIsSpeaking(false);
       utterance.onerror = () => setIsSpeaking(false);
@@ -153,45 +295,53 @@ export default function SimulationStudioPage() {
     }
   };
 
-  // Trigger question simulation
-  const handleAskQuestion = (customQ?: string) => {
-    const q = customQ || (language === 'hi' ? part.defaultQuestionHi : part.defaultQuestionEn);
-    const expectedAnswer = language === 'hi' ? part.answerHi : part.answerEn;
+  // Trigger Voice Diagnostic Query
+  const triggerDiagnostic = (customQ?: string) => {
+    const q = customQ || (language === 'hi' ? currentPart.questions.hi : currentPart.questions.en);
+    const expectedAns = language === 'hi' ? currentPart.diagnosticAnswer.hi : currentPart.diagnosticAnswer.en;
 
     setTranscript(q);
     setAiResponse('');
     setAiThinking(true);
+    setLatencyMs(Math.floor(340 + Math.random() * 85));
 
     if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
 
+    // Simulate Bedrock Haiku 4.5 streaming response
     setTimeout(() => {
       setAiThinking(false);
-      let charIndex = 0;
-      const words = expectedAnswer.split(' ');
-      let currentOutput = '';
+      let charIdx = 0;
+      const words = expectedAns.split(' ');
+      let accumulated = '';
 
       streamIntervalRef.current = setInterval(() => {
-        if (charIndex < words.length) {
-          currentOutput += (charIndex > 0 ? ' ' : '') + words[charIndex];
-          setAiResponse(currentOutput);
-          charIndex++;
+        if (charIdx < words.length) {
+          accumulated += (charIdx > 0 ? ' ' : '') + words[charIdx];
+          setAiResponse(accumulated);
+          charIdx++;
         } else {
           if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
+          const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           setHistory((prev) => [
             ...prev,
-            { role: 'user', text: q },
-            { role: 'assistant', text: expectedAnswer },
+            { role: 'worker', text: q, timestamp: nowStr },
+            {
+              role: 'tutor',
+              text: expectedAns,
+              timestamp: nowStr,
+              sop: currentPart.sop.id,
+            },
           ]);
-          speakText(expectedAnswer, language);
+          speakAudioNotification(expectedAns);
         }
-      }, 70);
-    }, 600);
+      }, 55);
+    }, 450);
   };
 
-  // Push-To-Talk Button Press
+  // Push-To-Talk Handlers
   const handleHoldStart = () => {
     setIsRecording(true);
-    setTranscript(language === 'hi' ? 'सुन रहा हूँ...' : 'Listening to your question...');
+    setTranscript(language === 'hi' ? 'दुकान तल पर सुन रहा हूँ...' : 'Listening on shop floor...');
     setAiResponse('');
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   };
@@ -199,13 +349,44 @@ export default function SimulationStudioPage() {
   const handleHoldEnd = () => {
     if (!isRecording) return;
     setIsRecording(false);
-    handleAskQuestion();
+    triggerDiagnostic();
   };
 
-  // Run API test
-  const runApiTest = async (endpoint: string, method: string, body?: string) => {
+  const handleHoldStartRef = useRef(handleHoldStart);
+  const handleHoldEndRef = useRef(handleHoldEnd);
+
+  useEffect(() => {
+    handleHoldStartRef.current = handleHoldStart;
+    handleHoldEndRef.current = handleHoldEnd;
+  });
+
+  // Spacebar Hotkey for Push-To-Talk
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && activeTab === 'twin' && !isRecording && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+        handleHoldStartRef.current();
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && activeTab === 'twin' && isRecording) {
+        e.preventDefault();
+        handleHoldEndRef.current();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [activeTab, isRecording]);
+
+  // Execute API Test
+  const runApiCall = async (endpoint: string, method: string, body?: string) => {
     setApiLoading(true);
     setApiResult(null);
+    const start = performance.now();
     try {
       const options: RequestInit = { method };
       if (method === 'POST' || method === 'PATCH') {
@@ -214,340 +395,785 @@ export default function SimulationStudioPage() {
       }
       const res = await fetch(endpoint, options);
       const json = await res.json();
+      const end = performance.now();
+      setApiDuration(Math.round(end - start));
       setApiResult(
         JSON.stringify(
           {
-            status: `${res.status} ${res.statusText}`,
+            httpStatus: `${res.status} ${res.statusText}`,
             ok: res.ok,
-            data: json,
+            durationMs: Math.round(end - start),
+            responseBody: json,
           },
           null,
           2
         )
       );
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      setApiResult(JSON.stringify({ error: message }, null, 2));
+      const msg = err instanceof Error ? err.message : String(err);
+      setApiResult(JSON.stringify({ error: msg }, null, 2));
     } finally {
       setApiLoading(false);
     }
   };
 
-  useEffect(() => {
-    return () => {
-      if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, []);
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Top Navigation */}
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/30">
-            SB
+    <div className="min-h-screen bg-[#080c14] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+      {/* ── Top Enterprise Header ────────────────────────────────────────── */}
+      <header className="border-b border-slate-800/90 bg-[#0c121e]/95 sticky top-0 z-50 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">
+          {/* Brand & Plant Metadata */}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-400 p-0.5 shadow-lg shadow-blue-500/20">
+              <div className="w-full h-full bg-[#080c14] rounded-[10px] flex items-center justify-center">
+                <Layers className="w-5 h-5 text-cyan-400" />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-base tracking-tight text-white">
+                  SkillBridge
+                </span>
+                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/30 font-semibold">
+                  Twin Studio
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 truncate hidden sm:block">
+                Tata Motors Ltd · Plant 1 (Fluid Power Division, Bay 4B)
+              </p>
+            </div>
           </div>
-          <div>
-            <h1 className="font-bold text-lg leading-tight text-white flex items-center gap-2">
-              SkillBridge
-              <span className="text-xs font-mono bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full">
-                Interactive Studio
+
+          {/* Quick Role & Language Switches */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Operator Badge */}
+            <div className="hidden md:flex items-center gap-2 bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-lg text-xs">
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-slate-400">Tech:</span>
+              <span className="font-semibold text-slate-200">Vikram Sharma</span>
+              <span className="text-[10px] bg-slate-800 text-cyan-300 px-1.5 py-0.5 rounded font-mono">
+                L2 Tech
               </span>
-            </h1>
-            <p className="text-xs text-slate-400">
-              Voice-First Vocational Skilling · Industrial Maintenance Twin
-            </p>
+            </div>
+
+            {/* Language Switcher */}
+            <div className="flex bg-slate-900 border border-slate-800 rounded-lg p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setLanguage('en')}
+                className={`px-2.5 py-1 rounded-md font-medium transition ${
+                  language === 'en'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage('hi')}
+                className={`px-2.5 py-1 rounded-md font-medium transition ${
+                  language === 'hi'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                हिंदी
+              </button>
+            </div>
+
+            {/* 3D vs 2D Toggle */}
+            <button
+              type="button"
+              onClick={() => setA11yEnabled(!a11yEnabled)}
+              title="Toggle between 3D GLB Model and 2D Low-Bandwidth Schematic"
+              className="text-xs bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-slate-300 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition"
+            >
+              {prefer2D ? <FileText className="w-3.5 h-3.5 text-amber-400" /> : <Layers className="w-3.5 h-3.5 text-blue-400" />}
+              <span className="hidden sm:inline">{prefer2D ? '2D Schematic' : '3D Twin'}</span>
+            </button>
           </div>
         </div>
 
-        {/* Studio Controls */}
-        <div className="flex items-center gap-3">
-          {/* Tab Switcher */}
-          <div className="bg-slate-800 p-1 rounded-lg flex text-xs font-medium">
+        {/* Navigation Tabs Bar */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between border-t border-slate-800/60 overflow-x-auto">
+          <nav className="flex space-x-1 sm:space-x-2 py-1.5">
             <button
               type="button"
-              onClick={() => setActiveTab('demo')}
-              className={`px-3 py-1.5 rounded-md transition ${
-                activeTab === 'demo' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              onClick={() => setActiveTab('twin')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
+                activeTab === 'twin'
+                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
               }`}
             >
-              🎙️ 3D & Voice Tutor
+              <Cpu className="w-4 h-4" />
+              <span>Digital Twin & Voice Copilot</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('sop')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
+                activeTab === 'sop'
+                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>SOP & Guided Work Order</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('analytics')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
+                activeTab === 'analytics'
+                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Department Skill Radar</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setActiveTab('api')}
-              className={`px-3 py-1.5 rounded-md transition ${
-                activeTab === 'api' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
+                activeTab === 'api'
+                  ? 'bg-blue-600/20 text-blue-400 border border-blue-500/40'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
               }`}
             >
-              ⚡ Backend API Tester
+              <Database className="w-4 h-4" />
+              <span>AWS & DynamoDB Live Console</span>
             </button>
-          </div>
+          </nav>
 
-          {/* Language Toggle */}
-          <div className="bg-slate-800 p-1 rounded-lg flex text-xs font-medium">
-            <button
-              type="button"
-              onClick={() => setLanguage('hi')}
-              className={`px-2.5 py-1 rounded transition ${
-                language === 'hi' ? 'bg-amber-600 text-white' : 'text-slate-400'
-              }`}
-            >
-              हिन्दी
-            </button>
-            <button
-              type="button"
-              onClick={() => setLanguage('en')}
-              className={`px-2.5 py-1 rounded transition ${
-                language === 'en' ? 'bg-amber-600 text-white' : 'text-slate-400'
-              }`}
-            >
-              EN
-            </button>
+          {/* Cloud Region Badge */}
+          <div className="hidden lg:flex items-center gap-2 text-[11px] font-mono text-slate-400 pl-4">
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+            <span>AWS ap-northeast-1 (Tokyo)</span>
           </div>
-
-          {/* 3D vs 2D Fallback */}
-          <button
-            type="button"
-            onClick={() => setA11yEnabled(!a11yEnabled)}
-            className="text-xs border border-slate-700 hover:border-slate-500 px-3 py-1.5 rounded-lg text-slate-300 transition"
-          >
-            {prefer2D ? '🖼️ 2D Schematic' : '📦 3D Model'}
-          </button>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {activeTab === 'demo' ? (
-          <>
-            {/* Left Column: 3D Machine Viewer (7 cols) */}
-            <section className="lg:col-span-7 flex flex-col gap-4">
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <span className="text-xs font-mono text-blue-400 uppercase tracking-wider font-semibold">
-                      Shop Floor Digital Twin
+      {/* ── Industrial Machinery Telemetry Strip ───────────────────────── */}
+      <section className="bg-[#0b101c] border-b border-slate-800/80 px-4 sm:px-6 py-2 text-xs">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-y-2">
+          <div className="flex items-center gap-2 text-slate-300 font-medium">
+            <span className="text-cyan-400 font-mono font-bold">EQUIPMENT:</span>
+            <span className="truncate">{SAMPLE_MACHINE_ASSET.name}</span>
+            <span className="text-[10px] bg-slate-800 text-slate-400 font-mono px-1.5 py-0.5 rounded">
+              SN: RX-9942-A10
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4 sm:gap-6 text-[11px] font-mono">
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500">PRESSURE:</span>
+              <span className="font-bold text-emerald-400">210.4 Bar</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500">CASE DRAIN:</span>
+              <span className="font-bold text-cyan-400">1.2 L/min</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-500">OIL TEMP:</span>
+              <span className="font-bold text-amber-400">58.2°C</span>
+            </div>
+            <div className="hidden md:flex items-center gap-1.5">
+              <span className="text-slate-500">RPM:</span>
+              <span className="font-bold text-slate-200">1,450</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span className="text-emerald-400 font-semibold uppercase text-[10px]">Active</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Main Work Area ──────────────────────────────────────────────── */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
+        {/* TAB 1: 3D DIGITAL TWIN & AI VOICE DIAGNOSTICS */}
+        {activeTab === 'twin' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left 7 Columns: 3D Twin Viewport & Part Selector */}
+            <div className="lg:col-span-7 flex flex-col gap-4">
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 relative shadow-xl backdrop-blur-sm">
+                {/* 3D Viewport Controls HUD */}
+                <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                      <Radio className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
+                      Digital Twin Model
                     </span>
-                    <h2 className="text-lg font-bold text-white mt-0.5">
-                      {SAMPLE_MACHINE_ASSET.name}
-                    </h2>
+                    <span className="text-[10px] text-slate-500 font-mono">
+                      (Google &lt;model-viewer&gt; GLB)
+                    </span>
                   </div>
-                  <span className="bg-emerald-500/10 text-emerald-400 text-xs font-mono border border-emerald-500/20 px-2.5 py-1 rounded-full">
-                    SOP Active
-                  </span>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setAutoRotate(!autoRotate)}
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition ${
+                        autoRotate
+                          ? 'bg-blue-600 text-white border-blue-500'
+                          : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                      }`}
+                    >
+                      <RefreshCw className={`w-3 h-3 inline mr-1 ${autoRotate ? 'animate-spin' : ''}`} />
+                      Auto-Rotate
+                    </button>
+                  </div>
                 </div>
 
-                {/* 3D Model / Fallback Viewer */}
-                <div className="rounded-xl overflow-hidden border border-slate-800 shadow-inner bg-slate-950 relative">
+                {/* 3D Viewer Container */}
+                <div className="relative rounded-xl overflow-hidden border border-slate-800/80 shadow-inner">
                   <MachineViewer
                     asset={SAMPLE_MACHINE_ASSET}
+                    selectedPartId={selectedPartId}
+                    autoRotate={autoRotate}
                     onPartSelected={handlePartSelected}
                   />
 
-                  {/* On-screen instruction helper */}
-                  <div className="absolute bottom-3 left-3 bg-slate-900/90 backdrop-blur border border-slate-700/60 px-3 py-1.5 rounded-lg text-xs text-slate-300 shadow flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />
-                    <span>Tap any blue hotspot marker to ask about that part</span>
+                  {/* Hotspot Instructions Overlay */}
+                  <div className="absolute bottom-3 left-3 bg-slate-950/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800 text-[11px] text-slate-300 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping" />
+                    <span>Tap numbered pins 1-4 on the model to inspect part diagnostics</span>
                   </div>
                 </div>
 
-                {/* Hotspot Quick Selectors */}
+                {/* Interactive Component Card Selector */}
                 <div className="mt-4">
-                  <div className="text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">
-                    Click Component Hotspot:
-                  </div>
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+                    Machinery Components Subsystems:
+                  </span>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {SAMPLE_MACHINE_ASSET.hotspots.map((h) => (
-                      <button
-                        key={h.id}
-                        type="button"
-                        onClick={() => handlePartSelected(h.id)}
-                        className={`text-xs px-2.5 py-2 rounded-lg border text-left transition font-medium truncate ${
-                          selectedPartId === h.id
-                            ? 'bg-blue-600 border-blue-400 text-white shadow-md shadow-blue-600/30'
-                            : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:border-slate-500'
-                        }`}
-                      >
-                        {h.label.split('(')[0]}
-                      </button>
-                    ))}
+                    {Object.values(COMPONENTS).map((comp, idx) => {
+                      const isSelected = selectedPartId === comp.id;
+                      return (
+                        <button
+                          key={comp.id}
+                          type="button"
+                          onClick={() => handlePartSelected(comp.id)}
+                          className={`p-2.5 rounded-xl border text-left transition relative flex flex-col justify-between ${
+                            isSelected
+                              ? 'bg-blue-600/20 border-blue-500 shadow-md ring-1 ring-blue-400'
+                              : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/60'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center font-mono font-bold text-[10px]">
+                              {idx + 1}
+                            </span>
+                            <span
+                              className={`text-[9px] px-1.5 py-0.5 rounded font-bold font-mono ${
+                                comp.status === 'OPTIMAL'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                  : comp.status === 'ATTENTION'
+                                  ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                                  : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                              }`}
+                            >
+                              {comp.status}
+                            </span>
+                          </div>
+                          <div className="font-semibold text-xs text-slate-200 truncate">
+                            {comp.name}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono mt-1">
+                            {comp.code}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
 
-              {/* Safety & SOP Card */}
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3 text-amber-200 text-xs">
-                <span className="text-xl">⚠️</span>
-                <div>
-                  <strong className="font-semibold block text-amber-300">
-                    Mandatory Safety Procedure ({part.sop}):
-                  </strong>
-                  <p className="mt-0.5">{part.safetyHazard}</p>
+              {/* Active Component Specifications & Hazard Card */}
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-800">
+                  <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Wrench className="w-4 h-4 text-blue-400" />
+                      {currentPart.name}
+                    </h3>
+                    <p className="text-xs text-slate-400 font-mono mt-0.5">
+                      {currentPart.subsystem}
+                    </p>
+                  </div>
+                  <span className="text-xs px-2.5 py-1 rounded-md bg-slate-800 text-blue-300 font-mono border border-slate-700">
+                    SOP: {currentPart.sop.id}
+                  </span>
+                </div>
+
+                {/* Specs Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                  <div className="bg-slate-950/70 p-2 rounded-lg border border-slate-800/80">
+                    <span className="text-[10px] text-slate-500 block uppercase">Operating Pressure</span>
+                    <span className="text-xs font-bold font-mono text-cyan-300">{currentPart.specs.pressure}</span>
+                  </div>
+                  <div className="bg-slate-950/70 p-2 rounded-lg border border-slate-800/80">
+                    <span className="text-[10px] text-slate-500 block uppercase">Flow Rating</span>
+                    <span className="text-xs font-bold font-mono text-cyan-300">{currentPart.specs.flow}</span>
+                  </div>
+                  <div className="bg-slate-950/70 p-2 rounded-lg border border-slate-800/80">
+                    <span className="text-[10px] text-slate-500 block uppercase">Temp Ceiling</span>
+                    <span className="text-xs font-bold font-mono text-amber-300">{currentPart.specs.tempLimit}</span>
+                  </div>
+                  <div className="bg-slate-950/70 p-2 rounded-lg border border-slate-800/80">
+                    <span className="text-[10px] text-slate-500 block uppercase">Torque Rating</span>
+                    <span className="text-xs font-bold font-mono text-emerald-300">{currentPart.specs.torque}</span>
+                  </div>
+                </div>
+
+                {/* Mandatory Safety Alert */}
+                <div className="bg-amber-950/30 border border-amber-500/40 rounded-xl p-3 flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-xs font-bold text-amber-300 uppercase tracking-wide">
+                      Mandatory Safety Procedure (OSHA / ISO 4413):
+                    </div>
+                    <p className="text-xs text-amber-200/90 mt-0.5 leading-relaxed">
+                      {currentPart.sop.hazardAlert}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </section>
+            </div>
 
-            {/* Right Column: Voice-First AI Tutor Interaction Panel (5 cols) */}
-            <section className="lg:col-span-5 flex flex-col gap-4">
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col h-full">
-                {/* Active Part Context */}
-                <div className="border-b border-slate-800 pb-3 mb-4">
-                  <div className="text-xs text-slate-400 font-mono flex items-center justify-between">
-                    <span>ACTIVE COMPONENT</span>
-                    <span className="text-blue-400 font-semibold">{part.tag}</span>
+            {/* Right 5 Columns: AI Voice Diagnostic Copilot */}
+            <div className="lg:col-span-5 flex flex-col gap-4">
+              <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col min-h-[580px]">
+                {/* Copilot Header */}
+                <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-white">Voice Diagnostic Copilot</span>
+                      <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono font-bold">
+                        AWS Bedrock Haiku 4.5
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Grounded in factory SOPs · Sarvam Speech Multi-Lingual
+                    </p>
                   </div>
-                  <h3 className="text-base font-bold text-white mt-1 flex items-center gap-2">
-                    🎯 {part.name}
-                  </h3>
-                  <div className="text-xs text-slate-400 mt-1 italic">
-                    Grounded in: {part.sop}
-                  </div>
-                </div>
 
-                {/* Conversation Output Box */}
-                <div className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-4 overflow-y-auto min-h-[220px] max-h-[340px] flex flex-col gap-3 font-sans">
-                  {history.length > 0 && (
-                    <div className="space-y-2 border-b border-slate-800/80 pb-3 mb-1">
-                      <div className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-semibold">
-                        Previous Session Activity
+                  {/* Latency & Voice Equalizer */}
+                  <div className="flex items-center gap-2">
+                    {(isRecording || isSpeaking) && (
+                      <div className="flex items-center gap-1 h-5 px-2 bg-blue-950/60 border border-blue-800/80 rounded-md">
+                        <span className="soundwave-bar" />
+                        <span className="soundwave-bar" />
+                        <span className="soundwave-bar" />
+                        <span className="soundwave-bar" />
+                        <span className="soundwave-bar" />
                       </div>
+                    )}
+                    <div className="text-[10px] font-mono text-slate-400 bg-slate-950 px-2 py-1 rounded border border-slate-800">
+                      {latencyMs}ms
+                    </div>
+                  </div>
+                </div>
+
+                {/* Conversation History & Stream Feed */}
+                <div className="flex-1 bg-slate-950/80 border border-slate-800/80 rounded-xl p-3.5 overflow-y-auto max-h-[380px] flex flex-col gap-3">
+                  {/* Previous Turns */}
+                  {history.length > 0 && (
+                    <div className="space-y-2.5 border-b border-slate-800/80 pb-3 mb-1">
+                      <span className="text-[10px] font-mono uppercase text-slate-500 font-bold tracking-wider">
+                        Active Shift Dialogue:
+                      </span>
                       {history.slice(-4).map((turn, i) => (
                         <div
                           key={i}
-                          className={`text-xs p-2.5 rounded-lg leading-relaxed ${
-                            turn.role === 'user'
-                              ? 'bg-blue-950/30 text-blue-200 border border-blue-900/30 ml-4'
-                              : 'bg-slate-900/50 text-slate-300 border border-slate-800 mr-4'
+                          className={`text-xs p-3 rounded-xl leading-relaxed ${
+                            turn.role === 'worker'
+                              ? 'bg-blue-950/40 text-blue-200 border border-blue-900/40 ml-4'
+                              : 'bg-slate-900/80 text-slate-200 border border-slate-800 mr-4'
                           }`}
                         >
-                          <span className="font-mono font-bold text-[9px] block text-slate-500 mb-1">
-                            {turn.role === 'user' ? 'YOU (WORKER)' : 'AI TUTOR (GROUNDED)'}
-                          </span>
-                          {turn.text}
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1 font-mono">
+                            <span className="font-bold text-slate-400">
+                              {turn.role === 'worker' ? 'TECHNICIAN' : 'AI TUTOR (SOP)'}
+                            </span>
+                            <span>{turn.timestamp}</span>
+                          </div>
+                          <p>{turn.text}</p>
                         </div>
                       ))}
                     </div>
                   )}
 
+                  {/* Active Question Transcript */}
                   {transcript ? (
-                    <div className="bg-blue-600/20 border border-blue-500/30 text-blue-200 rounded-xl p-3 text-sm self-end max-w-[90%]">
+                    <div className="bg-blue-600/20 border border-blue-500/40 text-blue-100 rounded-xl p-3 text-xs self-end max-w-[92%] shadow-sm">
                       <div className="text-[10px] font-mono text-blue-300 font-bold mb-1">
-                        YOU (WORKER)
+                        TECHNICIAN QUERY (VOICE / PTT)
                       </div>
-                      {transcript}
+                      <p className="leading-relaxed">{transcript}</p>
                     </div>
                   ) : (
-                    <div className="text-xs text-slate-500 text-center my-auto">
-                      Hold the microphone button below or click a suggested prompt to ask a question
-                      about the selected component.
+                    <div className="text-center my-auto py-8 text-slate-500 text-xs">
+                      <Mic className="w-8 h-8 mx-auto mb-2 text-slate-600" />
+                      <p className="font-medium">Press and hold the PTT button or click a prompt below</p>
+                      <p className="text-[11px] text-slate-600 mt-1">
+                        Works in English and Hindi directly on the shop floor
+                      </p>
                     </div>
                   )}
 
+                  {/* AI Thinking Pulse */}
                   {aiThinking && (
                     <div className="flex items-center gap-2 text-xs text-blue-400 font-mono py-1">
-                      <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-                      Bedrock Claude Haiku 4.5 analyzing org SOP...
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-ping" />
+                      <span>Bedrock SigV4 reasoning across {currentPart.sop.id}...</span>
                     </div>
                   )}
 
+                  {/* Streaming AI Diagnostic Response */}
                   {aiResponse && (
-                    <div className="bg-slate-900 border border-slate-800 text-slate-200 rounded-xl p-3 text-sm self-start max-w-[95%] shadow-sm">
-                      <div className="text-[10px] font-mono text-emerald-400 font-bold mb-1 flex items-center justify-between">
-                        <span>AI TUTOR (GROUNDED IN SOP)</span>
-                        {isSpeaking && (
-                          <span className="animate-pulse text-xs">🔊 Speaking...</span>
-                        )}
+                    <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-xs text-slate-200 shadow-md">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/50">
+                          DIAGNOSTIC GUIDANCE ({currentPart.sop.id})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => speakAudioNotification(aiResponse)}
+                          className="text-slate-400 hover:text-white transition"
+                          title="Replay Audio"
+                        >
+                          <Volume2 className="w-4 h-4" />
+                        </button>
                       </div>
-                      <p className="leading-relaxed">{aiResponse}</p>
+                      <p className="leading-relaxed text-slate-200">{aiResponse}</p>
                     </div>
                   )}
                 </div>
 
-                {/* Suggested Prompts */}
+                {/* Suggested Technician Prompts */}
                 <div className="mt-3">
                   <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">
-                    Suggested Technician Questions:
+                    Suggested Technician Voice Queries:
                   </span>
-                  <div className="flex flex-col gap-1.5">
+                  <div className="grid grid-cols-1 gap-1.5">
                     <button
                       type="button"
-                      onClick={() => handleAskQuestion(language === 'hi' ? part.defaultQuestionHi : part.defaultQuestionEn)}
-                      className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/70 rounded-lg px-3 py-2 text-left transition truncate"
+                      onClick={() => triggerDiagnostic(language === 'hi' ? currentPart.questions.hi : currentPart.questions.en)}
+                      className="text-xs bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-lg px-3 py-2 text-left transition flex items-center justify-between group"
                     >
-                      💬 {language === 'hi' ? part.defaultQuestionHi : part.defaultQuestionEn}
+                      <span className="truncate">
+                        💬 {language === 'hi' ? currentPart.questions.hi : currentPart.questions.en}
+                      </span>
+                      <Send className="w-3 h-3 text-slate-500 group-hover:text-blue-400 shrink-0 ml-2" />
                     </button>
                     <button
                       type="button"
                       onClick={() =>
-                        handleAskQuestion(
+                        triggerDiagnostic(
                           language === 'hi'
-                            ? 'इस हिस्से का LOTO लॉकआउट टैगआउट कैसे करना है?'
-                            : 'What is the step-by-step LOTO procedure for isolating this part?'
+                            ? `${currentPart.name} का सुरक्षित LOTO लॉकआउट कैसे करें?`
+                            : `What is the exact zero-energy LOTO isolation procedure for ${currentPart.name}?`
                         )
                       }
-                      className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/70 rounded-lg px-3 py-2 text-left transition truncate"
+                      className="text-xs bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-lg px-3 py-2 text-left transition flex items-center justify-between group"
                     >
-                      🔒 {language === 'hi' ? 'LOTO प्रक्रिया क्या है?' : 'What is the step-by-step LOTO procedure?'}
+                      <span className="truncate">
+                        🔒 {language === 'hi' ? 'शून्य-ऊर्जा LOTO प्रक्रिया क्या है?' : 'Zero-energy LOTO isolation sequence?'}
+                      </span>
+                      <Send className="w-3 h-3 text-slate-500 group-hover:text-blue-400 shrink-0 ml-2" />
                     </button>
                   </div>
                 </div>
 
-                {/* Push-To-Talk Voice Interaction Controls */}
-                <div className="mt-4 pt-4 border-t border-slate-800 flex flex-col items-center gap-2">
+                {/* Manual Text Prompt Input */}
+                <div className="mt-2 flex gap-2">
+                  <input
+                    type="text"
+                    value={manualInput}
+                    onChange={(e) => setManualInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && manualInput.trim()) {
+                        triggerDiagnostic(manualInput.trim());
+                        setManualInput('');
+                      }
+                    }}
+                    placeholder={language === 'hi' ? 'सवाल टाइप करें या माइक दबाएं...' : 'Type question or hold PTT...'}
+                    className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (manualInput.trim()) {
+                        triggerDiagnostic(manualInput.trim());
+                        setManualInput('');
+                      }
+                    }}
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  >
+                    Ask
+                  </button>
+                </div>
+
+                {/* Ergonomic Push-To-Talk Button */}
+                <div className="mt-3 pt-3 border-t border-slate-800 flex flex-col items-center">
                   <button
                     type="button"
                     onMouseDown={handleHoldStart}
                     onMouseUp={handleHoldEnd}
                     onTouchStart={handleHoldStart}
                     onTouchEnd={handleHoldEnd}
-                    className={`w-full py-4 rounded-xl font-bold text-sm flex items-center justify-center gap-3 transition shadow-lg select-none ${
+                    className={`w-full py-3.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2.5 transition shadow-lg select-none ${
                       isRecording
                         ? 'bg-rose-600 text-white animate-pulse shadow-rose-600/40 ring-4 ring-rose-500/30'
-                        : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 active:scale-[0.98]'
+                        : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-600/25 active:scale-[0.99]'
                     }`}
                   >
-                    <span className="text-xl">{isRecording ? '⏹️' : '🎙️'}</span>
-                    <span>
-                      {isRecording
-                        ? 'Release to Send Audio...'
-                        : 'HOLD TO ASK (PUSH-TO-TALK)'}
+                    <Mic className="w-4 h-4" />
+                    <span className="tracking-wide">
+                      {isRecording ? 'RELEASE TO SEND AUDIO TO SARVAM' : 'HOLD TO TALK [SPACEBAR]'}
                     </span>
                   </button>
-                  <span className="text-[11px] text-slate-400">
-                    Hands-free shop-floor ergonomic mode · Streams via App Runner WebSocket
+                  <span className="text-[10px] text-slate-500 mt-1">
+                    Hands-free shop-floor ergonomic mode · Bedrock Haiku SigV4 Stream
                   </span>
                 </div>
               </div>
-            </section>
-          </>
-        ) : (
-          /* Backend API Simulator Tab (12 cols) */
-          <section className="lg:col-span-12 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col gap-6">
-            <div>
-              <h2 className="text-xl font-bold text-white">Next.js 16 CRUD & Auth API Tester</h2>
-              <p className="text-sm text-slate-400 mt-1">
-                Directly invoke the six implemented CRUD handlers conforming to single-table access patterns.
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: INTERACTIVE SOP & GUIDED WORK ORDER */}
+        {activeTab === 'sop' && (
+          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl max-w-4xl mx-auto">
+            <div className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-6 border-b border-slate-800">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono font-bold text-blue-400 bg-blue-950/60 px-2.5 py-0.5 rounded border border-blue-800/60">
+                    WORK ORDER: WO-HYD-2026-8841
+                  </span>
+                  <span className="text-xs font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">
+                    PRIORITY: HIGH
+                  </span>
+                </div>
+                <h2 className="text-lg font-bold text-white mt-1">
+                  Rexroth A10VSO Relief Valve Recalibration & Seal Integrity Verification
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Standard Operating Procedure: {currentPart.sop.id} · Facility: Tata Motors Pune Bay 4B
+                </p>
+              </div>
+
+              <div className="text-right">
+                <span className="text-xs text-slate-400 block">Assigned Specialist:</span>
+                <span className="text-sm font-bold text-slate-200">Vikram Sharma (L2)</span>
+              </div>
+            </div>
+
+            {/* Pre-flight Tools */}
+            <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4 mb-6">
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
+                <Wrench className="w-4 h-4 text-cyan-400" />
+                Required Calibrated Tools & Safety Equipment:
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {currentPart.sop.tools.map((t, idx) => (
+                  <span
+                    key={idx}
+                    className="text-xs bg-slate-900 border border-slate-700/80 px-3 py-1 rounded-lg text-slate-300 font-medium"
+                  >
+                    ✓ {t}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Interactive Step-by-Step Checklist */}
+            <div className="space-y-3 mb-6">
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
+                <CheckSquare className="w-4 h-4 text-emerald-400" />
+                Sequential Maintenance Tasks:
+              </span>
+
+              {currentPart.sop.steps.map((step, idx) => {
+                const key = `chk-${idx}`;
+                const isChecked = checklist[key] || false;
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => setChecklist((prev) => ({ ...prev, [key]: !isChecked }))}
+                    className={`p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition select-none ${
+                      isChecked
+                        ? 'bg-emerald-950/20 border-emerald-800/40 text-emerald-200'
+                        : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-900'
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 mt-0.5 transition ${
+                        isChecked
+                          ? 'bg-emerald-600 border-emerald-400 text-white'
+                          : 'border-slate-600 bg-slate-900'
+                      }`}
+                    >
+                      {isChecked && <CheckCircle2 className="w-3.5 h-3.5" />}
+                    </div>
+                    <div className="flex-1 text-xs leading-relaxed">
+                      <span className="font-bold font-mono mr-2 opacity-80">STEP 0{idx + 1}:</span>
+                      {step}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Digital Sign-off Banner */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div>
+                <span className="text-xs font-bold text-white block">Technician Verification Sign-off</span>
+                <span className="text-xs text-slate-400">
+                  Updates your Skill Profile in DynamoDB (<code className="text-cyan-400">SKILLPROFILE#CURRENT</code>)
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setWorkOrderSigned(true)}
+                disabled={workOrderSigned}
+                className={`px-5 py-2.5 rounded-xl font-bold text-xs transition shadow-md ${
+                  workOrderSigned
+                    ? 'bg-emerald-600 text-white cursor-default'
+                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30'
+                }`}
+              >
+                {workOrderSigned ? '✓ Work Order Completed & Logged' : 'Sign & Submit Work Order'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: DEPARTMENT SKILL RADAR & FLEET ANALYTICS */}
+        {activeTab === 'analytics' && (
+          <div className="space-y-6 max-w-5xl mx-auto">
+            {/* Top Stat Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg">
+                <span className="text-[11px] font-mono text-slate-400 uppercase">Fleet Skill Gap Index</span>
+                <div className="text-2xl font-extrabold text-white mt-1">12%</div>
+                <div className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
+                  <span>↓ 16% reduction</span>
+                  <span className="text-slate-500">since Voice Twin rollout</span>
+                </div>
+              </div>
+
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg">
+                <span className="text-[11px] font-mono text-slate-400 uppercase">Certified Technicians</span>
+                <div className="text-2xl font-extrabold text-white mt-1">18 / 22</div>
+                <div className="text-xs text-blue-400 mt-1">
+                  <span>82% Department Readiness</span>
+                </div>
+              </div>
+
+              <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg">
+                <span className="text-[11px] font-mono text-slate-400 uppercase">Avg Diagnostic Time (MTTR)</span>
+                <div className="text-2xl font-extrabold text-white mt-1">14.2 min</div>
+                <div className="text-xs text-emerald-400 mt-1">
+                  <span>↓ 62% faster diagnosis</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Department Skill Gap Breakdown */}
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl">
+              <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-blue-400" />
+                Materialized Department Competency Rollup (AGG#DEPT#hydraulics#2026-09)
+              </h3>
+
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-slate-300">High-Pressure Calibration & Cracking Test (SOP-042)</span>
+                    <span className="font-mono font-bold text-emerald-400">92% Mastery</span>
+                  </div>
+                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: '92%' }} />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-slate-300">Proportional Solenoid Dither Tuning (SOP-089)</span>
+                    <span className="font-mono font-bold text-blue-400">76% Mastery</span>
+                  </div>
+                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full" style={{ width: '76%' }} />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-slate-300">Swashplate Slipper Bearing Clearance (SOP-029)</span>
+                    <span className="font-mono font-bold text-amber-400">64% Mastery</span>
+                  </div>
+                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-500 rounded-full" style={{ width: '64%' }} />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-slate-300">Zero-Energy LOTO Padlock Procedure (OSHA 1910.147)</span>
+                    <span className="font-mono font-bold text-emerald-400">100% Compliance</span>
+                  </div>
+                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: '100%' }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: AWS ARCHITECTURE & DYNAMODB LIVE CONSOLE */}
+        {activeTab === 'api' && (
+          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl max-w-5xl mx-auto">
+            <div className="pb-4 mb-6 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono font-bold text-blue-400 bg-blue-950/60 px-2.5 py-0.5 rounded border border-blue-800/60">
+                  DYNAMODB SINGLE-TABLE ENGINE
+                </span>
+                <span className="text-xs font-mono text-cyan-400">
+                  AppTable (PK/SK, GSI1, GSI2)
+                </span>
+              </div>
+              <h2 className="text-lg font-bold text-white mt-1">
+                Single-Table CRUD Endpoints Verification Console
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Directly execute the six implemented Next.js route handlers conforming to zero fan-out aggregate patterns.
               </p>
             </div>
 
             {/* Quick API Buttons */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 mb-6">
               <button
                 type="button"
                 onClick={() => {
                   setApiEndpoint('/api/me');
                   setApiMethod('GET');
                   setApiPayload('{}');
-                  runApiTest('/api/me', 'GET');
+                  runApiCall('/api/me', 'GET');
                 }}
-                className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-xs font-medium text-left transition"
+                className="p-3 bg-slate-950 hover:bg-slate-800 rounded-xl border border-slate-800 text-xs font-medium text-left transition"
               >
                 <div className="font-bold text-blue-400">GET /api/me</div>
-                <div className="text-[11px] text-slate-400 mt-1">Profile & Settings (W1)</div>
+                <div className="text-[10px] text-slate-400 mt-1">Profile (W1)</div>
               </button>
 
               <button
@@ -556,12 +1182,12 @@ export default function SimulationStudioPage() {
                   setApiEndpoint('/api/plan');
                   setApiMethod('GET');
                   setApiPayload('{}');
-                  runApiTest('/api/plan', 'GET');
+                  runApiCall('/api/plan', 'GET');
                 }}
-                className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-xs font-medium text-left transition"
+                className="p-3 bg-slate-950 hover:bg-slate-800 rounded-xl border border-slate-800 text-xs font-medium text-left transition"
               >
                 <div className="font-bold text-blue-400">GET /api/plan</div>
-                <div className="text-[11px] text-slate-400 mt-1">Learning Plan (W2)</div>
+                <div className="text-[10px] text-slate-400 mt-1">Learning Plan (W2)</div>
               </button>
 
               <button
@@ -570,12 +1196,12 @@ export default function SimulationStudioPage() {
                   setApiEndpoint('/api/lessons');
                   setApiMethod('GET');
                   setApiPayload('{}');
-                  runApiTest('/api/lessons', 'GET');
+                  runApiCall('/api/lessons', 'GET');
                 }}
-                className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-xs font-medium text-left transition"
+                className="p-3 bg-slate-950 hover:bg-slate-800 rounded-xl border border-slate-800 text-xs font-medium text-left transition"
               >
                 <div className="font-bold text-blue-400">GET /api/lessons</div>
-                <div className="text-[11px] text-slate-400 mt-1">Lessons & 3D Assets (W3)</div>
+                <div className="text-[10px] text-slate-400 mt-1">3D Assets (W3)</div>
               </button>
 
               <button
@@ -583,113 +1209,104 @@ export default function SimulationStudioPage() {
                 onClick={() => {
                   setApiEndpoint('/api/assessments');
                   setApiMethod('POST');
-                  const payload = JSON.stringify(
+                  const p = JSON.stringify(
                     {
                       assessmentId: 'asmt_hydraulics_01',
                       score: 95,
-                      feedback: 'Correctly identified pilot valve cavitation hazard',
+                      feedback: 'Correctly diagnosed relief valve pilot cavitation',
                     },
                     null,
                     2
                   );
-                  setApiPayload(payload);
-                  runApiTest('/api/assessments', 'POST', payload);
+                  setApiPayload(p);
+                  runApiCall('/api/assessments', 'POST', p);
                 }}
-                className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-xs font-medium text-left transition"
+                className="p-3 bg-slate-950 hover:bg-slate-800 rounded-xl border border-slate-800 text-xs font-medium text-left transition"
               >
                 <div className="font-bold text-emerald-400">POST /api/assessments</div>
-                <div className="text-[11px] text-slate-400 mt-1">Submit Attempt (W4)</div>
+                <div className="text-[10px] text-slate-400 mt-1">Submit Attempt (W4)</div>
               </button>
 
               <button
                 type="button"
                 onClick={() => {
-                  setApiEndpoint('/api/aggregates?deptId=dept_maintenance');
+                  setApiEndpoint('/api/aggregates');
                   setApiMethod('GET');
                   setApiPayload('{}');
-                  runApiTest('/api/aggregates?deptId=dept_maintenance', 'GET');
+                  runApiCall('/api/aggregates', 'GET');
                 }}
-                className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-xs font-medium text-left transition"
+                className="p-3 bg-slate-950 hover:bg-slate-800 rounded-xl border border-slate-800 text-xs font-medium text-left transition"
               >
-                <div className="font-bold text-purple-400">GET /api/aggregates</div>
-                <div className="text-[11px] text-slate-400 mt-1">Single GetItem Rollup (M2/M3)</div>
+                <div className="font-bold text-blue-400">GET /api/aggregates</div>
+                <div className="text-[10px] text-slate-400 mt-1">GetItem (M2/M3)</div>
               </button>
 
               <button
                 type="button"
                 onClick={() => {
                   setApiEndpoint('/api/invites');
-                  setApiMethod('PATCH');
-                  const payload = JSON.stringify(
+                  setApiMethod('POST');
+                  const p = JSON.stringify(
                     {
-                      code: 'DEMO1234',
-                      name: 'Ramesh Kumar',
-                      password: 'StrongPassword123!',
-                      phone: '+919876543210',
+                      role: 'worker',
+                      deptId: 'hydraulics',
                     },
                     null,
                     2
                   );
-                  setApiPayload(payload);
-                  runApiTest('/api/invites', 'PATCH', payload);
+                  setApiPayload(p);
+                  runApiCall('/api/invites', 'POST', p);
                 }}
-                className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-xs font-medium text-left transition"
+                className="p-3 bg-slate-950 hover:bg-slate-800 rounded-xl border border-slate-800 text-xs font-medium text-left transition"
               >
-                <div className="font-bold text-amber-400">PATCH /api/invites</div>
-                <div className="text-[11px] text-slate-400 mt-1">Redeem & Provision (A4)</div>
+                <div className="font-bold text-purple-400">POST /api/invites</div>
+                <div className="text-[10px] text-slate-400 mt-1">Issue Invite (A3)</div>
               </button>
             </div>
 
-            {/* Request Builder & Response Display */}
+            {/* Request / Response Pane */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs bg-slate-800 px-2.5 py-1 rounded text-blue-400 font-bold">
-                    {apiMethod}
-                  </span>
-                  <input
-                    type="text"
-                    value={apiEndpoint}
-                    onChange={(e) => setApiEndpoint(e.target.value)}
-                    className="flex-1 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded text-xs font-mono text-slate-200"
-                  />
+              <div className="flex flex-col">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold font-mono text-slate-300">REQUEST PARAMS:</span>
                   <button
                     type="button"
-                    onClick={() => runApiTest(apiEndpoint, apiMethod, apiPayload)}
+                    onClick={() => runApiCall(apiEndpoint, apiMethod, apiPayload)}
                     disabled={apiLoading}
-                    className="bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded text-xs font-semibold text-white transition disabled:opacity-50"
+                    className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1 rounded font-semibold transition"
                   >
-                    {apiLoading ? 'Testing...' : 'Send'}
+                    {apiLoading ? 'Invoking...' : 'Execute Request'}
                   </button>
                 </div>
-                {(apiMethod === 'POST' || apiMethod === 'PATCH') && (
-                  <textarea
-                    rows={8}
-                    value={apiPayload}
-                    onChange={(e) => setApiPayload(e.target.value)}
-                    className="bg-slate-950 border border-slate-800 rounded p-3 text-xs font-mono text-slate-300 w-full"
-                    placeholder="Request JSON Payload"
-                  />
-                )}
+                <textarea
+                  value={apiPayload}
+                  onChange={(e) => setApiPayload(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs font-mono text-cyan-300 h-[240px] focus:outline-none focus:border-blue-500 resize-none"
+                />
               </div>
 
-              {/* Response Viewer */}
               <div className="flex flex-col">
-                <div className="text-xs font-mono text-slate-400 mb-1">
-                  API Response:
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold font-mono text-slate-300">RESPONSE PAYLOAD:</span>
+                  {apiDuration && (
+                    <span className="text-[11px] font-mono text-emerald-400">
+                      Duration: {apiDuration}ms
+                    </span>
+                  )}
                 </div>
-                <pre className="bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs font-mono text-emerald-400 overflow-auto h-[220px]">
-                  {apiResult || '// Click any endpoint button above to test'}
+                <pre className="bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs font-mono text-emerald-400 h-[240px] overflow-auto">
+                  {apiResult || '// Click any endpoint button above to inspect live output'}
                 </pre>
               </div>
             </div>
-          </section>
+          </div>
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-800/80 bg-slate-900/50 py-3 px-6 text-center text-xs text-slate-500">
-        SkillBridge · Multi-Tenant Multilingual Vocational SaaS · First Commit Hackathon (WeMakeDevs x AWS)
+      {/* ── Footer ──────────────────────────────────────────────────────── */}
+      <footer className="border-t border-slate-800/80 bg-[#0a0f1a] py-3.5 px-6 text-center text-xs text-slate-500 flex flex-wrap items-center justify-between max-w-7xl mx-auto w-full">
+        <span>SkillBridge Enterprise SKAD-AI · Multi-Tenant Industrial Skilling Platform</span>
+        <span>Built on AWS (ap-northeast-1) · Sarvam Voice Engine</span>
       </footer>
     </div>
   );

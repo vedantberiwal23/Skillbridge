@@ -215,6 +215,8 @@
   background-color: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  position: relative;
+  overflow: hidden;
 }
 
 .machine-viewer--fallback {
@@ -247,6 +249,107 @@
   background-color: var(--background);
   color: var(--foreground);
   font-size: 1rem;
+}
+
+/* Hotspot Radar Beacon Pins */
+.machine-viewer button[slot^="hotspot-"] {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border: 2px solid #ffffff;
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.9), inset 0 0 8px rgba(255, 255, 255, 0.4);
+  position: relative;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+  z-index: 10;
+}
+
+.machine-viewer button[slot^="hotspot-"]::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  right: -6px;
+  bottom: -6px;
+  border-radius: 50%;
+  border: 2px solid rgba(96, 165, 250, 0.8);
+  animation: beacon-pulse 2s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+  pointer-events: none;
+}
+
+.machine-viewer button[slot^="hotspot-"]:hover,
+.machine-viewer button[slot^="hotspot-"].active {
+  transform: scale(1.25);
+  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+  box-shadow: 0 0 25px rgba(96, 165, 250, 1), 0 0 50px rgba(59, 130, 246, 0.6);
+  border-color: #ffffff;
+}
+
+@keyframes beacon-pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+/* Audio Visualizer Waves */
+@keyframes soundbar {
+  0%, 100% {
+    height: 4px;
+    opacity: 0.4;
+  }
+  50% {
+    height: 28px;
+    opacity: 1;
+  }
+}
+
+.soundwave-bar {
+  animation: soundbar 0.9s ease-in-out infinite;
+  width: 4px;
+  border-radius: 9999px;
+  background: linear-gradient(to top, #3b82f6, #60a5fa);
+  display: inline-block;
+}
+
+.soundwave-bar:nth-child(2) { animation-delay: 0.15s; }
+.soundwave-bar:nth-child(3) { animation-delay: 0.3s; }
+.soundwave-bar:nth-child(4) { animation-delay: 0.45s; }
+.soundwave-bar:nth-child(5) { animation-delay: 0.2s; }
+.soundwave-bar:nth-child(6) { animation-delay: 0.35s; }
+.soundwave-bar:nth-child(7) { animation-delay: 0.5s; }
+.soundwave-bar:nth-child(8) { animation-delay: 0.25s; }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 
 /**
@@ -388,119 +491,8 @@
   animation: carousel-progress 4s linear;
 }
 
-
 /* Faint dot grid behind the marketing footer. */
 .footer-dots {
   background-image: radial-gradient(rgba(28, 28, 30, 0.07) 1px, transparent 1px);
   background-size: 22px 22px;
 }
-
-/* ── carried over from the backend branch ──────────────────────────────────
-   Functional, not thematic: hotspot affordances for <model-viewer> and the
-   voice panel's level meter. The dark scrollbar rules that sat alongside
-   these were dropped — the consumer redesign owns theming now. */
-/* 3D Model Viewer Canvas */
-.machine-viewer {
-  width: 100%;
-  height: 520px;
-  background: radial-gradient(ellipse at center, #172554 0%, #0b1329 45%, #060913 100%);
-  border-radius: 1rem;
-  position: relative;
-  overflow: hidden;
-  display: block;
-}
-
-.machine-viewer--fallback {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 520px;
-  padding: 2rem;
-  background: #090e1a;
-}
-
-/* Hotspot Radar Beacon Pins */
-.machine-viewer button[slot^="hotspot-"] {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-  border: 2px solid #ffffff;
-  color: #ffffff;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 0.8rem;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.9), inset 0 0 8px rgba(255, 255, 255, 0.4);
-  position: relative;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
-  z-index: 10;
-}
-
-.machine-viewer button[slot^="hotspot-"]::before {
-  content: "";
-  position: absolute;
-  top: -6px;
-  left: -6px;
-  right: -6px;
-  bottom: -6px;
-  border-radius: 50%;
-  border: 2px solid rgba(96, 165, 250, 0.8);
-  animation: beacon-pulse 2s cubic-bezier(0.24, 0, 0.38, 1) infinite;
-  pointer-events: none;
-}
-
-.machine-viewer button[slot^="hotspot-"]:hover,
-.machine-viewer button[slot^="hotspot-"].active {
-  transform: scale(1.25);
-  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
-  box-shadow: 0 0 25px rgba(96, 165, 250, 1), 0 0 50px rgba(59, 130, 246, 0.6);
-  border-color: #ffffff;
-}
-
-@keyframes beacon-pulse {
-  0% {
-    transform: scale(0.9);
-    opacity: 1;
-  }
-  70% {
-    transform: scale(1.8);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(1.9);
-    opacity: 0;
-  }
-}
-
-/* Audio Visualizer Waves */
-@keyframes soundbar {
-  0%, 100% {
-    height: 4px;
-    opacity: 0.4;
-  }
-  50% {
-    height: 28px;
-    opacity: 1;
-  }
-}
-
-.soundwave-bar {
-  animation: soundbar 0.9s ease-in-out infinite;
-  width: 4px;
-  border-radius: 9999px;
-  background: linear-gradient(to top, #3b82f6, #60a5fa);
-  display: inline-block;
-}
-
-.soundwave-bar:nth-child(2) { animation-delay: 0.15s; }
-.soundwave-bar:nth-child(3) { animation-delay: 0.3s; }
-.soundwave-bar:nth-child(4) { animation-delay: 0.45s; }
-.soundwave-bar:nth-child(5) { animation-delay: 0.2s; }
-.soundwave-bar:nth-child(6) { animation-delay: 0.35s; }
-.soundwave-bar:nth-child(7) { animation-delay: 0.5s; }
-.soundwave-bar:nth-child(8) { animation-delay: 0.25s; }

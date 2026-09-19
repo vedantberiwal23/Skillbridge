@@ -8,6 +8,7 @@ import { ddb, TABLE_NAME } from './ddb';
 import { keys } from './keys';
 import { USER_POOL_ID, CLIENT_ID } from './cognito';
 import { ValidationError } from './validation';
+import { DEMO_ENABLED, demoSession } from './demo';
 
 export class AuthError extends Error {
   constructor(
@@ -179,6 +180,15 @@ export async function requireSession(
   requiredRole?: Role,
   req?: Request
 ): Promise<SessionUser> {
+  if (DEMO_ENABLED) {
+    // Local demo only (lib/demo.ts): never compiled into a production path.
+    const persona = (await cookies()).get('demo_role')?.value;
+    const session = demoSession(persona);
+    if (requiredRole && rank(session.role) < rank(requiredRole)) {
+      throw new AuthError(`Forbidden: requires role '${requiredRole}'`, 403);
+    }
+    return session;
+  }
   const token = await extractToken(req);
   if (!token) {
     throw new AuthError('Missing authentication token', 401);
@@ -301,7 +311,7 @@ export function handleApiError(error: unknown): NextResponse {
 export const HOME_FOR_ROLE: Record<Role, string> = {
   worker: '/plan',
   manager: '/dashboard',
-  admin: '/users',
+  admin: '/overview',
 };
 
 /**

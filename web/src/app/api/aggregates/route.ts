@@ -4,6 +4,7 @@ import { ddb, TABLE_NAME } from '@/lib/ddb';
 import { keys } from '@/lib/keys';
 import { requireSession, handleApiError, AuthError } from '@/lib/auth';
 import { DeptAggregate } from '@/lib/types';
+import { defaultDept } from '@/lib/scope';
 
 /**
  * GET /api/aggregates — Materialized department rollups (Patterns M2, M3).
@@ -19,25 +20,13 @@ export async function GET(req: NextRequest) {
   try {
     const session = await requireSession('manager', req);
     const { searchParams } = new URL(req.url);
-    const requestedDeptId = searchParams.get('deptId');
 
     /**
      * `orgId` already comes from the verified session, so no query parameter can
-     * cross a tenant boundary here. The department boundary is a separate
-     * question: a manager's scope is their own department (FEATURES.md §11), so
-     * only an admin — org root — may name a different one.
+     * cross a tenant boundary here. The department boundary is `lib/scope.ts`: a
+     * manager reads the departments they run, an admin any in the org.
      */
-    if (requestedDeptId && requestedDeptId !== session.deptId && session.role !== 'admin') {
-      throw new AuthError('Forbidden: managers may only read their own department', 403);
-    }
-
-    const deptId = requestedDeptId ?? session.deptId;
-    if (!deptId) {
-      return NextResponse.json(
-        { error: 'Department ID (deptId) is required' },
-        { status: 400 }
-      );
-    }
+    const deptId = await defaultDept(session, searchParams.get('deptId'));
 
     // Default period to current YYYY-MM
     const currentPeriod = new Date().toISOString().slice(0, 7);

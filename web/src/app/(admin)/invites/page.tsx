@@ -3,6 +3,7 @@
 import { useState } from 'react';
 
 import { issueInvite, ApiError } from '@/lib/api-client';
+import { useDepartments } from '@/components/console/use-departments';
 import type { Invite } from '@/lib/types';
 import type { Role } from '@/lib/types';
 
@@ -26,7 +27,11 @@ export default function AdminInvitesPage() {
   const [role, setRole] = useState<Role>('worker');
   const [channel, setChannel] = useState<'sms' | 'email'>('sms');
   const [contact, setContact] = useState('');
-  const [deptId, setDeptId] = useState('dept-maint');
+  const { departments } = useDepartments();
+  // null = not chosen yet, so the first real department is the default once
+  // they load; '' = deliberately unassigned.
+  const [deptChoice, setDeptChoice] = useState<string | null>(null);
+  const deptId = deptChoice ?? departments[0]?.deptId ?? '';
   const [issued, setIssued] = useState<Invite | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -69,13 +74,13 @@ export default function AdminInvitesPage() {
   return (
     <main className="mx-auto w-full max-w-2xl px-6 py-10">
       <header>
-        <h1 className="text-2xl font-semibold text-foreground">Invite a worker</h1>
+        <h1 className="text-2xl font-semibold text-foreground">Invite people</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Accounts exist only by redeeming an invite. There is no sign-up page.
         </p>
       </header>
 
-      <form onSubmit={submit} className="mt-8 flex flex-col gap-6">
+      <form data-tour="invite-form" onSubmit={submit} className="mt-8 flex flex-col gap-6">
         <Field label="Role">
           <div className="flex gap-2">
             {ROLES.map((r) => (
@@ -128,12 +133,23 @@ export default function AdminInvitesPage() {
         </Field>
 
         <Field label="Department">
-          <input
+          <select
             value={deptId}
-            onChange={(e) => setDeptId(e.target.value)}
-            placeholder="dept-maint (leave blank to assign later)"
+            onChange={(e) => setDeptChoice(e.target.value)}
             className="w-full rounded-lg border border-border bg-card px-4 py-2.5 text-sm text-foreground"
-          />
+          >
+            {departments.map((d) => (
+              <option key={d.deptId} value={d.deptId}>
+                {d.name}
+              </option>
+            ))}
+            <option value="">No department yet — assign later</option>
+          </select>
+          {departments.length === 0 ? (
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              No departments yet. Create them under Departments so invites land in the right place.
+            </p>
+          ) : null}
         </Field>
 
         <button

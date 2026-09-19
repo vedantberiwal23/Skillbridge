@@ -26,6 +26,23 @@ export interface Department {
   orgId: string;
   deptId: string;
   name: string;
+  description?: string | null;
+  /**
+   * Users (Cognito sub) who manage this department, beyond whoever was invited
+   * into it as a manager. Set by an org admin.
+   */
+  managerIds?: string[];
+  createdAt?: string;
+}
+
+/** A crew, shift or line inside one department. Members must belong to that department. */
+export interface WorkGroup {
+  orgId: string;
+  deptId: string;
+  groupId: string;
+  name: string;
+  memberIds: string[];
+  createdAt: string;
 }
 
 export interface UserProfile {
@@ -150,6 +167,20 @@ export interface DeptAggregate {
   assessmentsPassed: number;
   assessmentsFailed: number;
   skillGaps: Record<string, number>;
+}
+
+/** One row of the manager's department roster — what the PROFILE item says, nothing derived. */
+export interface TeamMember {
+  userId: string;
+  name: string;
+  profession: string | null;
+  skillLevel: string | null;
+}
+
+/** One row of the org-wide directory an admin sees. */
+export interface DirectoryEntry extends TeamMember {
+  role: Role;
+  deptId: string | null;
 }
 
 export interface Badge {

@@ -4,6 +4,7 @@ import {
   AdminAddUserToGroupCommand,
   AdminSetUserPasswordCommand,
   AdminDeleteUserCommand,
+  AdminUpdateUserAttributesCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { Role } from './types';
 
@@ -135,5 +136,28 @@ export async function deleteCognitoUser(username: string): Promise<void> {
     );
   } catch (err) {
     console.error('Failed to clean up partially provisioned Cognito user:', err);
+  }
+}
+
+/**
+ * Keep the `custom:deptId` claim in step after a person is moved between
+ * departments. The PROFILE item is the source of truth for the directory; this
+ * only stops the claim going stale at the next token refresh.
+ *
+ * The pool signs in by email or phone, so every account's username is its sub,
+ * which is what the directory holds. Best-effort: a failure is logged, not
+ * thrown, because the move itself has already been committed.
+ */
+export async function updateCognitoDept(sub: string, deptId: string): Promise<void> {
+  try {
+    await cognitoClient.send(
+      new AdminUpdateUserAttributesCommand({
+        UserPoolId: USER_POOL_ID,
+        Username: sub,
+        UserAttributes: [{ Name: 'custom:deptId', Value: deptId }],
+      })
+    );
+  } catch (err) {
+    console.error('Could not update custom:deptId after a department move:', err);
   }
 }

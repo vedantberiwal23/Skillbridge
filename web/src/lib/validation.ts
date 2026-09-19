@@ -104,6 +104,54 @@ export const submitAttemptSchema = z.object({
   response: z.unknown(),
 });
 
+/* ── departments, groups and team moves (manager/admin console) ───────────── */
+
+const idSchema = z.string().trim().regex(/^[A-Za-z0-9_-]{1,64}$/, 'Not a valid id');
+const nameSchema = z.string().trim().min(1, 'A name is required').max(60, 'Keep the name under 60 characters');
+
+/** POST /api/departments — admin creates a department. The id is generated server-side. */
+export const createDepartmentSchema = z.object({
+  name: nameSchema,
+  description: z.string().trim().max(200).nullable().optional(),
+});
+
+/** PATCH /api/departments — admin renames a department or changes who manages it. */
+export const updateDepartmentSchema = z
+  .object({
+    deptId: idSchema,
+    name: nameSchema.optional(),
+    description: z.string().trim().max(200).nullable().optional(),
+    managerIds: z.array(idSchema).max(20).optional(),
+  })
+  .refine((v) => v.name !== undefined || v.description !== undefined || v.managerIds !== undefined, {
+    message: 'No updatable fields supplied',
+  });
+
+/** POST /api/groups */
+export const createGroupSchema = z.object({
+  deptId: idSchema,
+  name: nameSchema,
+  memberIds: z.array(idSchema).max(500).default([]),
+});
+
+/** PATCH /api/groups */
+export const updateGroupSchema = z
+  .object({
+    deptId: idSchema,
+    groupId: idSchema,
+    name: nameSchema.optional(),
+    memberIds: z.array(idSchema).max(500).optional(),
+  })
+  .refine((v) => v.name !== undefined || v.memberIds !== undefined, {
+    message: 'No updatable fields supplied',
+  });
+
+/** PATCH /api/team — move a person into another department. */
+export const moveMemberSchema = z.object({
+  userId: idSchema,
+  deptId: idSchema,
+});
+
 export class ValidationError extends Error {
   constructor(
     message: string,

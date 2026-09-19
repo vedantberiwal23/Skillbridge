@@ -6,12 +6,30 @@ import * as React from "react";
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 
+/**
+ * The named easings framer-motion accepts. Declared here because the package
+ * does not re-export its own `Easing` type, and a bare `string` is not
+ * assignable to the `transition` prop on a motion element.
+ */
+type Ease =
+    | "linear"
+    | "easeIn"
+    | "easeOut"
+    | "easeInOut"
+    | "circIn"
+    | "circOut"
+    | "circInOut"
+    | "backIn"
+    | "backOut"
+    | "backInOut"
+    | "anticipate";
+
 type Transition = {
     type?: string;
     stiffness?: number;
     damping?: number;
     mass?: number;
-    ease?: string;
+    ease?: Ease;
     duration?: number;
 };
 
@@ -84,7 +102,7 @@ export default function KineticTextGrid(props: Props) {
 
     const HOME_FACTOR = 0.4;
 
-    const ease = (transition as any)?.ease ?? "easeInOut";
+    const ease = transition?.ease ?? "easeInOut";
 
     const motionSec = Math.max(0.1, expandDurationSec);
     const holdSec = Math.max(0, holdDurationSec);

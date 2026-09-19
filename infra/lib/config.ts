@@ -75,8 +75,22 @@ export const WEB_REPOSITORY = 'https://github.com/rxshabN/first-commit-lockedin'
  * the same account and region. App Runner has no such shortcut, which is why
  * the Sarvam key is pinned to its full ARN instead.
  */
-export const GITHUB_TOKEN_SECRET = process.env.GITHUB_TOKEN_SECRET ?? 'GithubAmplifyToken';
-export const GITHUB_TOKEN_SECRET_JSON_KEY = 'token';
+export const GITHUB_TOKEN_SECRET = process.env.GITHUB_TOKEN_SECRET ?? 'github-amplify';
+
+/**
+ * The field inside the secret's JSON, which is what the console's "Key/value"
+ * type produces. Set `GITHUB_TOKEN_SECRET_JSON_KEY=''` if the secret is ever
+ * replaced with a plaintext one — a `{{resolve:}}` reference with a key suffix
+ * against a plaintext secret fails the deploy, and without the suffix against a
+ * JSON secret Amplify receives the whole document as the token.
+ */
+export const GITHUB_TOKEN_SECRET_JSON_KEY = process.env.GITHUB_TOKEN_SECRET_JSON_KEY ?? 'token';
+
+/** `{{resolve:secretsmanager:<secret>:SecretString[:<key>]}}`, per the above. */
+export const githubTokenRef = () =>
+  GITHUB_TOKEN_SECRET_JSON_KEY
+    ? `{{resolve:secretsmanager:${GITHUB_TOKEN_SECRET}:SecretString:${GITHUB_TOKEN_SECRET_JSON_KEY}}}`
+    : `{{resolve:secretsmanager:${GITHUB_TOKEN_SECRET}:SecretString}}`;
 
 /**
  * Embedding model for the per-org Knowledge Bases.

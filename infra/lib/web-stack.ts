@@ -9,8 +9,7 @@ import {
   APP_NAME,
   WEB_BRANCH,
   WEB_REPOSITORY,
-  GITHUB_TOKEN_SECRET,
-  GITHUB_TOKEN_SECRET_JSON_KEY,
+  githubTokenRef,
 } from './config';
 
 export interface WebStackProps extends cdk.StackProps {
@@ -155,7 +154,7 @@ export class WebStack extends cdk.Stack {
        * synthesised template, nor `cdk.context.json`.
        */
       repository: WEB_REPOSITORY,
-      accessToken: `{{resolve:secretsmanager:${GITHUB_TOKEN_SECRET}:SecretString:${GITHUB_TOKEN_SECRET_JSON_KEY}}}`,
+      accessToken: githubTokenRef(),
       /**
        * The app lives in `web/`, so the build spec declares an application at
        * that root and `AMPLIFY_MONOREPO_APP_ROOT` tells Amplify's compute where

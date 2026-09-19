@@ -18,7 +18,10 @@ import {
   CheckSquare,
   Camera,
   Folder,
+  ArrowRight,
 } from 'lucide-react';
+import Link from 'next/link';
+import { TwinUploader } from '@/components/viewer/twin-uploader';
 import { MachineViewer } from '@/components/viewer/machine-viewer';
 import { useAccessibility } from '@/components/providers/accessibility-provider';
 import type { MachineAsset } from '@/lib/types';
@@ -27,26 +30,30 @@ import * as player from '@/lib/voice/player';
 import { ScanPipelinePanel } from '@/components/studio/scan-pipeline';
 
 /**
- * The machine twin, served through this app's own `/api/twin` proxy rather than
- * straight off the engine's port.
+ * The Machine Twin output, served as a static asset.
  *
- * It used to point at `http://localhost:8000` directly, which works on the one
- * laptop running the engine and nowhere else: deployed, the browser is on HTTPS
- * and cannot load a plaintext localhost URL at all. The proxy already forwards
- * `model` and `poster`, is session-checked like every other route, and reads
- * `MACHINE_TWIN_URL` server-side — so this follows the engine wherever it lives.
+ * Produced by the Machine Twin engine from a 36-photograph run of project
+ * 6ef7a28f2cdb4b1dbccc0022543d4a75 (HPU-400, 36/36 images registered), then committed under
+ * `public/twin/`. Deliberately NOT fetched from the engine at view time, for
+ * three reasons that each break a live demo:
  *
- * With no engine reachable, `MachineViewer` falls back to its poster-and-hotspot
- * path, which is the honest degraded state: the parts are still tappable, and
- * nothing pretends a scan happened. The scanner tab reports "Unreachable"
- * separately.
+ *   - the engine is a local Python service, so a `http://localhost:8000` URL in
+ *     the browser is blocked as mixed content as soon as the app is served over
+ *     https, and resolves to nothing on any machine but the operator's;
+ *   - the engine cannot be deployed beside the app at all - its mesh stage is
+ *     Apple Object Capture, which is macOS-only;
+ *   - a hardcoded project id drifts. The previous value, `proj_axial_pump_twin`,
+ *     returned 404 for both the model and the poster.
+ *
+ * The live engine is still demonstrated, through the API panel below, which goes
+ * through the `/api/twin` proxy rather than straight at the service.
  */
 const MACHINE_TWIN_ASSET: MachineAsset = {
   orgId: 'local',
-  assetId: 'proj_axial_pump_twin',
-  name: 'Rexroth A10VSO Variable Displacement Axial Piston Pump',
-  glbUrl: '/api/twin?action=model&projectId=proj_axial_pump_twin&lod=0',
-  posterUrl: '/api/twin?action=poster&projectId=proj_axial_pump_twin',
+  assetId: '6ef7a28f2cdb4b1dbccc0022543d4a75',
+  name: 'HPU-400 Hydraulic Power Unit (photogrammetry reconstruction)',
+  glbUrl: '/twin/machine.glb',
+  posterUrl: '/twin/poster.webp',
   hotspots: [
     {
       id: 'relief-valve',
@@ -98,6 +105,34 @@ interface ComponentDetail {
     en: string;
     hi: string;
   };
+}
+
+/**
+ * Bridge from the reconstructed machine into the authored training simulation.
+ *
+ * Photogrammetry reconstructs the OUTSIDE of the customer's actual machine. The
+ * internals - exploded assembly, pistons, swashplate motion, fault behaviour -
+ * come from the per-machine-type simulation, which is authored once and reused
+ * by every customer who owns that pump. The two halves are joined by component
+ * identity, so selecting a part on the real twin opens that same part in the
+ * training model instead of dropping the worker at the top of the lesson.
+ *
+ * Not every exterior component has an internal counterpart - a solenoid valve
+ * and a relief cartridge are both external fittings - so anything unmapped opens
+ * the simulation at its own default rather than guessing at a match.
+ */
+const TRAINING_LESSON_ID = 'dynex-model-simulation';
+
+const TRAINING_COMPONENT_MAP: Record<string, string> = {
+  swashplate: 'camshaft_swashplate',
+  'bearing-flange': 'shaft_seal',
+};
+
+function trainingSimHref(partId: string): string {
+  const mapped = TRAINING_COMPONENT_MAP[partId];
+  return mapped
+    ? `/lesson/${TRAINING_LESSON_ID}?component=${mapped}`
+    : `/lesson/${TRAINING_LESSON_ID}`;
 }
 
 const COMPONENTS: Record<string, ComponentDetail> = {
@@ -830,6 +865,11 @@ export default function SimulationStudioPage() {
                 </div>
               </div>
 
+              {/* Bring-your-own-machine: the organisation-facing path. Uploads go
+                  through /api/twin, which carries the session and keeps the engine's
+                  address out of the browser. */}
+              <TwinUploader />
+
               {/* Active Component Specifications & Hazard Card */}
               <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-800">
@@ -879,6 +919,22 @@ export default function SimulationStudioPage() {
                     </p>
                   </div>
                 </div>
+
+                {/* Into the authored internals. See TRAINING_COMPONENT_MAP. */}
+                <Link
+                  href={trainingSimHref(selectedPartId)}
+                  className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-blue-500/40 bg-blue-950/30 px-4 py-3 transition hover:bg-blue-900/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400"
+                >
+                  <span>
+                    <span className="block text-xs font-bold uppercase tracking-wide text-blue-300">
+                      Open Training Simulation
+                    </span>
+                    <span className="mt-0.5 block text-xs text-blue-200/80">
+                      Exploded assembly, internal components, operating sequence
+                    </span>
+                  </span>
+                  <ArrowRight className="h-5 w-5 shrink-0 text-blue-300" />
+                </Link>
               </div>
             </div>
 

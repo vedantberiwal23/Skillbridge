@@ -26,6 +26,11 @@ const NAV_ITEMS: Array<{
 export function BottomNav() {
   const pathname = usePathname();
 
+  // Do not render the bottom navigation during the onboarding setup flow
+  if (pathname === '/onboarding' || pathname.startsWith('/onboarding/')) {
+    return null;
+  }
+
   return (
     <nav
       aria-label="Primary"

@@ -7,6 +7,7 @@ import { useI18n } from '@/i18n/provider';
 import { LOCALES, LOCALE_LABELS, type Locale } from '@/i18n/config';
 import { useProfile } from '@/components/providers/profile-provider';
 import { TRADES_CATALOG, type TradeTrack } from '@/data/curriculum';
+import { TourLauncher } from '@/components/tour/tour-provider';
 
 export default function PlanPage() {
   const { profile } = useProfile();
@@ -200,12 +201,17 @@ export default function PlanPage() {
               >
                 Sim Library (976)
               </Link>
-              <Link
-                href="/welcome"
-                className="text-xs font-semibold text-slate-500 hover:text-slate-800 hidden sm:inline"
-              >
-                Help
-              </Link>
+              {/*
+                Was a Link to /welcome — the public marketing page. A signed-in
+                worker who wanted help landed on the sales site, which then
+                offers a Login button and makes them think they were signed out.
+                The guided tour is what "Help" should actually do, and it is
+                already built, localized and replayable.
+              */}
+              <TourLauncher
+                variant="icon"
+                className="hidden shrink-0 sm:inline-flex"
+              />
             </div>
           </div>
         </div>

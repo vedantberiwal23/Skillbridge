@@ -286,6 +286,38 @@ async function deploy(appId, branchName) {
 
 // `--bundle-only` builds and validates the bundle without touching AWS, so the
 // shape can be checked before the stack exists.
+/**
+ * This script no longer deploys, and refuses rather than pretending to.
+ *
+ * Amplify Hosting does not support manual deploys for SSR apps. The
+ * CreateDeployment path below uploads the bundle, reports SUCCEED, deploys only
+ * `static/`, and leaves the site 404ing from S3 — so running it against a
+ * working app would silently replace it with a broken one. The web tier now
+ * builds from the connected repository; see `infra/lib/web-stack.ts`.
+ *
+ * `--bundle-only` still works and is still useful: it is the fastest way to
+ * check that `output: 'standalone'` is intact and the bundle assembles.
+ */
+if (!process.argv.includes('--bundle-only')) {
+  console.error(
+    [
+      'deploy-web.mjs no longer deploys.',
+      '',
+      'Amplify Hosting does not support manual deploys for server-side rendered',
+      'apps: CreateDeployment deploys only .amplify-hosting/static, ignores the',
+      'compute primitive, and still reports SUCCEED. Running it would replace a',
+      'working site with one that 404s from S3.',
+      '',
+      'The web tier builds from the connected repository. To ship a change:',
+      '  git push origin master        # Amplify builds on push',
+      '  npx cdk deploy skillbridge-web   # for stack or env-var changes',
+      '',
+      'To validate the bundle locally without deploying: --bundle-only',
+    ].join('\n')
+  );
+  process.exit(1);
+}
+
 if (process.argv.includes('--bundle-only')) {
   // Still resolve the app when it exists, so `--bundle-only` validates the same
   // bundle a real deploy would produce rather than a differently-configured one.

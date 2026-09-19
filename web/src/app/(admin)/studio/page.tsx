@@ -17,17 +17,14 @@ import {
   Send,
   CheckSquare,
   Camera,
-  Upload,
   Folder,
-  ArrowRight,
-  Check,
-  Loader2,
 } from 'lucide-react';
 import { MachineViewer } from '@/components/viewer/machine-viewer';
 import { useAccessibility } from '@/components/providers/accessibility-provider';
 import type { MachineAsset } from '@/lib/types';
 import { openVoiceChannel, type VoiceChannel, type ChannelState, type VoiceTurn } from '@/lib/voice/channel';
 import * as player from '@/lib/voice/player';
+import { ScanPipelinePanel } from '@/components/studio/scan-pipeline';
 
 // Live Machine Twin Photogrammetry Model (Loaded from port 8000)
 const MACHINE_TWIN_ASSET: MachineAsset = {
@@ -243,15 +240,6 @@ export default function SimulationStudioPage() {
   const [selectedPartId, setSelectedPartId] = useState<string>('relief-valve');
   const [autoRotate, setAutoRotate] = useState<boolean>(false);
   const [activeAsset, setActiveAsset] = useState<MachineAsset>(MACHINE_TWIN_ASSET);
-
-  // Photogrammetry Scanner Studio State (Port 8000)
-  const [scanProjectName, setScanProjectName] = useState('Rexroth A10VSO Pump Unit');
-  const [scanManufacturer, setScanManufacturer] = useState('Bosch Rexroth');
-  const [scanFilesCount, setScanFilesCount] = useState<number>(36);
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanStepIndex, setScanStepIndex] = useState(0);
-  const [scanProgress, setScanProgress] = useState(0);
-  const [scanComplete, setScanComplete] = useState(true);
 
   // Voice Diagnostics State
   const [isRecording, setIsRecording] = useState(false);
@@ -514,53 +502,10 @@ export default function SimulationStudioPage() {
     };
   }, [activeTab, isRecording]);
 
-  // Execute Photogrammetry Pipeline on Port 8000
-  const startPhotogrammetryReconstruction = async () => {
-    setIsScanning(true);
-    setScanComplete(false);
-    setScanProgress(5);
-    setScanStepIndex(0);
-
-    // Stage 1: Ingestion & Metadata Check
-    setTimeout(() => {
-      setScanStepIndex(1);
-      setScanProgress(28);
-    }, 2000);
-
-    // Stage 2: COLMAP Sparse Camera Solving
-    setTimeout(() => {
-      setScanStepIndex(2);
-      setScanProgress(60);
-    }, 5000);
-
-    // Stage 3: Apple Object Capture Mesh Synthesis
-    setTimeout(() => {
-      setScanStepIndex(3);
-      setScanProgress(85);
-    }, 9000);
-
-    // Stage 4: Blender LOD Authoring & 2D Poster
-    setTimeout(() => {
-      setScanStepIndex(4);
-      setScanProgress(100);
-      setIsScanning(false);
-      setScanComplete(true);
-    }, 13000);
-  };
-
-  // Activate Scanned Model in 3D Viewer
-  const activateScannedModel = () => {
-    setActiveAsset({
-      ...MACHINE_TWIN_ASSET,
-      glbUrl: `http://localhost:8000/projects/proj_axial_pump_twin/model?lod=0&t=${Date.now()}`,
-      posterUrl: `http://localhost:8000/projects/proj_axial_pump_twin/poster?t=${Date.now()}`,
-    });
+  // A model built by the scanner tab, loaded through the authenticated proxy.
+  const loadScannedModel = (asset: MachineAsset) => {
+    setActiveAsset(asset);
     setActiveTab('twin');
-    speakAudioNotification(
-      language === 'hi'
-        ? 'मशीन ट्विन 3D मॉडल सफलतापूर्वक लोड हो गया है'
-        : 'Photogrammetry 3D Twin model loaded into diagnostic viewer'
-    );
   };
 
   // Execute API Test
@@ -1176,279 +1121,7 @@ export default function SimulationStudioPage() {
         )}
 
         {/* TAB 2: PHOTOGRAMMETRY SCANNER STUDIO (:8000) */}
-        {activeTab === 'scanner' && (
-          <div className="space-y-6 max-w-6xl mx-auto">
-            {/* Engine Capabilities Header Banner */}
-            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <h2 className="text-base font-bold text-white tracking-tight">
-                    Machine Twin Photogrammetry Engine (:8000)
-                  </h2>
-                  <span className="text-[10px] font-mono bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded">
-                    Apple Silicon Metal GPU
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 mt-1">
-                  Automated photo-to-3D pipeline: COLMAP camera pose solving → Apple Object Capture mesh → Blender LOD authoring.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={activateScannedModel}
-                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-blue-600/25 transition flex items-center gap-2"
-                >
-                  <Layers className="w-4 h-4" />
-                  <span>Load Live Scanned Pump in 3D Viewer</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Pipeline Stage Tracker & Scan Trigger */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Left 7 Columns: Scan Setup & Pipeline Runner */}
-              <div className="lg:col-span-7 bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                    <Camera className="w-4 h-4 text-cyan-400" />
-                    New Equipment Photogrammetry Scan
-                  </h3>
-
-                  {/* Machine Form Inputs */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                    <div>
-                      <label className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
-                        Equipment Name
-                      </label>
-                      <input
-                        type="text"
-                        value={scanProjectName}
-                        onChange={(e) => setScanProjectName(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500 font-medium"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
-                        Manufacturer
-                      </label>
-                      <input
-                        type="text"
-                        value={scanManufacturer}
-                        onChange={(e) => setScanManufacturer(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500 font-medium"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Image Ingest Zone */}
-                  <div className="border-2 border-dashed border-slate-800 rounded-xl p-5 text-center bg-slate-950/40 mb-4">
-                    <Upload className="w-8 h-8 text-blue-400 mx-auto mb-2 opacity-80" />
-                    <div className="text-xs font-bold text-slate-200">
-                      36 Walk-Around Photographs Loaded (10° Angular Intervals)
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-1 max-w-md mx-auto">
-                      High-frequency procedural texture registered · 100% camera coverage verified by COLMAP.
-                    </p>
-                    <div className="flex items-center justify-center gap-2 mt-3">
-                      <span className="text-[10px] bg-slate-900 border border-slate-800 text-cyan-300 font-mono px-2 py-0.5 rounded">
-                        {scanFilesCount} Images
-                      </span>
-                      <span className="text-[10px] bg-slate-900 border border-slate-800 text-emerald-300 font-mono px-2 py-0.5 rounded">
-                        Laplacian Sharpness: Optimal
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Live Pipeline Stages Status */}
-                  <div className="space-y-2 mb-4">
-                    <span className="text-[11px] font-mono text-slate-400 uppercase block">
-                      Pipeline Execution Sequence:
-                    </span>
-                    <div className="grid grid-cols-1 gap-2">
-                      {[
-                        { title: 'Step 1: Ingest & Content-Addressable Storage', detail: 'SHA-256 fingerprinting & write-once preservation (chmod 0444)' },
-                        { title: 'Step 2: COLMAP Sparse Camera Pose Estimation', detail: 'Feature matching & 10° angular coverage gate check' },
-                        { title: 'Step 3: Apple Object Capture Mesh Synthesis', detail: 'PhotogrammetrySession GPU surface reconstruction' },
-                        { title: 'Step 4: Blender LOD Authoring & 2D WebP Poster', detail: 'LOD0 (High-Def), LOD1 (Balanced), LOD2 (Mobile 61KB)' },
-                      ].map((stg, idx) => {
-                        const isDone = scanStepIndex > idx || scanComplete;
-                        const isCurrent = scanStepIndex === idx && isScanning;
-                        return (
-                          <div
-                            key={idx}
-                            className={`p-2.5 rounded-lg border text-xs flex items-center justify-between transition ${
-                              isDone
-                                ? 'bg-emerald-950/20 border-emerald-800/40 text-emerald-200'
-                                : isCurrent
-                                ? 'bg-blue-950/40 border-blue-600 text-blue-200 animate-pulse'
-                                : 'bg-slate-950/40 border-slate-800 text-slate-500'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              {isDone ? (
-                                <Check className="w-4 h-4 text-emerald-400" />
-                              ) : isCurrent ? (
-                                <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
-                              ) : (
-                                <span className="w-4 h-4 rounded-full border border-slate-700 flex items-center justify-center text-[9px] font-mono">
-                                  {idx + 1}
-                                </span>
-                              )}
-                              <div>
-                                <span className="font-semibold block">{stg.title}</span>
-                                <span className="text-[10px] opacity-75">{stg.detail}</span>
-                              </div>
-                            </div>
-                            <span className="text-[10px] font-mono font-bold">
-                              {isDone ? 'COMPLETED' : isCurrent ? 'RUNNING...' : 'QUEUED'}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Progress Bar & Start Button */}
-                <div className="pt-3 border-t border-slate-800">
-                  {isScanning && (
-                    <div className="mb-3">
-                      <div className="flex justify-between text-[11px] font-mono text-slate-400 mb-1">
-                        <span>Reconstruction in Progress...</span>
-                        <span>{scanProgress}%</span>
-                      </div>
-                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-blue-500 h-full transition-all duration-500"
-                          style={{ width: `${scanProgress}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      disabled={isScanning}
-                      onClick={startPhotogrammetryReconstruction}
-                      className={`flex-1 py-3 rounded-xl font-bold text-xs transition shadow-lg flex items-center justify-center gap-2 ${
-                        isScanning
-                          ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                          : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/25'
-                      }`}
-                    >
-                      {isScanning ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Processing 3D Mesh on GPU...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Camera className="w-4 h-4" />
-                          <span>Re-Run 3D Reconstruction Pipeline (~20s)</span>
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={activateScannedModel}
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-5 py-3 rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center gap-2"
-                    >
-                      <span>Load into 3D Viewer</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right 5 Columns: Scanned Project Metadata & LOD Sizes */}
-              <div className="lg:col-span-5 bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-800">
-                    <div>
-                      <span className="text-[10px] font-mono uppercase text-slate-500 font-bold tracking-wider block">
-                        Published Artifact
-                      </span>
-                      <h3 className="text-sm font-bold text-white mt-0.5">
-                        {activeAsset.name}
-                      </h3>
-                    </div>
-                    <span className="text-xs bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2.5 py-1 rounded-md font-mono font-bold">
-                      VALIDATED
-                    </span>
-                  </div>
-
-                  {/* LOD Sizes Table */}
-                  <div className="space-y-2.5 mb-5">
-                    <span className="text-[11px] font-mono text-slate-400 uppercase block">
-                      Multi-LOD Browser Export Specs:
-                    </span>
-                    <div className="bg-slate-950/80 rounded-xl border border-slate-800 overflow-hidden text-xs font-mono">
-                      <div className="grid grid-cols-3 p-2.5 border-b border-slate-800/80 text-[10px] text-slate-400 font-bold">
-                        <span>LOD TIER</span>
-                        <span>VERTICES</span>
-                        <span className="text-right">FILE SIZE</span>
-                      </div>
-                      <div className="grid grid-cols-3 p-2.5 border-b border-slate-900 text-slate-200">
-                        <span className="text-blue-400 font-bold">LOD-0 (Ultra)</span>
-                        <span>5,285 pts</span>
-                        <span className="text-right text-emerald-400">3,773 KB</span>
-                      </div>
-                      <div className="grid grid-cols-3 p-2.5 border-b border-slate-900 text-slate-200">
-                        <span className="text-cyan-400 font-bold">LOD-1 (Balanced)</span>
-                        <span>2,642 pts</span>
-                        <span className="text-right text-emerald-400">1,463 KB</span>
-                      </div>
-                      <div className="grid grid-cols-3 p-2.5 text-slate-200">
-                        <span className="text-amber-400 font-bold">LOD-2 (Mobile)</span>
-                        <span>1,321 pts</span>
-                        <span className="text-right text-emerald-400 font-bold">61 KB</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Discovered Subsystem Components */}
-                  <div className="space-y-2">
-                    <span className="text-[11px] font-mono text-slate-400 uppercase block">
-                      Segmented Component Hotspots:
-                    </span>
-                    <div className="space-y-1.5">
-                      {[
-                        { name: '1. Pilot Relief Valve Cartridge', id: 'SKB_COMP_001', tag: 'valve' },
-                        { name: '2. Directional Solenoid Valve 24V DC', id: 'SKB_COMP_002', tag: 'solenoid' },
-                        { name: '3. Swashplate Angle & Control Piston', id: 'SKB_COMP_003', tag: 'mechanism' },
-                        { name: '4. Input Drive Shaft Seal & Bearing', id: 'SKB_COMP_004', tag: 'seal' },
-                      ].map((c, i) => (
-                        <div
-                          key={i}
-                          className="bg-slate-950 p-2 rounded-lg border border-slate-800 flex items-center justify-between text-xs"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center font-mono font-bold text-[10px]">
-                              {i + 1}
-                            </span>
-                            <span className="text-slate-200 font-medium">{c.name}</span>
-                          </div>
-                          <span className="text-[10px] font-mono text-slate-500">{c.id}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Direct API Endpoints Strip */}
-                <div className="mt-4 pt-3 border-t border-slate-800 text-[11px] font-mono text-slate-400 space-y-1">
-                  <div>Model URL: <a href="http://localhost:8000/projects/proj_axial_pump_twin/model?lod=0" target="_blank" rel="noreferrer" className="text-cyan-400 hover:underline">/projects/proj_axial_pump_twin/model</a></div>
-                  <div>Poster URL: <a href="http://localhost:8000/projects/proj_axial_pump_twin/poster" target="_blank" rel="noreferrer" className="text-cyan-400 hover:underline">/projects/proj_axial_pump_twin/poster</a></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {activeTab === 'scanner' && <ScanPipelinePanel onLoadModel={loadScannedModel} />}
 
         {/* TAB 3: INTERACTIVE SOP & GUIDED WORK ORDER */}
         {activeTab === 'sop' && (

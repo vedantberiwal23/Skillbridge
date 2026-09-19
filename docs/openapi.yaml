@@ -1,0 +1,1144 @@
+# SkillBridge HTTP API — OpenAPI 3.1
+#
+# Covers the two HTTP surfaces that reach the browser:
+#   - CRUD  : Next.js route handlers under web/src/app/api/   (Decision 2)
+#   - Voice : the App Runner service's plain-HTTP routes      (services/voice)
+#
+# The third surface, the voice WebSocket at /voice/stream, is not expressible in
+# OpenAPI and is documented in asyncapi.yaml alongside this file.
+#
+# Import into Postman: File -> Import -> this file. Then set `bearerAuth` to a
+# token from `node web/scripts/dev-token.mjs` — Cognito signs in over SRP, which
+# Postman cannot perform, so there is no way to obtain one in its UI.
+#
+# Kept in step with the handlers by hand. If you change a route, change this.
+
+openapi: 3.1.0
+
+info:
+  title: SkillBridge API
+  version: 0.1.0
+  description: |
+    Multi-tenant vocational upskilling platform. **Strictly B2B**: there is no
+    self-serve path and no sign-up endpoint. Accounts exist only by redeeming an
+    invite an org admin issued.
+
+    ## Tenancy
+
+    `orgId`, `userId` and `role` are resolved server side from verified Cognito
+    claims by `requireSession()`. **No endpoint accepts an `orgId` in a body,
+    query string, path segment or header** — the tenant is a property of the
+    token, never of the request. A handler that needs the caller's org reads it
+    from the session; one that reaches another user's partition compares the
+    stored `orgId` against the claim and answers 403 on a mismatch.
+
+    ## Roles
+
+    `worker` < `manager` < `admin`, ordered least- to most-privileged. A role
+    requirement is satisfied by that role **or higher**, so an admin may call a
+    manager endpoint. Where an endpoint below says "manager", read "manager or
+    admin".
+
+    ## What is *not* here
+
+    Cedar authorizes the AgentCore Gateway only and never sees one of these
+    requests; these handlers verify session, role and tenant themselves.
+
+servers:
+  - url: http://127.0.0.1:3123
+    description: Next.js dev server (`npm run dev` in web/) — CRUD routes only
+  - url: http://localhost:3001
+    description: Voice service (`npm run dev` in services/voice/) — /healthz and /voice/config only
+
+tags:
+  - name: worker
+    description: Worker-facing reads and writes. Any signed-in role may call these.
+  - name: manager
+    description: Department rollups and content operations.
+  - name: admin
+    description: Org administration.
+  - name: public
+    description: No session required.
+  - name: voice
+    description: Voice service HTTP routes. The live loop is a WebSocket — see asyncapi.yaml.
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ───────────────────────────── worker ─────────────────────────────
+
+  /api/me:
+    get:
+      tags: [worker]
+      summary: Profile and settings for the signed-in user
+      description: |
+        Access pattern **W1**. One `BatchGetItem` on `USER#<userId>` for
+        `SK in (PROFILE, SETTINGS)`.
+
+        Both fields are independently nullable: an account created outside the
+        invite flow has a Cognito user but no table items, and reads back as
+        `{"profile": null, "settings": null}` rather than 404.
+      operationId: getMe
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [profile, settings]
+                properties:
+                  profile:
+                    oneOf: [{ $ref: '#/components/schemas/UserProfile' }, { type: 'null' }]
+                  settings:
+                    oneOf: [{ $ref: '#/components/schemas/UserSettings' }, { type: 'null' }]
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: The stored profile belongs to another tenant.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+    patch:
+      tags: [worker]
+      summary: Update own profile and/or settings
+      description: |
+        Writes only into the caller's own `USER#<sub>` partition, where `sub`
+        comes from the verified token — there is no addressable way to reach
+        another user.
+
+        Fields are split across two items: `language`, `learningMode` and
+        `accessibilityMode` land on `SETTINGS`; `name`, `profession` and
+        `skillLevel` on `PROFILE`. Supplying fields from both groups issues two
+        updates. At least one field is required.
+
+        Each update is guarded on `attribute_exists(PK)`, so a PATCH against a
+        user with no profile row is a 404 rather than a silent insert of a
+        partial, tenant-less item.
+      operationId: updateMe
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateMeRequest' }
+            examples:
+              switchToMarathi:
+                summary: Change UI and voice language
+                value: { language: mr }
+              onboarding:
+                summary: Finish onboarding
+                value: { profession: industrial-electrician, skillLevel: beginner, learningMode: speech }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: No PROFILE or SETTINGS record exists for this user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /api/plan:
+    get:
+      tags: [worker]
+      summary: Learning plan and module progress
+      description: |
+        Access pattern **W2**. Queries `USER#<userId>` with `begins_with(SK, 'PLAN#')`.
+
+        A worker can hold more than one plan — the first-90-days fast-track path
+        runs alongside the general curriculum — so modules are grouped by the
+        `planId` embedded in their sort key. Attaching every module found to the
+        first header would silently show one plan's modules under another's title.
+
+        `plan` is a convenience alias for `plans[0]`. Ordering puts the
+        fast-track plan first, since it is by definition the front-loaded path.
+
+        Modules come back sorted by `seq`. Note that `planId` is matched exactly
+        rather than by prefix: `PLAN#p1` is a prefix of `PLAN#p10`.
+      operationId: getPlan
+      parameters:
+        - name: planId
+          in: query
+          required: false
+          description: Narrow to a single plan. Omit for all of the caller's plans.
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [plan, plans]
+                properties:
+                  plan:
+                    description: The leading plan, or null if the worker has none yet.
+                    oneOf: [{ $ref: '#/components/schemas/LearningPlan' }, { type: 'null' }]
+                  plans:
+                    type: array
+                    items: { $ref: '#/components/schemas/LearningPlan' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+    patch:
+      tags: [worker]
+      summary: Mark a plan module complete or incomplete
+      description: |
+        Access pattern **W8** (resume cursor). Sets `completedAt` to now when
+        `completed` is true, or to null when false.
+
+        Guarded on `attribute_exists(PK)`: without it an update against a module
+        that does not exist would create one carrying only `completedAt` — no
+        `seq`, no `lessonId`, no `orgId` — which reads back as a module with
+        `seq: NaN`.
+      operationId: updatePlanModule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdatePlanRequest' }
+            examples:
+              complete:
+                value: { planId: plan-01H..., seq: 3, completed: true }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, completedAt]
+                properties:
+                  success: { type: boolean, const: true }
+                  completedAt:
+                    oneOf: [{ type: string, format: date-time }, { type: 'null' }]
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: No such module in that plan for this user.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /api/lessons:
+    get:
+      tags: [worker]
+      summary: Org lesson content, with its 3D asset
+      description: |
+        Access pattern **W3**. Lessons live under the org partition
+        `ORG#<orgId>` with `SK = LESSON#<lessonId>`, so the tenant scope comes
+        entirely from the session.
+
+        With `lessonId`: one `GetItem` for the lesson, plus a second for
+        `ASSET#<assetId>` when the lesson references a machine model. `asset` is
+        null for a lesson with no 3D model.
+
+        Without: every lesson in the org, via `begins_with(SK, 'LESSON#')` on the
+        base table. There is no GSI3 — content is listed by prefix and sorted in
+        the handler.
+      operationId: getLessons
+      parameters:
+        - name: lessonId
+          in: query
+          required: false
+          description: Fetch one lesson and its asset. `id` is accepted as an alias.
+          schema: { type: string }
+        - name: id
+          in: query
+          required: false
+          deprecated: true
+          description: Alias for `lessonId`.
+          schema: { type: string }
+      responses:
+        '200':
+          description: One lesson with its asset, or the full list.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [lesson, asset]
+                    properties:
+                      lesson: { $ref: '#/components/schemas/Lesson' }
+                      asset:
+                        oneOf: [{ $ref: '#/components/schemas/MachineAsset' }, { type: 'null' }]
+                  - type: object
+                    required: [lessons]
+                    properties:
+                      lessons:
+                        type: array
+                        items: { $ref: '#/components/schemas/Lesson' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /api/assessments:
+    get:
+      tags: [worker]
+      summary: Assessment definitions and the caller's attempt history
+      description: |
+        Access pattern **W4**.
+
+        With `assessmentId`: the definition from `ORG#<orgId>`, plus **this
+        worker's own** attempts from their `USER#` partition. Attempts are keyed
+        `ATTEMPT#<assessmentId>#<ts>` with an ISO-8601 UTC timestamp, so they
+        come back in chronological order.
+
+        Without: every assessment definition for the org.
+
+        Assessment kinds are exactly three — `identify-part`,
+        `sequence-procedure`, `diagnose-by-voice`. There is deliberately no
+        generic multiple-choice format; each kind reuses assets the platform
+        already has.
+      operationId: getAssessments
+      parameters:
+        - name: assessmentId
+          in: query
+          required: false
+          description: Fetch one definition plus the caller's attempts. `id` is accepted as an alias.
+          schema: { type: string }
+        - name: id
+          in: query
+          required: false
+          deprecated: true
+          description: Alias for `assessmentId`.
+          schema: { type: string }
+      responses:
+        '200':
+          description: One assessment with attempts, or the full list.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    required: [assessment, attempts]
+                    properties:
+                      assessment: { $ref: '#/components/schemas/Assessment' }
+                      attempts:
+                        type: array
+                        items: { $ref: '#/components/schemas/AssessmentAttempt' }
+                  - type: object
+                    required: [assessments]
+                    properties:
+                      assessments:
+                        type: array
+                        items: { $ref: '#/components/schemas/Assessment' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+    post:
+      tags: [worker]
+      summary: Submit an assessment attempt
+      description: |
+        The attempt is written **unscored** and returned immediately with
+        `status: "pending"` and `score: null`.
+
+        Scoring is the assessment scorer agent's job and it runs on the async
+        tier, so this handler must not wait on it. It persists the attempt,
+        writes an `EVT#` activity event (with the 90-day `ttl`), hands the work
+        to the scorer's SQS queue, and returns. The client re-fetches
+        `GET /api/assessments?assessmentId=…` until `status` turns to `scored`.
+
+        **There is no `score` field on this request.** An earlier version
+        accepted one defaulting to 100, which let any worker pass any assessment
+        by posting their own mark.
+
+        `queued` reports whether the SQS handoff succeeded. It is *not* a failure
+        condition: the attempt is already durable, so a false here costs a delay
+        before a worker picks the attempt up, not a lost submission. Throwing
+        instead would turn a saved submission into a 500.
+      operationId: submitAttempt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SubmitAttemptRequest' }
+            examples:
+              diagnoseByVoice:
+                summary: A spoken diagnosis
+                value:
+                  assessmentId: asmt-hydraulic-drift
+                  response:
+                    transcript: सील घिस गई है, इसलिए सिलेंडर नीचे खिसक रहा है
+                    language: hi-IN
+              identifyPart:
+                summary: A tapped hotspot
+                value:
+                  assessmentId: asmt-identify-pump
+                  response: { hotspotId: rod-seal }
+      responses:
+        '201':
+          description: Attempt persisted, awaiting the scorer.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [attempt, queued]
+                properties:
+                  attempt: { $ref: '#/components/schemas/AssessmentAttempt' }
+                  queued:
+                    type: boolean
+                    description: Whether the scoring job reached SQS. False means a delay, not a lost attempt.
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: No such assessment in the caller's org.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  # ───────────────────────────── manager ─────────────────────────────
+
+  /api/aggregates:
+    get:
+      tags: [manager]
+      summary: Materialized department rollup
+      description: |
+        Access patterns **M2/M3**. **Requires manager or admin.**
+
+        Exactly one `GetItem` on `AGG#DEPT#<deptId>#<period>`. The numbers are
+        materialized on the write path by the async skill profiler, which means
+        this is O(1) at any workforce size.
+
+        This endpoint never fans out over workers — not here, and not by having
+        the client fetch per-worker records and sum them. Building the dashboard
+        from a GSI1 worker query is the obvious implementation and it is
+        O(workforce) per page view.
+
+        A period with no activity yet returns a zeroed aggregate rather than 404,
+        so the dashboard renders an empty state instead of an error.
+
+        **Department scope**: a manager's scope is their own department, so
+        naming a different `deptId` is 403 unless the caller is an admin.
+      operationId: getAggregates
+      parameters:
+        - name: deptId
+          in: query
+          required: false
+          description: |
+            Defaults to the caller's own `custom:deptId`. A manager naming any
+            other department gets 403; an admin may name any department in their
+            own org.
+          schema: { type: string }
+        - name: period
+          in: query
+          required: false
+          description: Reporting period. Defaults to the current month.
+          schema: { type: string, pattern: '^\d{4}-\d{2}$', examples: ['2026-09'] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [aggregate]
+                properties:
+                  aggregate: { $ref: '#/components/schemas/DeptAggregate' }
+        '400':
+          description: No `deptId` supplied and the caller has none of their own.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not a manager, or a manager named another department.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  # ───────────────────────────── admin ─────────────────────────────
+
+  /api/invites:
+    post:
+      tags: [admin]
+      summary: Issue an invite
+      description: |
+        Access pattern **A3**. **Requires admin.**
+
+        The only way an account comes into existence. Generates a 16-character
+        hex code from `crypto.randomBytes(8)` — sized to be infeasible to guess
+        while still readable out of an SMS, since the code is the sole credential
+        guarding an unauthenticated endpoint that creates accounts. Expires in 7
+        days.
+
+        `orgId` is taken from the admin's own session, so an admin cannot issue
+        an invite into another tenant. `role` and `deptId` are stored on the
+        invite and are what the redeemed account will receive — the redeemer
+        cannot influence either.
+
+        The item is written with `GSI2PK = INVITE#<code>` so redemption can find
+        it without knowing the org, and **without** a `redeemedAt` attribute. That
+        omission is load-bearing: the DynamoDB client strips `undefined` but
+        preserves `null`, so writing `redeemedAt: null` would make the attribute
+        exist, `attribute_not_exists(redeemedAt)` would never fail, and one code
+        would redeem an unlimited number of times.
+      operationId: issueInvite
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IssueInviteRequest' }
+            examples:
+              sms:
+                summary: Invite a worker by SMS (the common case)
+                value: { role: worker, channel: sms, phone: '+919876543210', deptId: dept-maint }
+              email:
+                summary: Invite a manager by email
+                value: { role: manager, channel: email, email: supervisor@example.com, deptId: dept-maint }
+      responses:
+        '201':
+          description: Invite created. The `code` is what gets sent to the worker.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invite]
+                properties:
+                  invite: { $ref: '#/components/schemas/Invite' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not an admin.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+    patch:
+      tags: [public]
+      summary: Redeem an invite and create the account
+      description: |
+        Access pattern **A4**. **No session required** — the worker has no
+        account yet, so the invite code *is* the credential. This is the only
+        unauthenticated endpoint in the API.
+
+        Sequence, in this order:
+
+        1. GSI2 lookup on `INVITE#<code>` — the org is unknown at this point.
+        2. Conditional `UpdateItem` marking `redeemedAt`, guarded on
+           not-already-redeemed **and** not-expired. Two simultaneous redemptions
+           of one code cannot both win.
+        3. Create the Cognito user, copying `orgId`, `deptId` and `role` **from
+           the stored invite, never from this request body**.
+        4. Write `PROFILE` and `SETTINGS` in one transaction.
+
+        The body is validated *before* step 2, because a password that misses the
+        pool policy or a phone that is not E.164 is rejected by Cognito in step 3
+        — by which point the code would already be consumed.
+
+        Everything after step 2 can fail, and a failure would otherwise burn the
+        worker's only route into the product. Each later step hands the invite
+        back on the way out, deleting the half-created Cognito user if one
+        exists, so redemption can be retried with the same code.
+
+        Supply `phone` **or** `email`. Phone is preferred: most of this workforce
+        has no domain email address. Whichever is given becomes the Cognito
+        username, because the pool uses `UsernameAttributes: ["email",
+        "phone_number"]`.
+      operationId: redeemInvite
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RedeemInviteRequest' }
+            examples:
+              byPhone:
+                value:
+                  code: A1B2C3D4E5F60718
+                  name: Ramesh Kumar
+                  password: hydraulic7
+                  phone: '+919876543210'
+      responses:
+        '200':
+          description: Account created. The user may now sign in.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, userId, orgId, role]
+                properties:
+                  success: { type: boolean, const: true }
+                  userId:
+                    type: string
+                    description: The Cognito `sub`, used verbatim as the application user id everywhere.
+                  orgId: { type: string, description: Taken from the invite, not the request. }
+                  role: { $ref: '#/components/schemas/Role' }
+        '400':
+          description: Body failed validation, or the code is expired or already redeemed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ValidationError' }
+        '404':
+          description: No invite with that code.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: |
+            An account already exists for this phone or email, or — far less
+            likely — the same code exists in two orgs, which makes "which tenant"
+            ambiguous. The handler refuses rather than picking one.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  # ───────────────────────────── machine twin ─────────────────────────────
+
+  /api/twin:
+    get:
+      tags: [manager]
+      summary: Read from the Machine Twin photogrammetry engine
+      description: |
+        Authenticated proxy to the local Machine Twin service (`MACHINE_TWIN_URL`,
+        default `http://127.0.0.1:8000`). Any signed-in role may read.
+
+        Ids are validated against `^[A-Za-z0-9_-]{1,64}$` before interpolation,
+        because they are placed straight into the upstream URL and anything else
+        could walk out of `/projects/<id>` and reach another path on the engine.
+        A rejected id falls through to the no-`projectId` branch rather than
+        being escaped.
+
+        The upstream host is an internal detail and is never handed to the
+        browser: an unreachable engine is a flat 502.
+      operationId: twinRead
+      parameters:
+        - name: action
+          in: query
+          required: false
+          description: |
+            `capabilities` and `projects` work without a `projectId`; the rest
+            require one and fall through to a 400 without it.
+          schema:
+            type: string
+            default: projects
+            enum: [capabilities, projects, components, coverage, jobs, model, poster]
+        - name: projectId
+          in: query
+          required: false
+          schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }
+        - name: lod
+          in: query
+          required: false
+          description: Level of detail for `action=model`. Non-numeric values fall back to 0.
+          schema: { type: string, pattern: '^\d{1,2}$', default: '0' }
+      responses:
+        '200':
+          description: |
+            JSON for most actions. `action=model` returns a binary GLB and
+            `action=poster` a WebP image.
+          content:
+            application/json:
+              schema:
+                description: Passed through from the engine.
+                type: [object, array, 'null']
+            model/gltf-binary:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+        '400':
+          description: Unknown `action`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: The engine has no such model or poster.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '502': { $ref: '#/components/responses/TwinUnavailable' }
+
+    post:
+      tags: [manager]
+      summary: Create a twin project, run a stage, or upload capture assets
+      description: |
+        **Requires manager or admin.** Creating projects and triggering
+        photogrammetry stages is a content operation, not something an anonymous
+        or worker-level caller may do.
+      operationId: twinWrite
+      parameters:
+        - name: action
+          in: query
+          required: false
+          schema: { type: string, default: create, enum: [create, stage, upload] }
+        - name: projectId
+          in: query
+          required: false
+          description: Required for `stage` and `upload`.
+          schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }
+        - name: stage
+          in: query
+          required: false
+          schema: { type: string, default: reconstruct }
+      requestBody:
+        required: false
+        description: JSON for `action=create`; multipart for `action=upload`. Ignored for `stage`.
+        content:
+          application/json:
+            schema: { type: object, description: Passed through to the engine unchanged. }
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items: { type: string, format: binary }
+      responses:
+        '200':
+          description: Passed through from the engine.
+          content:
+            application/json:
+              schema: { type: [object, array, 'null'] }
+        '400':
+          description: Unknown `action`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Caller is not a manager or admin.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '502': { $ref: '#/components/responses/TwinUnavailable' }
+
+  # ───────────────────────────── voice service ─────────────────────────────
+
+  /healthz:
+    servers:
+      - url: http://localhost:3001
+        description: Voice service
+    get:
+      tags: [voice]
+      summary: Liveness probe
+      description: App Runner health check. No authentication.
+      operationId: voiceHealth
+      security: []
+      responses:
+        '200':
+          description: The process is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean, const: true }
+
+  /voice/config:
+    servers:
+      - url: http://localhost:3001
+        description: Voice service
+    get:
+      tags: [voice]
+      summary: Voice capability advertisement
+      description: |
+        Lets the client grey the mic button out honestly rather than discovering
+        at button-down that the service cannot answer.
+
+        `configured` is false when `SARVAM_API_KEY` is absent. No key value is
+        ever exposed here — `SARVAM_API_KEY` is server-side only and the browser
+        never holds it, never calls `api.sarvam.ai`, and reaches voice solely
+        through this service's `/voice/stream` socket.
+      operationId: voiceConfig
+      security: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [configured, languages, models]
+                properties:
+                  configured:
+                    type: boolean
+                    description: Whether a Sarvam key is present. False means the mic should be disabled.
+                  languages:
+                    type: array
+                    description: Languages the voice loop accepts. Distinct from the UI locales (en, hi, mr).
+                    items:
+                      type: object
+                      required: [code, label, native]
+                      properties:
+                        code: { type: string, examples: ['hi-IN'] }
+                        label: { type: string, examples: ['Hindi'] }
+                        native: { type: string, examples: ['हिन्दी'] }
+                  models:
+                    type: object
+                    required: [stt, tts, translate, reply]
+                    properties:
+                      stt: { type: string, examples: ['saaras:v3-realtime'] }
+                      tts: { type: string, examples: ['bulbul:v3'] }
+                      translate: { type: string }
+                      reply:
+                        type: string
+                        description: Bedrock inference profile id for the voice tutor orchestrator.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        A Cognito **ID token**, not an access token. The access token carries
+        only `sub`, `client_id`, `scope`, `token_use`, `username` and
+        `cognito:groups` — it has no `custom:*` attributes and therefore no
+        tenant, so a request bearing one would be authorized with
+        `orgId === undefined`.
+
+        `requireSession` verifies the ID token first and falls back to the access
+        token, in which case it recovers `role` from `cognito:groups` and loads
+        `orgId` from `USER#<sub>/PROFILE`. A token that yields no `orgId` by
+        either route is rejected; none is ever defaulted or synthesised.
+
+        The browser sends this as an Amplify cookie (`*.idToken`) instead of a
+        header; both are accepted. Tokens last one hour.
+
+        Get one with `node web/scripts/dev-token.mjs --curl`.
+
+  responses:
+    Success:
+      description: OK
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [success]
+            properties:
+              success: { type: boolean, const: true }
+    Unauthorized:
+      description: Missing, malformed or expired token, or a token carrying no tenant.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          examples:
+            missing: { value: { error: Missing authentication token } }
+            expired: { value: { error: Invalid or expired authentication token } }
+            noTenant: { value: { error: 'Malformed token: missing orgId' } }
+    NotFound:
+      description: No such item in the caller's org.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ValidationFailed:
+      description: The request body failed schema validation.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ValidationError' }
+    ServerError:
+      description: |
+        Unexpected failure. The message is always the literal string below:
+        raw errors are routinely Cognito or DynamoDB messages naming internal
+        resources, so only deliberately-raised messages reach the client.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: Internal Server Error }
+    TwinUnavailable:
+      description: The Machine Twin engine could not be reached.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { error: Machine Twin engine is unavailable }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+
+    ValidationError:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string, examples: ['Request body is invalid'] }
+        issues:
+          type: array
+          description: Present for schema failures; absent for other 400s.
+          items:
+            type: object
+            required: [path, message]
+            properties:
+              path: { type: string, description: Dotted path to the offending field. }
+              message: { type: string }
+
+    Role:
+      type: string
+      enum: [worker, manager, admin]
+      description: Ordered least- to most-privileged. A requirement is met by that role or higher.
+
+    Locale:
+      type: string
+      enum: [en, hi, mr]
+      description: |
+        UI locale. Drives both the interface language and, through `VOICE_LANGUAGE`,
+        the voice pipeline — there is one language setting, not two.
+
+    LearningMode:
+      type: string
+      enum: [speech, text]
+
+    AssessmentKind:
+      type: string
+      enum: [identify-part, sequence-procedure, diagnose-by-voice]
+      description: |
+        Exactly three, all vertical-native: each reuses assets the platform
+        already has. There is deliberately no generic multiple-choice kind.
+
+    UserProfile:
+      type: object
+      required: [userId, orgId, deptId, role, name, profession, skillLevel]
+      properties:
+        userId: { type: string, description: The Cognito `sub`, verbatim. }
+        orgId: { type: string, description: Never null and never a sentinel. }
+        deptId:
+          oneOf: [{ type: string }, { type: 'null' }]
+          description: |
+            Nullable, unlike `orgId` — an admin can invite a worker before
+            placing them in a department.
+        role: { $ref: '#/components/schemas/Role' }
+        name: { type: string }
+        profession:
+          oneOf: [{ type: string }, { type: 'null' }]
+          description: Null until onboarding. Drives learning plan generation.
+        skillLevel:
+          oneOf: [{ type: string }, { type: 'null' }]
+
+    UserSettings:
+      type: object
+      required: [userId, language, learningMode, accessibilityMode]
+      properties:
+        userId: { type: string }
+        language: { $ref: '#/components/schemas/Locale' }
+        learningMode: { $ref: '#/components/schemas/LearningMode' }
+        accessibilityMode:
+          type: boolean
+          description: Drives `data-a11y="on"` on the document element, and the viewer's 2D fallback.
+
+    PlanModule:
+      type: object
+      required: [seq, lessonId, title, completedAt]
+      properties:
+        seq:
+          type: integer
+          minimum: 0
+          description: |
+            Zero-padded in the sort key, so a plan with ten or more modules stays
+            in order. Unpadded, `MOD#10` sorts before `MOD#2`.
+        lessonId: { type: string }
+        title: { type: string }
+        completedAt:
+          oneOf: [{ type: string, format: date-time }, { type: 'null' }]
+
+    LearningPlan:
+      type: object
+      required: [userId, planId, profession, skillLevel, modules, isFastTrack]
+      properties:
+        userId: { type: string }
+        planId: { type: string }
+        profession: { type: string }
+        skillLevel: { type: string }
+        isFastTrack:
+          type: boolean
+          description: Front-loaded onboarding path. Early tenure is where attrition concentrates.
+        modules:
+          type: array
+          items: { $ref: '#/components/schemas/PlanModule' }
+
+    Lesson:
+      type: object
+      required: [orgId, lessonId, title, body, assetId]
+      properties:
+        orgId: { type: string }
+        lessonId: { type: string }
+        title: { type: string }
+        body: { type: string }
+        assetId:
+          oneOf: [{ type: string }, { type: 'null' }]
+          description: The 3D model shown with this lesson, if any.
+
+    AssetHotspot:
+      type: object
+      required: [id, label, position, normal]
+      description: |
+        A tappable component on the model — the anchor for "tap a part, ask about
+        it". The id is what reaches the voice turn as `part`.
+      properties:
+        id: { type: string }
+        label: { type: string }
+        position: { type: string, description: 'model-viewer coordinate triple, e.g. "0.1 0.2 0.3"' }
+        normal: { type: string }
+
+    MachineAsset:
+      type: object
+      required: [orgId, assetId, name, glbUrl, posterUrl, hotspots]
+      properties:
+        orgId: { type: string }
+        assetId: { type: string }
+        name: { type: string }
+        glbUrl:
+          type: string
+          description: |
+            Content-hashed and immutable. Never append a cache-buster: the
+            service worker caches matching extensions cache-first with no expiry.
+        posterUrl:
+          type: string
+          description: Pre-rendered still, used on the 2D path where tap-a-part must still work.
+        hotspots:
+          type: array
+          items: { $ref: '#/components/schemas/AssetHotspot' }
+
+    Assessment:
+      type: object
+      required: [orgId, assessmentId, kind, title, lessonId]
+      properties:
+        orgId: { type: string }
+        assessmentId: { type: string }
+        kind: { $ref: '#/components/schemas/AssessmentKind' }
+        title: { type: string }
+        lessonId:
+          oneOf: [{ type: string }, { type: 'null' }]
+
+    AssessmentAttempt:
+      type: object
+      required: [userId, assessmentId, submittedAt, status, response, score, feedback]
+      properties:
+        userId: { type: string }
+        assessmentId: { type: string }
+        submittedAt:
+          type: string
+          format: date-time
+          description: ISO-8601 UTC. Embedded in the sort key, so it must sort lexicographically.
+        status:
+          type: string
+          enum: [pending, scored]
+        response:
+          description: The worker's raw submission — the scorer's input. Shape varies by kind.
+        score:
+          oneOf: [{ type: number }, { type: 'null' }]
+          description: Null until the scorer has run. Never supplied by the client.
+        feedback:
+          oneOf: [{ type: string }, { type: 'null' }]
+          description: Scored on the reasoning path, not only the final answer.
+
+    DeptAggregate:
+      type: object
+      required: [orgId, deptId, period, workerCount, assessmentsPassed, assessmentsFailed, skillGaps]
+      description: |
+        Materialized on write by the skill profiler, never computed on read. If
+        the dashboard needs a number this does not carry, it is added to the
+        profiler's write path — not to the read path.
+      properties:
+        orgId: { type: string }
+        deptId: { type: string }
+        period: { type: string, examples: ['2026-09'] }
+        workerCount: { type: integer }
+        assessmentsPassed: { type: integer }
+        assessmentsFailed: { type: integer }
+        skillGaps:
+          type: object
+          description: Topic to occurrence count.
+          additionalProperties: { type: integer }
+
+    Invite:
+      type: object
+      required: [orgId, code, deptId, role, channel, expiresAt]
+      properties:
+        orgId: { type: string }
+        code:
+          type: string
+          description: 16 hex characters from `crypto.randomBytes(8)`, uppercased.
+          pattern: '^[0-9A-F]{16}$'
+        deptId:
+          oneOf: [{ type: string }, { type: 'null' }]
+        role: { $ref: '#/components/schemas/Role' }
+        channel: { type: string, enum: [email, sms] }
+        email:
+          oneOf: [{ type: string, format: email }, { type: 'null' }]
+        phone:
+          oneOf: [{ type: string }, { type: 'null' }]
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time, description: Seven days after issue. }
+        redeemedAt:
+          type: string
+          format: date-time
+          description: |
+            **Absent** until redeemed — not null. The attribute's non-existence is
+            what the redemption guard tests.
+
+    UpdateMeRequest:
+      type: object
+      minProperties: 1
+      description: At least one field is required.
+      properties:
+        language: { $ref: '#/components/schemas/Locale' }
+        learningMode: { $ref: '#/components/schemas/LearningMode' }
+        accessibilityMode: { type: boolean }
+        name: { type: string, minLength: 1 }
+        profession:
+          oneOf: [{ type: string, minLength: 1 }, { type: 'null' }]
+        skillLevel:
+          oneOf: [{ type: string, minLength: 1 }, { type: 'null' }]
+
+    UpdatePlanRequest:
+      type: object
+      required: [planId, seq, completed]
+      properties:
+        planId: { type: string, minLength: 1 }
+        seq: { type: integer, minimum: 0 }
+        completed: { type: boolean }
+
+    SubmitAttemptRequest:
+      type: object
+      required: [assessmentId]
+      properties:
+        assessmentId: { type: string, minLength: 1 }
+        response:
+          description: |
+            Free-form; shape is the assessment kind's business. Stored verbatim
+            as the scorer's input.
+
+    IssueInviteRequest:
+      type: object
+      required: [role, channel]
+      description: |
+        `email` is required when `channel` is `email`, `phone` when it is `sms`.
+        There is no `orgId` — it comes from the admin's session.
+      properties:
+        role: { $ref: '#/components/schemas/Role' }
+        channel: { type: string, enum: [email, sms] }
+        deptId:
+          oneOf: [{ type: string, minLength: 1 }, { type: 'null' }]
+        email: { type: string, format: email }
+        phone: { type: string, pattern: '^\+[1-9]\d{1,14}$', description: E.164. }
+
+    RedeemInviteRequest:
+      type: object
+      required: [code, name, password]
+      description: |
+        Carries no `role`, `orgId` or `deptId` by design — all three are read
+        from the stored invite. One of `phone` or `email` is required.
+      properties:
+        code: { type: string, minLength: 1, description: Case-insensitive; trimmed and uppercased. }
+        name: { type: string, minLength: 1 }
+        password:
+          type: string
+          minLength: 8
+          description: |
+            Mirrors the pool policy: at least 8 characters with a lowercase
+            letter and a digit. Uppercase and symbols are not required.
+        email: { type: string, format: email }
+        phone: { type: string, pattern: '^\+[1-9]\d{1,14}$' }

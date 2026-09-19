@@ -1,0 +1,537 @@
+# SkillBridge voice channel — AsyncAPI 3.0
+#
+# The live voice loop at ws://<voice-service>/voice/stream. This is the third
+# and last backend surface that reaches the browser; the two HTTP surfaces are
+# in openapi.yaml alongside this file.
+#
+# A WebSocket cannot be expressed in OpenAPI, which is why this is a separate
+# document rather than another path over there.
+#
+# Kept in step with services/voice/src/voice/{channel,turn}.ts by hand.
+
+asyncapi: 3.0.0
+
+info:
+  title: SkillBridge Voice Channel
+  version: 0.1.0
+  description: |
+    Mic → Sarvam `saaras:v3-realtime` → Bedrock Haiku 4.5 (streamed) → Sarvam
+    `bulbul:v3` → speaker, grounded in the organization's own Knowledge Base and
+    answered in the worker's language.
+
+    ## One persistent process
+
+    This is a single Node process on App Runner holding the browser socket plus
+    **both** Sarvam sockets at once. It is never ported to Lambda, API Gateway
+    WebSocket or a Next.js route handler: a warmed channel lives up to 15 minutes
+    across many turns, and no request-scoped runtime holds that.
+
+    The live turn calls Bedrock in-process under the App Runner service role —
+    not through the AgentCore Gateway and not through a Lambda. A hop there would
+    add latency to the one path where latency is the product.
+
+    ## Channel vs turn
+
+    A **channel** is warmed when the voice panel *opens*, not at button-down: TCP,
+    TLS, the HTTP upgrade and token verification all happen while the worker is
+    still deciding what to ask, so button-down has nothing left to do but listen.
+    A channel outlives a turn, so the second question is as fast as the first.
+
+    A **turn** is one question: `begin` → audio frames → `stop` → answer → `done`.
+    A failed turn does not end the channel.
+
+    ## Guards, all enforced at or before the upgrade
+
+    | Guard | Value | Why |
+    |---|---|---|
+    | `Origin` allowlist | `config.allowedOrigins` | A WebSocket is not subject to same-origin policy and an upgrade never reaches CORS middleware. Without this, any site on the internet could open a socket on a user's token. Checked **before any frame is read**. The loopback exemption is gated on `NODE_ENV`, never on the origin string. |
+    | `START_TIMEOUT_MS` | 10 s | A socket that never authenticates is not a channel. |
+    | `MAX_SOCKETS_PER_USER` | 3 | One channel serves one panel. |
+    | `MAX_AUDIO_FRAMES` | 800 (~40 s) | Past this it is a stuck button, not a question. Excess frames are dropped silently; the turn continues. |
+    | `CHANNEL_IDLE_MS` | 5 min | |
+    | `CHANNEL_MAX_MS` | 15 min | The bounded lifetime is the only thing stopping a revoked or role-changed user from holding a live authorized socket. |
+
+    ## What is persisted
+
+    Transcripts and turn metadata; **raw audio never** — not to S3, not to
+    DynamoDB, not to a disk buffer outliving the turn.
+
+    Concretely, two items, both written fire-and-forget off the turn path so no
+    frame ever waits on a round trip:
+
+    - One `USER#<userId>` / `EVT#<ts>#<uuid>` per **answered** turn, carrying the
+      question, the languages, whether the KB was used, reply length and latency,
+      with the 90-day `ttl`. A turn that transcribed to silence writes nothing —
+      it is not a question and carries no skill signal.
+    - One `USER#<userId>` / `SESSION#<ts>#<sessionId>` per channel, written as it
+      closes, carrying turn counts and languages. No `ttl`: session history is a
+      durable record, not profiler input.
+
+    The `EVT#` items are what feed the skill profiler, and through it the
+    `skillGaps` figures on the manager dashboard.
+
+    Note the product claim is exactly three things: encryption in transit and at
+    rest, per-organization isolation, and auditability. It is **not** zero-knowledge
+    or end-to-end encrypted — the model reads org SOPs in plaintext to answer
+    from them.
+
+defaultContentType: application/json
+
+servers:
+  local:
+    host: localhost:3001
+    protocol: ws
+    description: '`npm run dev` in services/voice/. Requires SARVAM_API_KEY; the service refuses to boot without it.'
+  production:
+    host: '{appRunnerHost}'
+    protocol: wss
+    description: App Runner service.
+    variables:
+      appRunnerHost:
+        description: The App Runner service domain.
+
+channels:
+  voiceStream:
+    address: /voice/stream
+    title: Live voice channel
+    description: |
+      **Authentication is from the first frame only** — `{ t: 'start', token }`.
+
+      Browsers cannot set headers on a WebSocket. That is not worked around with
+      a `?token=` query parameter (which leaks into proxy, access and history
+      logs) or the `Sec-WebSocket-Protocol` subprotocol hack (the same leak, into
+      handshake logs).
+
+      The token is a Cognito **ID token**, for the same reason as the HTTP API:
+      the access token carries no `custom:*` and therefore no tenant, so a naive
+      access-token implementation compiles, runs, and authorizes turns with
+      `orgId === undefined`. The org is bound once at `start` and the Knowledge
+      Base id is resolved from it — never from a client field.
+    messages:
+      start: { $ref: '#/components/messages/start' }
+      begin: { $ref: '#/components/messages/begin' }
+      audioIn: { $ref: '#/components/messages/audioIn' }
+      stop: { $ref: '#/components/messages/stop' }
+      cancel: { $ref: '#/components/messages/cancel' }
+      ready: { $ref: '#/components/messages/ready' }
+      listening: { $ref: '#/components/messages/listening' }
+      partial: { $ref: '#/components/messages/partial' }
+      final: { $ref: '#/components/messages/final' }
+      thinking: { $ref: '#/components/messages/thinking' }
+      delta: { $ref: '#/components/messages/delta' }
+      audioStart: { $ref: '#/components/messages/audioStart' }
+      audioOut: { $ref: '#/components/messages/audioOut' }
+      audioEnd: { $ref: '#/components/messages/audioEnd' }
+      say: { $ref: '#/components/messages/say' }
+      reply: { $ref: '#/components/messages/reply' }
+      empty: { $ref: '#/components/messages/empty' }
+      expired: { $ref: '#/components/messages/expired' }
+      error: { $ref: '#/components/messages/error' }
+      done: { $ref: '#/components/messages/done' }
+
+operations:
+  send:
+    action: send
+    channel: { $ref: '#/channels/voiceStream' }
+    title: Client to server
+    description: |
+      Ordering is enforced. `start` is accepted once and ignored thereafter.
+      Anything before a successful `start` is dropped. `audio`, `stop` and
+      `cancel` are dropped when no turn is open, and a second `begin` while a
+      turn is live is ignored rather than queued.
+    messages:
+      - { $ref: '#/channels/voiceStream/messages/start' }
+      - { $ref: '#/channels/voiceStream/messages/begin' }
+      - { $ref: '#/channels/voiceStream/messages/audioIn' }
+      - { $ref: '#/channels/voiceStream/messages/stop' }
+      - { $ref: '#/channels/voiceStream/messages/cancel' }
+
+  receive:
+    action: receive
+    channel: { $ref: '#/channels/voiceStream' }
+    title: Server to client
+    description: |
+      A normal turn:
+
+          → start                    ← ready
+          → begin                    ← listening
+          → audio × N                ← partial … (live transcript)
+          → stop                     ← final
+                                     ← thinking
+                                     ← audio_start
+                                     ← delta … (reply text, token by token)
+                                     ← audio × N (seq 0,1,2 …)
+                                     ← audio_end
+                                     ← reply    (the turn's summary)
+                                     ← done
+
+      Two paths carry speech, and a turn can switch between them mid-reply:
+
+      - **Streaming** — `audio_start`, then `audio` frames, then `audio_end`.
+      - **Clip fallback** — `say` messages, each a whole sentence with its own
+        audio, played in `i` order. No `audio_start`/`audio_end` bracket these.
+
+      A silent question ends at `empty` with no model call and no speech.
+    messages:
+      - { $ref: '#/channels/voiceStream/messages/ready' }
+      - { $ref: '#/channels/voiceStream/messages/listening' }
+      - { $ref: '#/channels/voiceStream/messages/partial' }
+      - { $ref: '#/channels/voiceStream/messages/final' }
+      - { $ref: '#/channels/voiceStream/messages/thinking' }
+      - { $ref: '#/channels/voiceStream/messages/delta' }
+      - { $ref: '#/channels/voiceStream/messages/audioStart' }
+      - { $ref: '#/channels/voiceStream/messages/audioOut' }
+      - { $ref: '#/channels/voiceStream/messages/audioEnd' }
+      - { $ref: '#/channels/voiceStream/messages/say' }
+      - { $ref: '#/channels/voiceStream/messages/reply' }
+      - { $ref: '#/channels/voiceStream/messages/empty' }
+      - { $ref: '#/channels/voiceStream/messages/expired' }
+      - { $ref: '#/channels/voiceStream/messages/error' }
+      - { $ref: '#/channels/voiceStream/messages/done' }
+
+components:
+  messages:
+    # ───────────────────────── client → server ─────────────────────────
+
+    start:
+      name: start
+      title: Authenticate the channel
+      summary: Sent once, when the voice panel opens.
+      payload:
+        type: object
+        required: [t, token]
+        properties:
+          t: { type: string, const: start }
+          token:
+            type: string
+            description: |
+              A Cognito ID token. Rejected with `error{code:UNAUTHORIZED}` if
+              missing, expired or unverifiable; `FORBIDDEN` if the account has no
+              org or no role; `UNAVAILABLE` if the JWKS cannot be reached.
+
+    begin:
+      name: begin
+      title: Open a turn
+      summary: Button down.
+      payload:
+        type: object
+        required: [t]
+        properties:
+          t: { type: string, const: begin }
+          language:
+            type: string
+            default: hi-IN
+            description: |
+              An unrecognised value falls back to `hi-IN` rather than erroring.
+              See `GET /voice/config` for the accepted list — eleven Indian
+              languages, a wider set than the three UI locales.
+            enum: [en-IN, hi-IN, bn-IN, ta-IN, te-IN, kn-IN, ml-IN, mr-IN, gu-IN, pa-IN, od-IN]
+          explicit:
+            type: boolean
+            default: false
+            description: |
+              True when the worker picked the language themselves, which beats
+              inference. Otherwise the channel reuses whatever it heard last — a
+              worker who asked in Marathi once will very likely ask in Marathi
+              again, and knowing that lets an early start answer in Marathi
+              instead of restarting.
+          part:
+            type: [string, 'null']
+            description: |
+              The hotspot id from the 3D viewer's `onPartSelected`. This is what
+              makes "tap a part and ask about it" work, and it must behave
+              identically on the 2D poster path.
+          history:
+            type: array
+            description: Prior turns for context. Ignored unless it is an array.
+            items: { type: object }
+
+    audioIn:
+      name: audio
+      title: Microphone frame
+      payload:
+        type: object
+        required: [t, b64]
+        properties:
+          t: { type: string, const: audio }
+          b64:
+            type: string
+            contentEncoding: base64
+            description: |
+              **50 ms of raw linear16 PCM, 16 kHz, mono.** 50 ms rather than the
+              100 ms Sarvam suggests, because that buffer is paid on the first
+              word — the one being watched for.
+
+              Note 16 kHz in is *not* the 22050 Hz that comes back out; conflating
+              the two produces audio that transcribes as gibberish rather than
+              failing outright.
+
+              Frames arriving before the Sarvam handshake completes are queued,
+              not dropped: the first half-second is usually where the question
+              starts.
+
+    stop:
+      name: stop
+      title: Close the turn and answer
+      summary: Button up. Ignored while a turn is already finishing.
+      payload:
+        type: object
+        required: [t]
+        properties:
+          t: { type: string, const: stop }
+
+    cancel:
+      name: cancel
+      title: Abandon the turn
+      summary: |
+        Tears down the turn's vendor sockets. The channel survives. Ignored once
+        the turn has started answering — use it before `stop`, not after.
+      payload:
+        type: object
+        required: [t]
+        properties:
+          t: { type: string, const: cancel }
+
+    # ───────────────────────── server → client ─────────────────────────
+
+    ready:
+      name: ready
+      title: Channel authenticated
+      summary: The org is bound and its Knowledge Base id is being warmed. Safe to enable the mic.
+      payload:
+        type: object
+        required: [t]
+        properties:
+          t: { type: string, const: ready }
+
+    listening:
+      name: listening
+      title: Turn open
+      summary: Both vendor sockets are opening. Start sending audio frames.
+      payload:
+        type: object
+        required: [t]
+        properties:
+          t: { type: string, const: listening }
+
+    partial:
+      name: partial
+      title: Live transcript
+      description: |
+        Shown on screen exactly as the recogniser said it, **replays included**.
+        Only the model's input is protected from them.
+
+        `saaras:v3-realtime` replays a segment from the beginning in fast bursts
+        and re-sends the same partial during silence. Internally a partial that
+        is a character-prefix of the transcript already held is treated as a
+        replay and ignored, so it never shortens the held transcript, restarts
+        speculation, or resets the speculative-start hold timer. A client that
+        renders these with last-write-wins will see the text flicker backwards —
+        that is the recogniser, not a bug here.
+      payload:
+        type: object
+        required: [t, text]
+        properties:
+          t: { type: string, const: partial }
+          text: { type: string }
+
+    final:
+      name: final
+      title: Settled transcript
+      description: |
+        Sent to Bedrock **verbatim, in whatever language and script it arrived
+        in**. There is no translation hop to English: Claude reads Devanagari and
+        Hinglish directly, so translating first would be pure added latency on
+        the one latency-critical path.
+      payload:
+        type: object
+        required: [t, text]
+        properties:
+          t: { type: string, const: final }
+          text: { type: string }
+          language: { type: [string, 'null'], description: What the recogniser detected. }
+
+    thinking:
+      name: thinking
+      title: Model called
+      summary: The transcript has settled and generation has begun.
+      payload:
+        type: object
+        required: [t]
+        properties:
+          t: { type: string, const: thinking }
+
+    delta:
+      name: delta
+      title: Reply token
+      summary: |
+        Streamed reply text, token by token. Goes to the screen and to the voice
+        at the same time.
+      payload:
+        type: object
+        required: [t, text]
+        properties:
+          t: { type: string, const: delta }
+          text: { type: string }
+
+    audioStart:
+      name: audio_start
+      title: Streaming speech begins
+      payload:
+        type: object
+        required: [t, rate, encoding]
+        properties:
+          t: { type: string, const: audio_start }
+          rate: { type: integer, const: 22050, description: Not the 16 kHz of the input. }
+          encoding: { type: string, const: pcm16 }
+
+    audioOut:
+      name: audio
+      title: Speech frame
+      description: |
+        **The client must buffer and play strictly in `seq` order, never on
+        arrival.** Sentences are synthesised concurrently, so short later
+        sentences routinely finish before longer earlier ones. The server half of
+        this is forced by the type signatures; the client player is where it goes
+        wrong.
+      payload:
+        type: object
+        required: [t, seq, b64]
+        properties:
+          t: { type: string, const: audio }
+          seq: { type: integer, minimum: 0, description: Monotonic within the turn, from 0. }
+          b64: { type: string, contentEncoding: base64, description: PCM16 at 22050 Hz. }
+
+    audioEnd:
+      name: audio_end
+      title: Streaming speech finished
+      summary: Sent when speech completed or stalled — not when the turn was cancelled.
+      payload:
+        type: object
+        required: [t]
+        properties:
+          t: { type: string, const: audio_end }
+
+    say:
+      name: say
+      title: Speech clip (fallback path)
+      description: |
+        The non-streaming path, used from the start or switched to mid-reply when
+        the streaming session dies. Each message is one whole sentence with its
+        own audio; play them in `i` order.
+
+        Clips are rendered concurrently and stitched, never batched as several
+        inputs on one request. Splitting respects the Devanagari danda `।` as
+        well as `.`/`?`/`!` — without danda handling a Hindi reply never splits
+        and collapses into one oversized request — and does not break on a
+        decimal point, since "2.5 bar" is one clause.
+
+        `audio` is null when synthesis of that sentence failed; the text still
+        arrives so the screen stays correct.
+      payload:
+        type: object
+        required: [t, i, text]
+        properties:
+          t: { type: string, const: say }
+          i: { type: integer, minimum: 0, description: Play order. }
+          text: { type: string }
+          audio: { type: [string, 'null'], contentEncoding: base64 }
+
+    reply:
+      name: reply
+      title: Turn summary
+      summary: One per answered turn, after the speech. Everything needed to log or display the turn.
+      payload:
+        type: object
+        required: [t, transcript, text]
+        properties:
+          t: { type: string, const: reply }
+          transcript: { type: string, description: What the worker asked. }
+          heard_language: { type: [string, 'null'], description: The language the question was recognised in. }
+          text: { type: string, description: The full reply, trimmed. }
+          language:
+            type: [string, 'null']
+            description: |
+              The language actually spoken. The reply language is pinned in the
+              system prompt with technical terms kept in English; the script of
+              the first few words is then checked and, on a mismatch, generation
+              is restarted **exactly once** — never in a loop.
+          grounded:
+            type: boolean
+            description: |
+              Whether the answer drew on the organization's Knowledge Base. The
+              KB is resolved from the verified `orgId` at retrieval time, and its
+              data source is pinned to that org's S3 prefix — the prefix scope
+              *is* the isolation, not a retrieval-time metadata filter.
+          engines:
+            type: object
+            description: Which models served this turn. Useful on stage, and in a bug report.
+            properties:
+              stt: { type: string, examples: ['sarvam:saaras:v3-realtime'] }
+              reply: { type: string, description: 'Bedrock inference profile id (jp.-prefixed).' }
+              tts: { type: string, description: 'Suffixed `:stream` when the streaming path was used.' }
+
+    empty:
+      name: empty
+      title: Nothing was heard
+      summary: |
+        The final transcript contained no letters at all. Silence is not a
+        question: no Bedrock call, no TTS. The turn still ends with `done`.
+      payload:
+        type: object
+        required: [t]
+        properties:
+          t: { type: string, const: empty }
+          note: { type: string, examples: ['no words were heard — check the microphone'] }
+
+    expired:
+      name: expired
+      title: Channel is over
+      description: |
+        Sent immediately before the socket closes, on token expiry or on either
+        lifetime cap.
+
+        On mid-session token expiry the **whole channel** ends — the token is not
+        refreshed in place and it is not just the current turn that stops. The
+        client silently warms a new channel, which re-verifies.
+      payload:
+        type: object
+        required: [t]
+        properties:
+          t: { type: string, const: expired }
+
+    error:
+      name: error
+      title: Something failed
+      description: |
+        A turn-level error leaves the channel usable; an auth-level one is
+        followed by a close. Named rather than swallowed: a throttled turn tells
+        the worker to wait rather than going quiet.
+      payload:
+        type: object
+        required: [t, message]
+        properties:
+          t: { type: string, const: error }
+          message: { type: string, description: Safe to show to the worker. }
+          code:
+            type: [string, 'null']
+            enum: [UNAUTHORIZED, FORBIDDEN, UNAVAILABLE, BUSY, STT, RATE_LIMITED, MODEL_UNAVAILABLE, UPSTREAM, null]
+            description: |
+              `UNAUTHORIZED` / `FORBIDDEN` / `UNAVAILABLE` — from token
+              verification; the socket closes after these.
+              `BUSY` — `MAX_SOCKETS_PER_USER` reached; the socket closes.
+              `STT` — the recogniser failed.
+              `RATE_LIMITED` / `MODEL_UNAVAILABLE` / `UPSTREAM` — from Bedrock.
+              `null` — an unclassified turn failure.
+
+    done:
+      name: done
+      title: Turn closed
+      summary: |
+        Always the last message of a turn, including after `empty` or a turn-level
+        `error`. The channel stays open and ready for the next `begin`.
+      payload:
+        type: object
+        required: [t]
+        properties:
+          t: { type: string, const: done }

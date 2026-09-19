@@ -17,7 +17,6 @@ import {
   Send,
   CheckSquare,
   Camera,
-  Folder,
   ArrowRight,
 } from 'lucide-react';
 import Link from 'next/link';

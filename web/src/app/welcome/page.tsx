@@ -2,6 +2,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { GlobeSection } from "@/components/visual/globe-section"
+import { MultilingualHeroCards } from "@/components/visual/multilingual-hero-cards"
 
 const LANG_ICON =
   "M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7m-7 0l-1 2m1-2l2.5-5 2.5 5m0 0l1 2m-1-2h-5"
@@ -187,63 +188,8 @@ export default function LandingPage() {
               </p>
             </div>
 
-            {/* Overlay: module progress */}
-            <div className="absolute -left-2 top-8 z-10 w-[270px] rounded-xl border border-border/80 bg-card p-4 shadow-[0_16px_40px_rgba(0,0,0,0.55)] sm:left-[-12px] lg:left-[-24px] lg:top-12">
-              <div className="flex items-center gap-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
-                  <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7} aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d={MACHINE_ICON} />
-                  </svg>
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-foreground">CNC Operator</p>
-                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div className="h-full w-1/2 rounded-full bg-primary" />
-                  </div>
-                </div>
-              </div>
-              <div className="mt-2.5 flex items-baseline justify-between">
-                <span className="text-xs text-muted-foreground">4 of 8 modules</span>
-                <span className="text-xs font-semibold text-foreground">50%</span>
-              </div>
-            </div>
-
-            {/* Overlay: the voice moment, in the worker's own words */}
-            <div className="absolute -left-4 bottom-14 z-10 w-[290px] rounded-xl border border-border/80 bg-card p-4 shadow-[0_16px_40px_rgba(0,0,0,0.55)] sm:left-[-16px] lg:left-[-28px] lg:bottom-20">
-              <div className="flex items-start gap-3.5">
-                <span className="mt-1 flex items-end gap-[3px]" aria-hidden>
-                  {[10, 18, 24, 14, 22, 12].map((h, i) => (
-                    <span
-                      key={i}
-                      className="w-[3px] rounded-full bg-[#5b9bd5]"
-                      style={{ height: h }}
-                    />
-                  ))}
-                </span>
-                <div>
-                  <p className="text-sm font-semibold leading-snug text-foreground">
-                    &ldquo;Machine start nahi ho rahi, kya check karu?&rdquo;
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">AI Instructor</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Overlay: what the platform did with it */}
-            <div className="absolute right-0 top-[52%] z-10 flex w-[235px] -translate-y-1/2 items-center gap-3 rounded-xl border border-border/80 bg-card p-3.5 shadow-[0_16px_40px_rgba(0,0,0,0.55)] sm:right-[-4px] lg:right-[-12px]">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground">
-                <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-foreground">Skill gap identified</p>
-                <p className="text-xs text-muted-foreground">Troubleshooting</p>
-              </div>
-              <span aria-hidden className="text-muted-foreground">
-                ›
-              </span>
-            </div>
+            {/* Dynamic Multilingual Overlays: Cycles through Indian languages every 3.2 seconds */}
+            <MultilingualHeroCards />
           </div>
         </div>
       </section>

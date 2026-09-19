@@ -59,6 +59,13 @@ export class ComputeStack extends cdk.Stack {
       })
     );
 
+    this.voiceServiceRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:Retrieve'],
+        resources: ['*'],
+      })
+    );
+
     props.table.grantReadWriteData(this.voiceServiceRole);
 
     /**

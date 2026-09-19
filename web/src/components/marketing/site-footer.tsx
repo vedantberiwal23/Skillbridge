@@ -205,7 +205,9 @@ export function SiteFooter() {
         <span
           className="block font-black tracking-tighter text-center leading-[0.8] text-neutral-200"
           style={{
-            fontSize: 'clamp(5rem, 19vw, 19rem)',
+            // Floor was 5rem, which renders ~420px of text in a 375px viewport and
+            // clips the brand name on both sides. 17vw keeps it inside the screen.
+            fontSize: 'clamp(2.75rem, 17vw, 19rem)',
             letterSpacing: '-0.04em',
           }}
         >

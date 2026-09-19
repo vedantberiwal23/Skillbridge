@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { signIn } from 'aws-amplify/auth';
+import { signIn, signOut } from 'aws-amplify/auth';
 
 import { GlobeBrandPanel } from '@/components/visual/globe-brand-panel';
 import { configureAmplify } from '@/lib/amplify';
@@ -83,6 +83,23 @@ export default function LoginPage() {
     try {
       setLoading(true);
       configureAmplify();
+
+      /**
+       * Sign whoever is already here out first.
+       *
+       * Amplify stores tokens in cookies (`ssr: true`), so a session survives a
+       * new tab and an emptied localStorage. `signIn` then throws
+       * `UserAlreadyAuthenticatedException` — which this catch reported as
+       * "Invalid phone number, email, or password", sending you to check a
+       * password that was never wrong. It bites exactly when someone signs in as
+       * one role and then tries another without using Sign out.
+       */
+      try {
+        await signOut();
+      } catch {
+        /* nobody was signed in, which is the normal case */
+      }
+
       const output = await signIn({ username: formattedUsername, password });
 
       if (output.isSignedIn) {

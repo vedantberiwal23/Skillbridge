@@ -2,6 +2,7 @@ import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { GlobeSection } from "@/components/visual/globe-section"
 import { SiteFooter } from "@/components/marketing/site-footer"
+import { HowItWorksSection } from "@/components/marketing/how-it-works-section"
 import { MultilingualHeroCards } from "@/components/visual/multilingual-hero-cards"
 import CloudSky from "@/components/visual/cloud-sky"
 
@@ -197,27 +198,22 @@ export default function LandingPage() {
 
 
       {/* Product preview on sky background */}
-      <section className="relative overflow-hidden px-4 md:px-8">
-        <div className="relative rounded-2xl overflow-hidden max-w-7xl mx-auto">
+      <section className="relative overflow-hidden px-4 md:px-8 py-4">
+        <div className="relative rounded-3xl overflow-hidden max-w-7xl mx-auto shadow-[0_20px_50px_rgba(0,0,0,0.15)]">
           {/* Interactive WebGL CloudSky Shader (Originkit) */}
           <CloudSky
             className="absolute inset-0 w-full h-full"
-            background="#0B57D0"
-            baseColor="#8CB5F5"
+            background="#0075FF"
+            baseColor="#B4D2F0"
             accentColor="#FFFFFF"
-          />
-          <div
-            className="absolute inset-0 pointer-events-none"
-            aria-hidden
-            style={{
-              background:
-                "linear-gradient(180deg, rgba(10,15,22,0.4) 0%, rgba(10,15,22,0.65) 60%, rgba(10,15,22,0.85) 100%)",
-            }}
+            density={85}
+            speed={55}
+            size={130}
           />
 
-          {/* Browser mockup */}
-          <div className="relative px-4 md:px-16 py-10 md:py-16">
-            <div className="bg-card rounded-xl border border-border shadow-[0_30px_70px_-20px_rgba(0,0,0,0.7)] overflow-hidden flex" style={{ height: 460 }}>
+          {/* White Mockup floating directly on sky */}
+          <div className="relative z-10 px-4 sm:px-8 md:px-14 py-12 sm:py-16 md:py-20 flex justify-center">
+            <div className="w-full max-w-5xl bg-card rounded-2xl border border-border/80 shadow-[0_30px_90px_-15px_rgba(0,0,0,0.35)] overflow-hidden flex" style={{ height: 480 }}>
               {/* Mock sidebar */}
               <div className="hidden sm:flex w-44 md:w-52 bg-card border-r border-border flex-shrink-0 flex-col">
                 <div className="px-3 py-3 border-b border-border flex items-center justify-between">
@@ -370,30 +366,7 @@ export default function LandingPage() {
       </section>
 
       {/* How it works */}
-      <section className="px-6 md:px-10 py-20 border-t border-border max-w-7xl mx-auto">
-        <div className="max-w-xl mb-12">
-          <p className="text-xs font-data uppercase tracking-widest text-muted-foreground mb-3">
-            How it works
-          </p>
-          <h2 className="text-2xl md:text-3xl font-semibold text-foreground tracking-tight">
-            From invite to competency, tracked end to end
-          </h2>
-        </div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {[
-            { step: "01", title: "Invite", desc: "Admin invites workers by SMS or email — no app-store search, no password to remember." },
-            { step: "02", title: "Learn", desc: "An AI-generated plan for their profession, grounded in your uploaded SOPs, delivered by voice." },
-            { step: "03", title: "Practice", desc: "Interactive 3D machine models — tap a part, ask about it out loud, get an answer from your docs." },
-            { step: "04", title: "Prove", desc: "Voice and scenario-based assessments build a real competency profile, not a completion checkbox." },
-          ].map((s) => (
-            <div key={s.step} className="border-t border-border pt-4">
-              <p className="text-xs font-data text-muted-foreground mb-3">{s.step}</p>
-              <h3 className="text-sm font-semibold text-foreground mb-1.5">{s.title}</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <HowItWorksSection />
 
       <GlobeSection
         eyebrow="Scale"

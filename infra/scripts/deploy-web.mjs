@@ -22,7 +22,16 @@
  *     deploy-manifest.json
  */
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync, readFileSync, statSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  rmSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+} from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -59,22 +68,63 @@ function stackOutput(key) {
   return found.OutputValue;
 }
 
-/** Zip a directory's CONTENTS. `zip` is not installed on this machine; PowerShell is. */
+/**
+ * Zip a directory's CONTENTS, with POSIX separators in the entry names.
+ *
+ * NOT `Compress-Archive`: it writes Windows separators into the entry names
+ * (`compute\default\server.js`), and the ZIP spec requires `/`. Amplify still
+ * parses the root-level `deploy-manifest.json` — no separator in that name — so
+ * the deployment reports SUCCEED, but it cannot resolve the compute
+ * entrypoint. Every route then falls through to the static primitive and the
+ * whole app is served from S3, returning 404 for every SSR route and 301 for
+ * the rest. Verified against a real deploy, not theorised.
+ *
+ * `tar.exe` is bsdtar and has shipped in Windows since 1803. Passing the
+ * top-level names rather than `.` keeps entries unprefixed; with `.` every
+ * name gains a `./`.
+ */
 function zipDirectory(source, destination) {
   rmSync(destination, { force: true });
   if (process.platform === 'win32') {
+    const names = readdirSync(source);
     execFileSync(
-      'powershell',
-      [
-        '-NoProfile',
-        '-Command',
-        `Compress-Archive -Path '${source}\\*' -DestinationPath '${destination}' -CompressionLevel Optimal -Force`,
-      ],
+      join(process.env.SystemRoot ?? 'C:/Windows', 'System32', 'tar.exe'),
+      ['-a', '-c', '-f', destination, '-C', source, ...names],
       { stdio: 'inherit' }
     );
   } else {
     execFileSync('zip', ['-qr', destination, '.'], { cwd: source, stdio: 'inherit' });
   }
+
+  assertPosixEntries(destination);
+}
+
+/**
+ * Fail loudly rather than shipping a bundle Amplify will silently half-ignore.
+ * Reads the central directory: 4-byte signature, then the name length at +28
+ * and the name at +46.
+ */
+function assertPosixEntries(zipPath) {
+  const buf = readFileSync(zipPath);
+  const SIG = 0x02014b50;
+  let entries = 0;
+  let manifest = false;
+  let entrypoint = false;
+  for (let i = 0; i + 46 <= buf.length; i++) {
+    if (buf.readUInt32LE(i) !== SIG) continue;
+    const nameLen = buf.readUInt16LE(i + 28);
+    const name = buf.toString('utf8', i + 46, i + 46 + nameLen);
+    entries += 1;
+    if (name.includes('\\')) {
+      throw new Error(`zip entry has a Windows separator, Amplify will not resolve it: ${name}`);
+    }
+    if (name === 'deploy-manifest.json') manifest = true;
+    if (name === 'compute/default/server.js') entrypoint = true;
+    i += 46 + nameLen - 1;
+  }
+  if (!manifest) throw new Error('deploy-manifest.json is not at the zip root');
+  if (!entrypoint) throw new Error('compute/default/server.js is missing from the zip');
+  console.log(`  ${entries} entries, manifest and compute entrypoint at the expected paths`);
 }
 
 /**

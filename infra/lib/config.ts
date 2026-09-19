@@ -44,11 +44,39 @@ export type Role = (typeof ROLES)[number];
 export const EVENT_TTL_DAYS = 90;
 
 /**
- * The Amplify deployment target. Not a git branch: the web tier deploys through
- * the Amplify deployment specification (`infra/scripts/deploy-web.mjs`), so no
- * repository is connected and Amplify never runs a build of its own.
+ * The Amplify branch, which IS a git branch and must match one that exists in
+ * the repository — this repo's default is `master`, not `main`.
+ *
+ * It was `main` while the web tier shipped through the Amplify deployment
+ * specification with no repository connected. That path does not work: AWS
+ * documents that "Amplify Hosting does not support manual deploys for
+ * server-side rendered (SSR) apps", and `CreateDeployment` silently deploys
+ * only `.amplify-hosting/static`, ignoring the compute primitive, so every
+ * route is served from S3 and the app 404s. Confirmed against three real
+ * deployments on 2026-09-19.
  */
-export const WEB_BRANCH = 'main';
+export const WEB_BRANCH = 'master';
+
+/** The repository Amplify builds the web tier from. */
+export const WEB_REPOSITORY = 'https://github.com/rxshabN/first-commit-lockedin';
+
+/**
+ * The GitHub personal access token Amplify uses to clone and to register its
+ * webhook, resolved by CloudFormation at deploy time so the value never enters
+ * this repository, the template or a CDK context file.
+ *
+ * `AWS::Amplify::App.AccessToken` is write-only, so it is never readable back
+ * out of the stack either.
+ *
+ * Referenced by NAME rather than by ARN, unlike `SARVAM_SECRET_ARN`. Secrets
+ * Manager appends a random six-character suffix to every ARN, so an ARN for a
+ * secret this repository does not create cannot be written down correctly in
+ * advance — and a `{{resolve:}}` reference accepts the bare name for a secret in
+ * the same account and region. App Runner has no such shortcut, which is why
+ * the Sarvam key is pinned to its full ARN instead.
+ */
+export const GITHUB_TOKEN_SECRET = process.env.GITHUB_TOKEN_SECRET ?? 'GithubAmplifyToken';
+export const GITHUB_TOKEN_SECRET_JSON_KEY = 'token';
 
 /**
  * Embedding model for the per-org Knowledge Bases.

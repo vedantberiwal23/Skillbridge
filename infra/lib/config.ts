@@ -75,3 +75,20 @@ export const EMBEDDING_MODELS = [
 ] as const;
 
 export const VECTOR_BUCKET = `${APP_NAME}-vectors`;
+
+/**
+ * The Sarvam API key, the only vendor credential in the system.
+ *
+ * Created by hand rather than by CDK, so the six-character suffix is not
+ * derivable and the complete ARN has to be named here: App Runner rejects the
+ * wildcard ARN that `Secret.fromSecretNameV2` produces. The value is never read
+ * by this repository — App Runner resolves it at container start and injects it
+ * as an environment variable.
+ *
+ * `SARVAM_SECRET_JSON_KEY` is the field inside the secret's JSON, which is what
+ * the console's "Key/value" secret type produces. Set it to `undefined` if the
+ * secret is ever replaced with a plaintext one.
+ */
+export const SARVAM_SECRET_ARN =
+  'arn:aws:secretsmanager:ap-northeast-1:975585942816:secret:Sarvam-Gdl7YQ';
+export const SARVAM_SECRET_JSON_KEY = 'SARVAM_API_KEY';

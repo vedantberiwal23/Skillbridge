@@ -4,7 +4,13 @@ import * as apprunner from 'aws-cdk-lib/aws-apprunner';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
-import { APP_NAME, MODELS, UNDERLYING_MODELS } from './config';
+import {
+  APP_NAME,
+  MODELS,
+  UNDERLYING_MODELS,
+  SARVAM_SECRET_ARN,
+  SARVAM_SECRET_JSON_KEY,
+} from './config';
 
 export interface ComputeStackProps extends cdk.StackProps {
   readonly table: dynamodb.ITable;
@@ -62,7 +68,21 @@ export class ComputeStack extends cdk.Stack {
     this.voiceServiceRole.addToPolicy(
       new iam.PolicyStatement({
         actions: ['bedrock:Retrieve'],
-        resources: ['*'],
+        // Per-org Knowledge Bases are created by the application at
+        // org-provisioning time, so no kbId exists to name here. Account- and
+        // region-scoped is as tight as this can be declared; it is not a bare
+        // wildcard, and it cannot reach another account's KBs.
+        resources: [`arn:aws:bedrock:${this.region}:${this.account}:knowledge-base/*`],
+      })
+    );
+
+    // App Runner resolves this at container start under the INSTANCE role and
+    // injects the result as an environment variable, so the value never enters
+    // the image, the template or this repository. Scoped to the one secret.
+    this.voiceServiceRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [SARVAM_SECRET_ARN],
       })
     );
 
@@ -123,9 +143,19 @@ export class ComputeStack extends cdk.Stack {
                 // AccessDenied that reads like a permissions problem.
                 { name: 'VOICE_MODEL_ID', value: MODELS.voiceOrchestrator },
               ],
-              // SARVAM_API_KEY is injected from Secrets Manager, never from
-              // source, apprunner.yaml or this array. Wired when the secret
-              // exists — see BACKEND.md.
+              // Never in runtimeEnvironmentVariables above, in apprunner.yaml,
+              // in the Dockerfile or in any committed .env: App Runner reads
+              // the secret itself at container start. The `:<key>::` suffix
+              // selects one field out of the secret's JSON — without it the
+              // container would receive the whole JSON document as the key.
+              runtimeEnvironmentSecrets: [
+                {
+                  name: 'SARVAM_API_KEY',
+                  value: SARVAM_SECRET_JSON_KEY
+                    ? `${SARVAM_SECRET_ARN}:${SARVAM_SECRET_JSON_KEY}::`
+                    : SARVAM_SECRET_ARN,
+                },
+              ],
             },
           },
         },

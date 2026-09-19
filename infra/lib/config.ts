@@ -84,7 +84,8 @@ export const GITHUB_TOKEN_SECRET = process.env.GITHUB_TOKEN_SECRET ?? 'github-am
  * against a plaintext secret fails the deploy, and without the suffix against a
  * JSON secret Amplify receives the whole document as the token.
  */
-export const GITHUB_TOKEN_SECRET_JSON_KEY = process.env.GITHUB_TOKEN_SECRET_JSON_KEY ?? 'token';
+export const GITHUB_TOKEN_SECRET_JSON_KEY =
+  process.env.GITHUB_TOKEN_SECRET_JSON_KEY ?? 'GithubAmplifyToken';
 
 /** `{{resolve:secretsmanager:<secret>:SecretString[:<key>]}}`, per the above. */
 export const githubTokenRef = () =>

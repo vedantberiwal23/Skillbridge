@@ -29,7 +29,7 @@ const ai = new AiStack(app, stackName('ai'), {
   orgDocsBucket: data.orgDocsBucket,
 });
 
-new ComputeStack(app, stackName('compute'), {
+const compute = new ComputeStack(app, stackName('compute'), {
   env,
   table: data.table,
   userPoolId: auth.userPool.userPoolId,
@@ -48,7 +48,21 @@ new WebStack(app, stackName('web'), {
   table: data.table,
   assessmentScorerQueue: ai.assessmentScorerQueue,
   learningPlanQueue: ai.learningPlanQueue,
-  // Set once the App Runner service exists:
-  //   cdk deploy skillbridge-web -c voiceServiceUrl=https://<id>.ap-northeast-1.awsapprunner.com
-  voiceServiceUrl: app.node.tryGetContext('voiceServiceUrl') as string | undefined,
+  /**
+   * Taken straight off the compute stack rather than typed in.
+   *
+   * It used to be a context value, which meant the endpoint — a 32-character
+   * hex hostname — had to be copied by hand on every deploy. That is not a
+   * theoretical risk: a terminal masked the hex as bullets, the bullets were
+   * pasted back in, and the app shipped pointing at
+   * `xn--sk-31f02-ur3daaa...` — a punycode hostname of exactly the right
+   * length, so nothing looked wrong until the browser failed to open the
+   * socket. A CloudFormation reference cannot be mistyped.
+   *
+   * The context value still overrides, for pointing the web tier at a voice
+   * service this app does not define (a local tunnel, say).
+   */
+  voiceServiceUrl:
+    (app.node.tryGetContext('voiceServiceUrl') as string | undefined) ??
+    (compute.voiceService ? `https://${compute.voiceService.attrEndpoint}` : undefined),
 });

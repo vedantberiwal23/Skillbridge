@@ -38,6 +38,7 @@ import type {
   UserSettings,
 } from './types';
 import type { Locale } from '../i18n/config';
+import { DEMO_ENABLED, DemoError, demoRequest } from './demo';
 
 /** A handler answered, but not with success. Carries the status for the caller. */
 export class ApiError extends Error {
@@ -59,6 +60,14 @@ export class ApiError extends Error {
  * than being parsed optimistically.
  */
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  if (DEMO_ENABLED) {
+    try {
+      return (await demoRequest(path, init)) as T;
+    } catch (err) {
+      if (err instanceof DemoError) throw new ApiError(err.message, err.status);
+      throw err;
+    }
+  }
   const res = await fetch(path, {
     credentials: 'same-origin',
     headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,

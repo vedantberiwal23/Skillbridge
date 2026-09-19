@@ -1,3 +1,5 @@
+import { config } from '../config.js';
+
 /**
  * Sarvam request/response half — translation (`mayura:v1`) and batch synthesis
  * (`bulbul:v3`), used by the non-streaming fallback path.
@@ -64,18 +66,155 @@ export const GLOSSARY: readonly string[] = [
   'gearbox',
 ];
 
-export async function translate(
-  _text: string,
-  _target: string,
-  _source = 'en-IN'
-): Promise<string> {
-  throw new Error('not implemented');
+const GLOSSARY_SORTED = [...GLOSSARY].sort((a, b) => b.length - a.length);
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Underscore-delimited tokens survive Sarvam translation untouched (measured);
+ * XQ0QX-style tokens come back transliterated into the target script.
+ */
+function maskGlossary(text: string, extra: readonly string[] = []) {
+  const found: string[] = [];
+  const terms = extra.length ? [...GLOSSARY_SORTED, ...extra].sort((a, b) => b.length - a.length) : GLOSSARY_SORTED;
+  let masked = text;
+  for (const term of terms) {
+    masked = masked.replace(new RegExp(`\\b${escapeRe(term)}\\b`, 'gi'), (match) => {
+      const token = `__${found.length}__`;
+      found.push(match);
+      return token;
+    });
+  }
+  return { masked, found };
 }
 
-/** Batch synthesis — fallback only; the live path streams (see tts.ts). */
+/** Null when a mask did not survive — English beats transliterated gibberish. */
+function unmaskGlossary(text: string, found: string[]): string | null {
+  let out = text;
+  found.forEach((original, i) => {
+    out = out.replace(new RegExp(`_\\s*_\\s*${i}\\s*_\\s*_`, 'g'), original);
+  });
+  const restored = found.every((term) => out.includes(term));
+  return restored && !/_\s*_\s*\d+\s*_\s*_/.test(out) ? out : null;
+}
+
+async function api<T>(pathname: string, body: unknown): Promise<T> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), config.sarvam.timeoutMs);
+  try {
+    const res = await fetch(config.sarvam.baseUrl + pathname, {
+      method: 'POST',
+      headers: { 'api-subscription-key': config.sarvam.apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+    const text = await res.text();
+    if (!res.ok) throw new Error(`sarvam ${pathname} ${res.status}: ${text.slice(0, 200)}`);
+    return JSON.parse(text) as T;
+  } catch (e) {
+    if ((e as Error).name === 'AbortError') {
+      throw new Error(`sarvam ${pathname}: timed out after ${config.sarvam.timeoutMs}ms`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Numbers, percentages, counts — nothing to translate, and digits must not be rewritten. */
+const skipTranslation = (s: string) => {
+  const t = s.trim();
+  return t.length < 2 || /^[\d\s.,%₹+\-/:()–—·|]+$/.test(t);
+};
+
+/**
+ * NOT used on the question: the model reads Indic input directly, and
+ * translating first measured ~1.2s of pure waiting. This is for rendering
+ * English text (e.g. an SOP excerpt) into the worker's language.
+ */
+export async function translate(text: string, target: string, source = 'en-IN'): Promise<string> {
+  if (skipTranslation(text) || target === source) return text;
+  const { masked, found } = maskGlossary(text);
+  // A string that is ONLY a technical term needs no translation.
+  if (!masked.replace(/__\d+__/g, '').trim()) return text;
+  const out = await api<{ translated_text?: string }>('/translate', {
+    input: masked.slice(0, 900),
+    source_language_code: source,
+    target_language_code: target,
+    model: config.sarvam.translateModel,
+    mode: 'formal',
+    enable_preprocessing: false,
+  });
+  if (!out.translated_text) return text;
+  return unmaskGlossary(out.translated_text, found) ?? text;
+}
+
+/** bulbul:v3 hard-caps one input at ~500 chars and 400s above it. */
+const MAX_INPUT = 450;
+
+function pieces(text: string): string[] {
+  const out: string[] = [];
+  for (const p of text.split(/(?<=[।.!?])\s+/).map((s) => s.trim()).filter(Boolean)) {
+    for (let i = 0; i < p.length; i += MAX_INPUT) out.push(p.slice(i, i + MAX_INPUT));
+  }
+  return out;
+}
+
+async function speakOne(input: string, language: string, speaker: string): Promise<Buffer | null> {
+  const out = await api<{ audios?: string[] }>('/text-to-speech', {
+    inputs: [input],
+    target_language_code: language,
+    speaker,
+    model: config.sarvam.ttsModel,
+    // v3 rejects pitch and loudness outright; only pace survives.
+    pace: 1.0,
+    speech_sample_rate: 22050,
+    enable_preprocessing: true,
+  });
+  const b64 = out.audios?.[0];
+  return b64 ? Buffer.from(b64, 'base64') : null;
+}
+
+/** Join WAV clips: first header survives, the rest contribute PCM, lengths rewritten. */
+function concatWav(buffers: Buffer[]): Buffer {
+  if (buffers.length === 1) return buffers[0]!;
+  const dataOf = (buf: Buffer) => {
+    // walk the chunk list — Sarvam's output has carried extra chunks before `data`
+    let off = 12;
+    while (off + 8 <= buf.length) {
+      const id = buf.toString('ascii', off, off + 4);
+      const size = buf.readUInt32LE(off + 4);
+      if (id === 'data') return { start: off + 8, size: Math.min(size, buf.length - off - 8) };
+      off += 8 + size + (size % 2);
+    }
+    return null;
+  };
+  const first = dataOf(buffers[0]!);
+  if (!first) return buffers[0]!;
+  const body = Buffer.concat(
+    buffers.flatMap((b) => {
+      const d = dataOf(b);
+      return d ? [b.subarray(d.start, d.start + d.size)] : [];
+    })
+  );
+  const header = Buffer.from(buffers[0]!.subarray(0, first.start));
+  header.writeUInt32LE(header.length + body.length - 8, 4);
+  header.writeUInt32LE(body.length, first.start - 4);
+  return Buffer.concat([header, body]);
+}
+
+/**
+ * Batch synthesis — fallback only; the live path streams (see tts.ts). Returns a
+ * base64 WAV. Long text is split into sentences rendered CONCURRENTLY: the win
+ * is concurrency, not batching.
+ */
 export async function textToSpeech(
-  _text: string,
-  _options: { language: string; speaker?: string }
+  text: string,
+  options: { language: string; speaker?: string }
 ): Promise<string | null> {
-  throw new Error('not implemented');
+  const clean = text.trim();
+  if (!clean) return null;
+  const speaker = options.speaker ?? config.sarvam.defaultSpeaker;
+  const clips = await Promise.all(pieces(clean).map((p) => speakOne(p, options.language, speaker)));
+  const bufs = clips.filter((b): b is Buffer => b !== null);
+  return bufs.length ? concatWav(bufs).toString('base64') : null;
 }

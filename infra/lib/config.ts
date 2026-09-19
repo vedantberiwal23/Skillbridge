@@ -42,3 +42,36 @@ export type Role = (typeof ROLES)[number];
 
 /** Raw tutor queries and activity events are profiler input, not a permanent record. */
 export const EVENT_TTL_DAYS = 90;
+
+/**
+ * The Amplify deployment target. Not a git branch: the web tier deploys through
+ * the Amplify deployment specification (`infra/scripts/deploy-web.mjs`), so no
+ * repository is connected and Amplify never runs a build of its own.
+ */
+export const WEB_BRANCH = 'main';
+
+/**
+ * Embedding model for the per-org Knowledge Bases.
+ *
+ * `cohere.embed-multilingual-v3`, enabled in the Bedrock console on 2026-09-19.
+ * Cohere's embedders sit behind an AWS Marketplace subscription; before it was
+ * granted, ingestion failed with an error that reads like an IAM problem.
+ * `amazon.titan-embed-text-v2:0` is the first-party fallback needing no
+ * subscription. CLAUDE.md requires the voice
+ * transcript reach retrieval verbatim in whatever language the worker spoke, so
+ * a Hindi or Marathi question is matched against SOPs written in English. A
+ * multilingual embedder scores that cross-language match far better, and this is
+ * precisely the workforce the product exists for. Both output 1024 dimensions,
+ * so the vector index does not change — but the KB does: an existing KB must be
+ * recreated to change its embedding model.
+ */
+export const EMBEDDING_MODEL = 'cohere.embed-multilingual-v3';
+export const EMBEDDING_DIMENSIONS = 1024;
+
+/** Both are granted to the KB role so switching needs no stack redeploy. */
+export const EMBEDDING_MODELS = [
+  'amazon.titan-embed-text-v2:0',
+  'cohere.embed-multilingual-v3',
+] as const;
+
+export const VECTOR_BUCKET = `${APP_NAME}-vectors`;

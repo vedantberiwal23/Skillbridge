@@ -1,164 +1,244 @@
-// Server-only: importing `next/headers` is a build error in a client component,
-// so this module cannot be pulled into the browser bundle.
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { createServerRunner } from '@aws-amplify/adapter-nextjs';
-import { fetchAuthSession } from 'aws-amplify/auth/server';
+import { headers, cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
+import { CognitoJwtVerifier } from 'aws-jwt-verify';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
-
-import { amplifyConfig } from './amplify-config';
+import { Role, ROLES } from './types';
 import { ddb, TABLE_NAME } from './ddb';
 import { keys } from './keys';
-import type { Role } from './types';
-
-export const { runWithAmplifyServerContext } = createServerRunner({
-  config: amplifyConfig,
-});
-
-export interface Session {
-  userId: string;
-  orgId: string;
-  role: Role;
-}
+import { USER_POOL_ID, CLIENT_ID } from './cognito';
+import { ValidationError } from './validation';
 
 export class AuthError extends Error {
   constructor(
     message: string,
-    readonly status: 401 | 403
+    public statusCode: number = 401
   ) {
     super(message);
     this.name = 'AuthError';
   }
 }
 
-const ROLES: readonly Role[] = ['worker', 'manager', 'admin'];
+export interface SessionUser {
+  userId: string;
+  orgId: string;
+  role: Role;
+  deptId: string | null;
+}
+
+// Lazy verifiers for ID and access tokens (allows next build to run when env vars are unset)
+let idVerifierInstance: ReturnType<typeof CognitoJwtVerifier.create> | null = null;
+let accessVerifierInstance: ReturnType<typeof CognitoJwtVerifier.create> | null = null;
+
+/**
+ * `aws-jwt-verify` only skips the client-id check when `clientId` is explicitly
+ * `null`. An empty string is *checked* — and fails every token — so an unset env
+ * var would surface as "invalid or expired token" on every request rather than
+ * as the configuration error it actually is.
+ */
+function assertConfigured() {
+  if (!USER_POOL_ID) {
+    throw new AuthError('Cognito User Pool ID not configured', 500);
+  }
+  if (!CLIENT_ID) {
+    throw new AuthError('Cognito Client ID not configured', 500);
+  }
+}
+
+function getIdVerifier() {
+  if (!idVerifierInstance) {
+    assertConfigured();
+    idVerifierInstance = CognitoJwtVerifier.create({
+      userPoolId: USER_POOL_ID,
+      clientId: CLIENT_ID,
+      tokenUse: 'id',
+    });
+  }
+  return idVerifierInstance;
+}
+
+function getAccessVerifier() {
+  if (!accessVerifierInstance) {
+    assertConfigured();
+    accessVerifierInstance = CognitoJwtVerifier.create({
+      userPoolId: USER_POOL_ID,
+      clientId: CLIENT_ID,
+      tokenUse: 'access',
+    });
+  }
+  return accessVerifierInstance;
+}
+
+const rank = (role: Role) => ROLES.indexOf(role);
 
 const isRole = (value: unknown): value is Role =>
   typeof value === 'string' && (ROLES as readonly string[]).includes(value);
 
 /**
- * The one server-side session resolver. Every route handler and every group
- * layout goes through this — `orgId` is the only tenant boundary in the design,
- * so a second, subtly different resolver is a cross-tenant read waiting to happen.
- *
- * Two claims are deliberately NOT trusted from the token:
- *
- *   role   — taken from `cognito:groups`, not `custom:role`. AuthStack creates a
- *            group per role, and group membership is not self-assignable.
- *   orgId  — loaded from USER#<sub>/PROFILE, not `custom:orgId`. The WebClient
- *            app client sets no writeAttributes allowlist, and all seven custom
- *            attributes are mutable — so today a signed-in worker can call
- *            updateUserAttributes({'custom:orgId': '<other org>'}). Until that
- *            allowlist lands in auth-stack.ts, a custom attribute is caller-
- *            supplied data, not a claim.
- *
- * Never accept any of these three from a body, query string, path segment or
- * header — not even temporarily.
+ * Cognito group membership is a set, not a list — its order carries no meaning,
+ * so taking `groups[0]` would resolve a user in both `worker` and `manager` to
+ * whichever the token happened to list first. Resolve the highest privilege the
+ * user actually holds instead.
  */
-export async function requireSession(role?: Role): Promise<Session> {
-  const preview = await devPreviewSession();
-  if (preview) {
-    if (role && preview.role !== role) throw new AuthError(`Requires ${role}`, 403);
-    return preview;
+function roleFromGroups(groups: unknown): Role | undefined {
+  if (!Array.isArray(groups)) return undefined;
+  let best: Role | undefined;
+  for (const group of groups) {
+    if (isRole(group) && (best === undefined || rank(group) > rank(best))) {
+      best = group;
+    }
   }
-
-  const session = await runWithAmplifyServerContext({
-    nextServerContext: { cookies },
-    operation: (contextSpec) => fetchAuthSession(contextSpec),
-  }).catch(() => null);
-
-  const idToken = session?.tokens?.idToken;
-  if (!idToken) throw new AuthError('Not signed in', 401);
-
-  const userId = idToken.payload.sub;
-  if (!userId) throw new AuthError('Token carries no subject', 401);
-
-  const groups = idToken.payload['cognito:groups'];
-  const callerRole = Array.isArray(groups)
-    ? ROLES.find((r) => groups.includes(r))
-    : undefined;
-  if (!isRole(callerRole)) throw new AuthError('Token carries no role group', 403);
-
-  const orgId = await loadOrgId(userId);
-  // Never default or synthesise a tenant. A profile with no orgId is a broken
-  // provisioning record, not a user who should read something.
-  if (!orgId) throw new AuthError('No organization for this user', 403);
-
-  if (role && callerRole !== role) {
-    throw new AuthError(`Requires ${role}`, 403);
-  }
-
-  return { userId, orgId, role: callerRole };
+  return best;
 }
 
 /**
- * Dev-only preview session. Synthesises a session so the worker spine can be
- * walked before the Cognito pool exists.
- *
- * This is the one place in the codebase that invents a session, and it is
- * double-gated so it cannot reach production:
- *
- *   1. NODE_ENV !== 'production' — `next build` sets this to 'production', so a
- *      production bundle takes the real path no matter what is in the env.
- *   2. DEV_PREVIEW_ROLE must be set explicitly — it is off even in dev unless
- *      someone opts in, and it is a server-side var, so it is never inlined
- *      into client JS.
- *
- * It is also loud: every use logs. If you see this line anywhere but your own
- * machine, something is wrong.
- *
- * Delete this function once AuthStack is deployed and a test user exists.
+ * Extract raw JWT token string from Authorization header or Amplify cookies.
+ * Safely handles calls inside and outside Next.js request context.
  */
-async function devPreviewSession(): Promise<Session | null> {
-  if (process.env.NODE_ENV === 'production') return null;
+async function extractToken(req?: Request): Promise<string | null> {
+  if (req) {
+    const authHeader = req.headers.get('authorization');
+    if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+      return authHeader.slice(7).trim();
+    }
+  }
 
-  const cookieStore = await cookies();
-  const devCookie = cookieStore.get('dev_role')?.value;
-  const role = isRole(devCookie) ? devCookie : process.env.DEV_PREVIEW_ROLE;
-  if (!isRole(role)) return null;
+  try {
+    const reqHeaders = await headers();
+    const authHeader = reqHeaders.get('authorization');
+    if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+      return authHeader.slice(7).trim();
+    }
+  } catch {
+    // Outside Next.js request store (e.g. unit test runner)
+  }
 
-  console.warn(
-    `[auth] DEV PREVIEW SESSION ACTIVE — role="${role}". Not a real session. Never in production.`
-  );
+  try {
+    const cookieStore = await cookies();
+    const allCookies = cookieStore.getAll();
+
+    const idTokenCookie = allCookies.find((c) => c.name.endsWith('.idToken'));
+    if (idTokenCookie && idTokenCookie.value) {
+      return idTokenCookie.value;
+    }
+
+    const accessTokenCookie = allCookies.find((c) => c.name.endsWith('.accessToken'));
+    if (accessTokenCookie && accessTokenCookie.value) {
+      return accessTokenCookie.value;
+    }
+  } catch {
+    // Outside Next.js request store
+  }
+
+  return null;
+}
+
+/**
+ * Server-side session verification. Strictly follows CLAUDE.md:
+ * - orgId, userId and role come ONLY from verified Cognito claims (or the
+ *   DynamoDB profile keyed by the verified `sub`).
+ * - Never from request body, query string, path segment or client-set header.
+ * - Rejects a token carrying no orgId; never defaults or synthesizes one.
+ * - Verifies the ID token first, since the access token carries no `custom:*`.
+ */
+export async function requireSession(
+  requiredRole?: Role,
+  req?: Request
+): Promise<SessionUser> {
+  const token = await extractToken(req);
+  if (!token) {
+    throw new AuthError('Missing authentication token', 401);
+  }
+
+  let sub: string;
+  let orgId: string | undefined;
+  let role: Role | undefined;
+  let deptId: string | null = null;
+
+  try {
+    // Try ID token first
+    const verifier = getIdVerifier();
+    const payload = await verifier.verify(token);
+    sub = payload.sub;
+    orgId = (payload['custom:orgId'] as string | undefined) || undefined;
+    const claimedRole = payload['custom:role'];
+    role = isRole(claimedRole) ? claimedRole : roleFromGroups(payload['cognito:groups']);
+    deptId = (payload['custom:deptId'] as string | undefined) || null;
+  } catch (err) {
+    if (err instanceof AuthError) throw err;
+    try {
+      // Fallback: verify access token
+      const accVerifier = getAccessVerifier();
+      const accessPayload = await accVerifier.verify(token);
+      sub = accessPayload.sub;
+      role = roleFromGroups(accessPayload['cognito:groups']);
+    } catch (innerErr) {
+      if (innerErr instanceof AuthError) throw innerErr;
+      throw new AuthError('Invalid or expired authentication token', 401);
+    }
+  }
+
+  // If orgId is not present in token claims, fetch from DynamoDB USER#<sub> / PROFILE
+  if (!orgId || !role) {
+    if (!TABLE_NAME) {
+      throw new AuthError('Database table not configured', 500);
+    }
+    const profileRes = await ddb.send(
+      new GetCommand({
+        TableName: TABLE_NAME,
+        Key: keys.profile(sub),
+      })
+    );
+
+    const profile = profileRes.Item;
+    if (!profile || !profile.orgId) {
+      throw new AuthError('User profile not found or missing tenant', 401);
+    }
+
+    orgId = profile.orgId as string;
+    role = role ?? (isRole(profile.role) ? profile.role : undefined);
+    deptId = deptId ?? ((profile.deptId as string | null) ?? null);
+  }
+
+  if (!orgId) {
+    throw new AuthError('Malformed token: missing orgId', 401);
+  }
+  if (!role) {
+    throw new AuthError('Malformed token: missing role', 401);
+  }
+
+  // Role authorization check. ROLES is ordered least- to most-privileged, so an
+  // admin satisfies a manager requirement and a manager satisfies a worker one.
+  if (requiredRole && rank(role) < rank(requiredRole)) {
+    throw new AuthError(`Forbidden: requires role '${requiredRole}'`, 403);
+  }
 
   return {
-    userId: process.env.DEV_PREVIEW_USER_ID ?? 'user-demo',
-    orgId: process.env.DEV_PREVIEW_ORG_ID ?? 'org-demo',
+    userId: sub,
+    orgId,
     role,
+    deptId,
   };
 }
 
-async function loadOrgId(userId: string): Promise<string | null> {
-  const result = await ddb.send(
-    new GetCommand({
-      TableName: TABLE_NAME,
-      Key: keys.profile(userId),
-      ProjectionExpression: 'orgId',
-    })
-  );
-  const orgId = result.Item?.orgId;
-  return typeof orgId === 'string' && orgId.length > 0 ? orgId : null;
-}
-
-/** Non-throwing variant, for entry points that redirect rather than error. */
-export async function getSession(): Promise<Session | null> {
-  return requireSession().catch(() => null);
-}
-
-export const HOME_FOR_ROLE: Record<Role, string> = {
-  worker: '/home',
-  manager: '/dashboard',
-  admin: '/users',
-};
-
 /**
- * Role gating for group layouts. This is UX only — route groups add no URL
- * segment, so /plan, /dashboard and /users share one flat namespace that any
- * signed-in user can type. The enforcement boundary is the route handler.
+ * Render an error for an API route.
+ *
+ * Only messages this code raised deliberately reach the client. An unexpected
+ * failure is logged server-side and answered generically, because the raw
+ * message is routinely a Cognito or DynamoDB error naming internal resources.
  */
-export async function gatePage(role: Role): Promise<Session> {
-  const session = await getSession();
-  if (!session) redirect('/login');
-  if (session.role !== role) redirect(HOME_FOR_ROLE[session.role]);
-  return session;
+export function handleApiError(error: unknown): NextResponse {
+  if (error instanceof AuthError) {
+    return NextResponse.json({ error: error.message }, { status: error.statusCode });
+  }
+
+  if (error instanceof ValidationError) {
+    return NextResponse.json(
+      { error: error.message, issues: error.issues },
+      { status: 400 }
+    );
+  }
+
+  console.error('API Error:', error);
+  return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
 }

@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Amplify deployment-specification bundle, assembled from the build output
+    // by infra/scripts/deploy-web.mjs. Generated, not source.
+    ".amplify-hosting/**",
   ]),
 ]);
 

@@ -4,393 +4,166 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-data: var(--font-geist-mono);
-  --font-heading: var(--font-geist-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-
-  --color-brand: var(--brand);
-  --color-brand-foreground: var(--brand-foreground);
-
-  /* Status scale. Used for competency/assessment state, which is the one place
-     colour carries meaning rather than decoration. */
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-success-muted: var(--success-muted);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-warning-muted: var(--warning-muted);
-  --color-danger: var(--danger);
-  --color-danger-foreground: var(--danger-foreground);
-  --color-danger-muted: var(--danger-muted);
-
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-}
-
 :root {
-  /* SkillBridge — light, warm, premium consumer product. This is the
-     product's only theme (no light/dark toggle), so it lives directly on
-     :root. Warm off-white shell, deep charcoal text, one accent — a growth
-     green — that carries progress, success and primary actions. Everything
-     else is neutral so the green always reads as meaningful, not decorative. */
-  --background: #faf8f4;
-  --foreground: #221e1a;
-  --card: #ffffff;
-  --card-foreground: #221e1a;
-  --popover: #ffffff;
-  --popover-foreground: #221e1a;
-
-  --primary: #15803d;
-  --primary-foreground: #ffffff;
-  --secondary: #eaf4ec;
-  --secondary-foreground: #15803d;
-  --muted: #f0ece3;
-  --muted-foreground: #71675a;
-  --accent: #eaf4ec;
-  --accent-foreground: #15803d;
-
-  --destructive: #c0392b;
-  --border: #e7e1d4;
-  --input: #e7e1d4;
-  --ring: #15803d;
-
-  /* Brand accent for the marketing surface. */
-  --brand: #f2621f;
-  --brand-foreground: #ffffff;
-
-  --success: #15803d;
-  --success-foreground: #ffffff;
-  --success-muted: #eaf4ec;
-  --warning: #b8791a;
-  --warning-foreground: #ffffff;
-  --warning-muted: #fbf1de;
-  --danger: #c0392b;
-  --danger-foreground: #ffffff;
-  --danger-muted: #fbeae8;
-
-  --chart-1: #15803d;
-  --chart-2: #b8791a;
-  --chart-3: #3a6896;
-  --chart-4: #c0392b;
-  --chart-5: #8c8577;
-
-  --radius: 1rem;
-
-  --sidebar: #ffffff;
-  --sidebar-foreground: #221e1a;
-  --sidebar-primary: #15803d;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #eaf4ec;
-  --sidebar-accent-foreground: #15803d;
-  --sidebar-border: #e7e1d4;
-  --sidebar-ring: #15803d;
-}
-
-.dark {
-  --background: #faf8f4;
-  --foreground: #221e1a;
-  --card: #ffffff;
-  --card-foreground: #221e1a;
-  --popover: #ffffff;
-  --popover-foreground: #221e1a;
-
-  --primary: #15803d;
-  --primary-foreground: #ffffff;
-  --secondary: #eaf4ec;
-  --secondary-foreground: #15803d;
-  --muted: #f0ece3;
-  --muted-foreground: #71675a;
-  --accent: #eaf4ec;
-  --accent-foreground: #15803d;
-
-  --destructive: #c0392b;
-  --border: #e7e1d4;
-  --input: #e7e1d4;
-  --ring: #15803d;
-
-  --brand: #ff7a3d;
-  --brand-foreground: #091d30;
-
-  --success: #15803d;
-  --success-foreground: #ffffff;
-  --success-muted: #eaf4ec;
-  --warning: #b8791a;
-  --warning-foreground: #ffffff;
-  --warning-muted: #fbf1de;
-  --danger: #c0392b;
-  --danger-foreground: #ffffff;
-  --danger-muted: #fbeae8;
-
-  --sidebar: #ffffff;
-  --sidebar-foreground: #221e1a;
-  --sidebar-primary: #15803d;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #eaf4ec;
-  --sidebar-accent-foreground: #15803d;
-  --sidebar-border: #e7e1d4;
-  --sidebar-ring: #15803d;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  
+  --background: oklch(0.145 0.02 260);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.18 0.02 260);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.18 0.02 260);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.6 0.22 250);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.24 0.02 260);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.24 0.02 260);
+  --muted-foreground: oklch(0.7 0 0);
+  --accent: oklch(0.26 0.03 260);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.6 0.24 25);
+  --border: oklch(0.3 0.02 260);
+  --input: oklch(0.25 0.02 260);
+  --ring: oklch(0.6 0.22 250);
+  --radius: 0.75rem;
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
+  *, ::before, ::after {
+    box-sizing: border-box;
+    border-color: var(--border);
   }
-  body {
-    @apply bg-background text-foreground;
-  }
-  html {
-    @apply font-sans;
-  }
-}
-
-/**
- * Hero photo panel.
- *
- * Lives here rather than as an inline style so the image can be swapped by
- * viewport — a phone on 2g has no business downloading the 1884px asset. The
- * navy is strongest at the diagonal cut so the panel reads as one shape against
- * the cream, then clears so the worker is visible rather than tinted flat.
- */
-.hero-photo {
-  background-image: url('/hero-worker-v2-sm.webp');
-  background-size: cover;
-  background-position: 82% center;
-}
-
-@media (min-width: 900px) {
-  .hero-photo {
-    background-image: url('/hero-worker-v2.webp');
-    background-size: cover;
-    background-position: 82% center;
+  html, body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, sans-serif !important;
+    background-color: #080c14;
+    color: #f1f5f9;
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
-/**
- * Machine viewer. Both paths matter equally: tap-a-part-and-ask has to work the
- * same on the 2D fallback, which is what a low-end handset or a 2g connection
- * actually gets.
- */
+/* 3D Model Viewer Canvas */
 .machine-viewer {
-  display: block;
   width: 100%;
-  aspect-ratio: 4 / 3;
-  background-color: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  height: 520px;
+  background: radial-gradient(ellipse at center, #172554 0%, #0b1329 45%, #060913 100%);
+  border-radius: 1rem;
+  position: relative;
+  overflow: hidden;
+  display: block;
 }
 
 .machine-viewer--fallback {
-  aspect-ratio: auto;
-  padding: 0.5rem;
-}
-
-.machine-viewer--fallback img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-.machine-viewer--fallback ul {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0.75rem 0 0;
-  padding: 0;
-  list-style: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 520px;
+  padding: 2rem;
+  background: #090e1a;
 }
 
-/* Gloved hands on a shop floor: these are the tap targets for the product's
-   single most important interaction, so they are sized generously. */
-.machine-viewer--fallback button {
-  min-height: 3rem;
-  padding: 0 1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background-color: var(--background);
-  color: var(--foreground);
-  font-size: 1rem;
-}
-
-/**
- * Accessibility mode — driven by the data-a11y attribute AccessibilityProvider
- * sets on documentElement. Expressed once here rather than branched per
- * component, so a screen cannot forget to honour it.
- *
- * Larger type, larger hit areas, and decoration removed. The worker this is for
- * may have low textual literacy and is often wearing gloves.
- */
-[data-a11y='on'] {
-  font-size: 118%;
-  line-height: 1.6;
-}
-
-[data-a11y='on'] button,
-[data-a11y='on'] a[role='button'],
-[data-a11y='on'] [role='button'],
-[data-a11y='on'] input,
-[data-a11y='on'] select {
-  min-height: 3rem;
-  font-size: 1.0625rem;
-}
-
-/* Tighter contrast on secondary text: muted grey is the first thing to fail in
-   shop-floor light. */
-[data-a11y='on'] {
-  --muted-foreground: #3f3f41;
-}
-
-[data-a11y='on'] .a11y-hide {
-  display: none !important;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-/* ==========================================================================
-   Neumorphic (Soft UI) Tactile Utilities — cast in the warm off-white panel
-   colour, with the growth-green accent for the primary action.
-   ========================================================================== */
-.neu-bg {
-  background-color: #f0ece3;
-}
-
-.neu-card {
-  background: #f0ece3;
-  box-shadow:
-    10px 10px 22px #d6d1c4,
-    -10px -10px 22px #ffffff;
-  border-radius: 1.5rem;
-}
-
-.neu-raised {
-  background: #f0ece3;
-  box-shadow:
-    4px 4px 8px #d6d1c4,
-    -4px -4px 8px #ffffff;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.neu-raised:hover {
-  box-shadow:
-    5px 5px 11px #d6d1c4,
-    -5px -5px 11px #ffffff;
-}
-
-.neu-raised:active {
-  box-shadow:
-    inset 2px 2px 4px #d6d1c4,
-    inset -2px -2px 4px #ffffff;
-}
-
-.neu-sunken {
-  background: #f0ece3;
-  box-shadow:
-    inset 3px 3px 6px #d6d1c4,
-    inset -3px -3px 6px #ffffff;
-}
-
-.neu-input {
-  background: #f0ece3;
-  box-shadow:
-    inset 2.5px 2.5px 5px #d6d1c4,
-    inset -2.5px -2.5px 5px #ffffff;
-  border: 1px solid rgba(34, 30, 26, 0.08);
-  transition: all 0.2s ease;
-}
-
-.neu-input:focus {
-  border-color: rgba(21, 128, 61, 0.4);
-  box-shadow:
-    inset 2.5px 2.5px 5px #d6d1c4,
-    inset -2.5px -2.5px 5px #ffffff,
-    0 0 0 2px rgba(21, 128, 61, 0.18);
-}
-
-.neu-btn-primary {
-  background: linear-gradient(145deg, #18944a, #0f6e35);
-  box-shadow:
-    5px 5px 12px #d6d1c4,
-    -4px -4px 10px #ffffff;
+/* Hotspot Radar Beacon Pins */
+.machine-viewer button[slot^="hotspot-"] {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border: 2px solid #ffffff;
   color: #ffffff;
-  transition: all 0.15s ease;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.9), inset 0 0 8px rgba(255, 255, 255, 0.4);
+  position: relative;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+  z-index: 10;
 }
 
-.neu-btn-primary:hover {
-  background: linear-gradient(145deg, #1ba354, #0f6e35);
-  box-shadow:
-    6px 6px 14px #d6d1c4,
-    -5px -5px 12px #ffffff;
+.machine-viewer button[slot^="hotspot-"]::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  right: -6px;
+  bottom: -6px;
+  border-radius: 50%;
+  border: 2px solid rgba(96, 165, 250, 0.8);
+  animation: beacon-pulse 2s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+  pointer-events: none;
 }
 
-.neu-btn-primary:active {
-  box-shadow:
-    inset 2px 2px 5px #0a4d25,
-    inset -2px -2px 5px #22b25c;
-  transform: translateY(1px);
+.machine-viewer button[slot^="hotspot-"]:hover,
+.machine-viewer button[slot^="hotspot-"].active {
+  transform: scale(1.25);
+  background: linear-gradient(135deg, #60a5fa 0%, #2563eb 100%);
+  box-shadow: 0 0 25px rgba(96, 165, 250, 1), 0 0 50px rgba(59, 130, 246, 0.6);
+  border-color: #ffffff;
 }
 
-@keyframes carousel-progress {
-  from {
-    width: 0%;
+@keyframes beacon-pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 1;
   }
-  to {
-    width: 100%;
+  70% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
   }
 }
 
-.animate-carousel-progress {
-  animation: carousel-progress 4s linear;
+/* Audio Visualizer Waves */
+@keyframes soundbar {
+  0%, 100% {
+    height: 4px;
+    opacity: 0.4;
+  }
+  50% {
+    height: 28px;
+    opacity: 1;
+  }
 }
 
+.soundwave-bar {
+  animation: soundbar 0.9s ease-in-out infinite;
+  width: 4px;
+  border-radius: 9999px;
+  background: linear-gradient(to top, #3b82f6, #60a5fa);
+  display: inline-block;
+}
 
-/* Faint dot grid behind the marketing footer. */
-.footer-dots {
-  background-image: radial-gradient(rgba(28, 28, 30, 0.07) 1px, transparent 1px);
-  background-size: 22px 22px;
+.soundwave-bar:nth-child(2) { animation-delay: 0.15s; }
+.soundwave-bar:nth-child(3) { animation-delay: 0.3s; }
+.soundwave-bar:nth-child(4) { animation-delay: 0.45s; }
+.soundwave-bar:nth-child(5) { animation-delay: 0.2s; }
+.soundwave-bar:nth-child(6) { animation-delay: 0.35s; }
+.soundwave-bar:nth-child(7) { animation-delay: 0.5s; }
+.soundwave-bar:nth-child(8) { animation-delay: 0.25s; }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }

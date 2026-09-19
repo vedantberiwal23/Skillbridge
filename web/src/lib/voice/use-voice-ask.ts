@@ -16,6 +16,13 @@ export interface VoiceAskState {
   error: string | null;
   /** Nothing with letters was heard. Silence is not a question. */
   empty: boolean;
+  /**
+   * The answer was retrieved from this organisation's own SOPs rather than the
+   * model's general knowledge. Surfaced so the worker can see which of the two
+   * they are being told — the whole claim of the product is that the first kind
+   * exists.
+   */
+  grounded: boolean;
 }
 
 const EMPTY: VoiceAskState = {
@@ -25,6 +32,7 @@ const EMPTY: VoiceAskState = {
   reply: '',
   error: null,
   empty: false,
+  grounded: false,
 };
 
 /**
@@ -83,7 +91,17 @@ export function useVoiceAsk(locale: Locale, part?: string | null) {
     const channel = channelRef.current;
     if (!channel || turnRef.current) return;
 
-    setState((prev) => ({ ...prev, partial: '', transcript: '', reply: '', error: null, empty: false }));
+    // `grounded` resets with the rest: a badge left over from the previous
+    // question would claim the new answer came from the SOPs.
+    setState((prev) => ({
+      ...prev,
+      partial: '',
+      transcript: '',
+      reply: '',
+      error: null,
+      empty: false,
+      grounded: false,
+    }));
 
     turnRef.current = channel.startTurn(
       {
@@ -103,7 +121,13 @@ export function useVoiceAsk(locale: Locale, part?: string | null) {
           ),
         onFinal: (text) => setState((prev) => ({ ...prev, transcript: text, partial: '' })),
         onDelta: (text) => setState((prev) => ({ ...prev, reply: prev.reply + text })),
-        onReply: (reply) => setState((prev) => ({ ...prev, reply: reply.text, transcript: reply.transcript })),
+        onReply: (reply) =>
+          setState((prev) => ({
+            ...prev,
+            reply: reply.text,
+            transcript: reply.transcript,
+            grounded: reply.grounded,
+          })),
         onEmpty: () => setState((prev) => ({ ...prev, empty: true, partial: '' })),
         onError: (_code, message) => setState((prev) => ({ ...prev, error: message })),
         onDone: () => {

@@ -51,6 +51,18 @@ const MAX_SOCKETS_PER_USER = 3;
  * it must not live long enough for that authorization to go stale. On expiry the
  * client silently warms a fresh one, which re-verifies the token.
  */
+/**
+ * Transport keepalive, well under the 60 s an Application Load Balancer counts
+ * as idle before it drops a connection.
+ *
+ * This is NOT a session extension. `CHANNEL_IDLE_MS` and `CHANNEL_MAX_MS` are a
+ * security bound — the only thing stopping a revoked or role-changed user from
+ * holding a live authorized socket — so the ping deliberately does not call
+ * `bump()`. It keeps the TCP connection warm between a worker's questions and
+ * nothing more; a channel that goes quiet still expires exactly on schedule.
+ */
+const PING_INTERVAL_MS = 25 * 1000;
+
 const CHANNEL_MAX_MS = 15 * 60 * 1000;
 const CHANNEL_IDLE_MS = 5 * 60 * 1000;
 
@@ -189,6 +201,10 @@ export function handleConnection(
     idle = setTimeout(expire, CHANNEL_IDLE_MS);
   };
   const lifetime = setTimeout(expire, CHANNEL_MAX_MS);
+  // `ws` answers an incoming pong itself; this only has to generate traffic.
+  const ping = setInterval(() => {
+    if (ws.readyState === ws.OPEN) ws.ping();
+  }, PING_INTERVAL_MS);
   const unauthenticated = setTimeout(() => {
     if (!user) ws.close();
   }, START_TIMEOUT_MS);
@@ -358,6 +374,7 @@ export function handleConnection(
     closed = true;
     clearTimeout(idle);
     clearTimeout(lifetime);
+    clearInterval(ping);
     clearTimeout(unauthenticated);
     clearTimeout(tokenExpiry);
     if (counted && user) {

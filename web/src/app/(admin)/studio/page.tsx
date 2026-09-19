@@ -26,13 +26,27 @@ import { openVoiceChannel, type VoiceChannel, type ChannelState, type VoiceTurn,
 import * as player from '@/lib/voice/player';
 import { ScanPipelinePanel } from '@/components/studio/scan-pipeline';
 
-// Live Machine Twin Photogrammetry Model (Loaded from port 8000)
+/**
+ * The machine twin, served through this app's own `/api/twin` proxy rather than
+ * straight off the engine's port.
+ *
+ * It used to point at `http://localhost:8000` directly, which works on the one
+ * laptop running the engine and nowhere else: deployed, the browser is on HTTPS
+ * and cannot load a plaintext localhost URL at all. The proxy already forwards
+ * `model` and `poster`, is session-checked like every other route, and reads
+ * `MACHINE_TWIN_URL` server-side — so this follows the engine wherever it lives.
+ *
+ * With no engine reachable, `MachineViewer` falls back to its poster-and-hotspot
+ * path, which is the honest degraded state: the parts are still tappable, and
+ * nothing pretends a scan happened. The scanner tab reports "Unreachable"
+ * separately.
+ */
 const MACHINE_TWIN_ASSET: MachineAsset = {
   orgId: 'local',
   assetId: 'proj_axial_pump_twin',
   name: 'Rexroth A10VSO Variable Displacement Axial Piston Pump',
-  glbUrl: 'http://localhost:8000/projects/proj_axial_pump_twin/model?lod=0',
-  posterUrl: 'http://localhost:8000/projects/proj_axial_pump_twin/poster',
+  glbUrl: '/api/twin?action=model&projectId=proj_axial_pump_twin&lod=0',
+  posterUrl: '/api/twin?action=poster&projectId=proj_axial_pump_twin',
   hotspots: [
     {
       id: 'relief-valve',

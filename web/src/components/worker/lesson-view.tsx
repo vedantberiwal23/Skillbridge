@@ -269,6 +269,7 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
             channelState={ask.channel}
             error={ask.error}
             empty={ask.empty}
+            grounded={ask.grounded}
           />
         </div>
 

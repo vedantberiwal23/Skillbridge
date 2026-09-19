@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { BookCheck } from 'lucide-react';
 
 import { useI18n } from '@/i18n/provider';
 import type { ChannelState } from '@/lib/voice/channel';
@@ -35,6 +36,8 @@ export interface AskPanelProps {
   error?: string | null;
   /** The recogniser heard no letters at all. */
   empty?: boolean;
+  /** The answer came from this organisation's own SOPs, not general knowledge. */
+  grounded?: boolean;
 }
 
 export function AskPanel({
@@ -46,6 +49,7 @@ export function AskPanel({
   channelState = 'ready',
   error,
   empty,
+  grounded,
 }: AskPanelProps) {
   const { t } = useI18n();
   const [holding, setHolding] = useState(false);
@@ -126,7 +130,21 @@ export function AskPanel({
       ) : null}
 
       {reply ? (
-        <p className="mt-2 text-base leading-relaxed text-muted-foreground">{reply}</p>
+        <>
+          <p className="mt-2 text-base leading-relaxed text-muted-foreground">{reply}</p>
+          {/*
+            Only shown when the turn actually retrieved from the org's Knowledge
+            Base. The absence of the badge is meaningful — it is how a worker
+            tells "this is in your plant's procedure" from "this is general
+            advice, check with your supervisor".
+          */}
+          {grounded ? (
+            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground">
+              <BookCheck className="size-3.5" aria-hidden />
+              {t('worker.fromYourSop')}
+            </p>
+          ) : null}
+        </>
       ) : null}
     </section>
   );

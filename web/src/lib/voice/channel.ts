@@ -30,9 +30,17 @@ export function voiceStreamUrl(): string {
  * in the first FRAME, never the URL: query strings land in proxy logs and
  * browser history.
  */
+/** Never let a hung auth call strand the channel at "connecting" with no socket. */
+const TOKEN_TIMEOUT_MS = 6000;
+
 async function idToken(): Promise<string | null> {
   try {
-    let session = await fetchAuthSession();
+    let session = await Promise.race([
+      fetchAuthSession(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('auth timed out')), TOKEN_TIMEOUT_MS)
+      ),
+    ]);
     const exp = session.tokens?.idToken?.payload.exp;
     if (!exp || exp - Date.now() / 1000 < EXPIRY_MARGIN_S) session = await fetchAuthSession({ forceRefresh: true });
     return session.tokens?.idToken?.toString() ?? 'dev-token';

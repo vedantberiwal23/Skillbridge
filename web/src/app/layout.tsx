@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AccessibilityProvider } from "@/components/providers/accessibility-provider";
 import { ServiceWorkerRegistration } from "@/components/providers/service-worker";
+import { AmplifyInit } from "@/components/providers/amplify-init";
 import { I18nProvider } from "@/i18n/provider";
 
 const geistSans = Geist({
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <I18nProvider>{children}</I18nProvider>
         </AccessibilityProvider>
         <ServiceWorkerRegistration />
+        <AmplifyInit />
       </body>
     </html>
   );

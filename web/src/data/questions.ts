@@ -1,6 +1,7 @@
 /**
  * Industrial Diagnostic Assessment Question Bank
- * Sourced directly from Lunchbox Sessions Quiz & Technical Diagnostics Dataset.
+ * Diagnostic question bank for the demo vertical. Third-party content
+ * provenance and attribution are recorded in README.md, not here.
  */
 
 export interface DiagnosticQuestion {

@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { fixtureBadges, fixtureOpportunities, fixtureSkillProfile } from '@/lib/fixtures';
 import { useProfile } from '@/components/providers/profile-provider';
+import { TourLauncher } from '@/components/tour/tour-provider';
 import { TRADES_CATALOG, type CurriculumModule, type TradeTrack } from '@/data/curriculum';
 
 /** All modules across all stages, in order — the flat list "progress" means. */
@@ -87,18 +88,21 @@ export default function HomePage() {
     <main className="mx-auto flex max-w-lg flex-col px-5 pt-8">
       {/* ---- Greeting — a real date instead of a wave emoji does more work
            to feel like a considered product than decoration would. ---- */}
-      <div className="flex items-baseline justify-between">
-        <p className="text-2xl font-semibold tracking-tight text-foreground">
-          {greeting()}, {firstName((profile?.name ?? ''))}
-        </p>
-        <p className="font-data text-xs text-muted-foreground">{TODAY.format(new Date())}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-data text-xs text-muted-foreground">{TODAY.format(new Date())}</p>
+          <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
+            {greeting()}, {firstName((profile?.name ?? ''))}
+          </p>
+        </div>
+        <TourLauncher variant="icon" className="shrink-0" />
       </div>
       <p className="mt-0.5 text-base text-muted-foreground">{profile?.profession ?? ''}</p>
 
       {/* ---- Continue Learning — the one thing on this screen that should
            read as unmissable. No card border, no icon: the size of the
            number and the trade name are what carry it. ---- */}
-      <Link href="/plan" className="group mt-8 block">
+      <Link href="/plan" data-tour="continue-learning" className="group mt-8 block">
         <div className="rounded-2xl bg-foreground p-6 text-background transition-transform active:scale-[0.99]">
           <p className="font-data text-xs uppercase tracking-[0.16em] text-background/55">
             Continue learning
@@ -150,7 +154,7 @@ export default function HomePage() {
       {/* ---- Your Skills — no icons, no badges. Just the list, weighted by
            what's actually true: done skills read plain, locked ones read
            quieter. The distinction does the work, not a decoration. ---- */}
-      <section className="mt-9">
+      <section data-tour="your-skills" className="mt-9">
         <SectionLabel>Your skills</SectionLabel>
         <div className="mt-4 flex flex-col divide-y divide-border">
           {fixtureSkillProfile.strengths.map((skill) => (

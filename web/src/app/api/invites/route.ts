@@ -8,6 +8,7 @@ import { provisionCognitoUser, deleteCognitoUser } from '@/lib/cognito';
 import { parseBody, issueInviteSchema, redeemInviteSchema } from '@/lib/validation';
 import { Role } from '@/lib/types';
 import { DEFAULT_LOCALE } from '@/i18n/config';
+import { getDepartment } from '@/lib/scope';
 
 /** 8 bytes -> 16 hex characters. The code is the only credential guarding an
  *  unauthenticated endpoint that creates accounts, so it is sized to be
@@ -31,6 +32,12 @@ export async function POST(req: NextRequest) {
   try {
     const session = await requireSession('admin', req);
     const body = parseBody(issueInviteSchema, await req.json());
+
+    // An invite into a department that does not exist in this org would land the
+    // person in a deptId no screen can show.
+    if (body.deptId && !(await getDepartment(session.orgId, body.deptId))) {
+      throw new AuthError('That department does not exist in your organization', 400);
+    }
 
     const code = crypto.randomBytes(INVITE_CODE_BYTES).toString('hex').toUpperCase();
     const expiresAt = new Date(Date.now() + INVITE_TTL_MS).toISOString();

@@ -25,11 +25,15 @@ import type {
   Assessment,
   AssessmentAttempt,
   DeptAggregate,
+  Department,
+  DirectoryEntry,
+  WorkGroup,
   Invite,
   Role,
   LearningPlan,
   Lesson,
   MachineAsset,
+  TeamMember,
   UserProfile,
   UserSettings,
 } from './types';
@@ -170,6 +174,80 @@ export const getDeptAggregate = (deptId?: string, period?: string) => {
   const suffix = qs.toString();
   return request<{ aggregate: DeptAggregate }>(`/api/aggregates${suffix ? `?${suffix}` : ''}`);
 };
+
+/* ── /api/team — M4 roster ────────────────────────────────────────────────── */
+
+/**
+ * The workers in one department: one GSI1 Query, profile fields only.
+ * Progress numbers are not here on purpose — they come from the aggregate.
+ * Without `deptId`, the caller's own department.
+ */
+export const getTeam = (deptId?: string) =>
+  request<{ deptId: string; members: TeamMember[]; truncated: boolean }>(
+    `/api/team${deptId ? `?deptId=${encodeURIComponent(deptId)}` : ''}`
+  );
+
+/** Move a person into another department the caller manages. */
+export const moveMember = (userId: string, deptId: string) =>
+  request<{ success: true; deptId: string }>('/api/team', {
+    method: 'PATCH',
+    body: JSON.stringify({ userId, deptId }),
+  });
+
+/* ── /api/departments ─────────────────────────────────────────────────────── */
+
+/** Departments the caller may manage: all of them for an admin. */
+export const getDepartments = () => request<{ departments: Department[] }>('/api/departments');
+
+export const createDepartment = (body: { name: string; description?: string | null }) =>
+  request<{ department: Department }>('/api/departments', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+
+export const updateDepartment = (body: {
+  deptId: string;
+  name?: string;
+  description?: string | null;
+  managerIds?: string[];
+}) =>
+  request<{ department: Department }>('/api/departments', {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+
+/** Refused with 409 while anyone is still in the department. */
+export const deleteDepartment = (deptId: string) =>
+  request<{ success: true }>(`/api/departments?deptId=${encodeURIComponent(deptId)}`, {
+    method: 'DELETE',
+  });
+
+/* ── /api/directory ───────────────────────────────────────────────────────── */
+
+/** Everyone in the org. Admin only. */
+export const getDirectory = () =>
+  request<{ people: DirectoryEntry[]; truncated: boolean }>('/api/directory');
+
+/* ── /api/groups ──────────────────────────────────────────────────────────── */
+
+export const getGroups = (deptId: string) =>
+  request<{ groups: WorkGroup[] }>(`/api/groups?deptId=${encodeURIComponent(deptId)}`);
+
+export const createGroup = (body: { deptId: string; name: string; memberIds?: string[] }) =>
+  request<{ group: WorkGroup }>('/api/groups', { method: 'POST', body: JSON.stringify(body) });
+
+export const updateGroup = (body: {
+  deptId: string;
+  groupId: string;
+  name?: string;
+  memberIds?: string[];
+}) => request<{ group: WorkGroup }>('/api/groups', { method: 'PATCH', body: JSON.stringify(body) });
+
+export const deleteGroup = (deptId: string, groupId: string) =>
+  request<{ success: true }>(
+    `/api/groups?deptId=${encodeURIComponent(deptId)}&groupId=${encodeURIComponent(groupId)}`,
+    { method: 'DELETE' }
+  );
 
 /* ── /api/invites — A3/A4 ─────────────────────────────────────────────────── */
 

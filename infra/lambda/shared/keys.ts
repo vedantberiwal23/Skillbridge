@@ -19,6 +19,15 @@ export const keys = {
     PK: orgPk(orgId),
     SK: `DEPT#${deptId}`,
   }),
+  /**
+   * A working group inside a department — a crew, shift or line. Low-volume
+   * config, so it lives under the org; the deptId leads the sort key so one
+   * begins_with lists a department's groups.
+   */
+  group: (orgId: string, deptId: string, groupId: string) => ({
+    PK: orgPk(orgId),
+    SK: `GROUP#${deptId}#${groupId}`,
+  }),
   invite: (orgId: string, code: string) => ({
     PK: orgPk(orgId),
     SK: `INVITE#${code}`,
@@ -98,6 +107,7 @@ export const keys = {
  */
 export const prefixes = {
   department: 'DEPT#',
+  groupsFor: (deptId: string) => `GROUP#${deptId}#`,
   invite: 'INVITE#',
   doc: 'DOC#',
   lesson: 'LESSON#',

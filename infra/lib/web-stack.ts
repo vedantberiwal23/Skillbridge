@@ -113,6 +113,8 @@ export class WebStack extends cdk.Stack {
           'cognito-idp:AdminAddUserToGroup',
           'cognito-idp:AdminSetUserPassword',
           'cognito-idp:AdminDeleteUser',
+          // Department moves in the manager/admin console keep custom:deptId in step.
+          'cognito-idp:AdminUpdateUserAttributes',
         ],
         resources: [props.userPool.userPoolArn],
       })

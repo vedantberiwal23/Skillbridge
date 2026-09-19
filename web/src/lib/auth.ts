@@ -301,7 +301,7 @@ export function handleApiError(error: unknown): NextResponse {
 export const HOME_FOR_ROLE: Record<Role, string> = {
   worker: '/plan',
   manager: '/dashboard',
-  admin: '/users',
+  admin: '/overview',
 };
 
 /**

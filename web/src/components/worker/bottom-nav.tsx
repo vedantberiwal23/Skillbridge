@@ -15,16 +15,22 @@ const NAV_ITEMS: Array<{
   href: string;
   label: string;
   icon: ComponentType<{ className?: string; strokeWidth?: number }>;
+  /** Product-tour anchor, see components/tour/tour-steps.ts. */
+  tour: string;
 }> = [
-  { href: '/home', label: 'Home', icon: Home },
-  { href: '/learn', label: 'Learn', icon: BookOpen },
-  { href: '/progress', label: 'Skills', icon: Award },
-  { href: '/opportunities', label: 'Jobs', icon: Briefcase },
-  { href: '/profile', label: 'Profile', icon: User },
+  { href: '/home', label: 'Home', icon: Home, tour: 'nav-home' },
+  { href: '/learn', label: 'Learn', icon: BookOpen, tour: 'nav-learn' },
+  { href: '/progress', label: 'Skills', icon: Award, tour: 'nav-skills' },
+  { href: '/opportunities', label: 'Jobs', icon: Briefcase, tour: 'nav-jobs' },
+  { href: '/profile', label: 'Profile', icon: User, tour: 'nav-profile' },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
+
+  // Onboarding is a full-screen flow; a tab bar under it would invite the
+  // worker to leave before their plan exists.
+  if (pathname.startsWith('/onboarding')) return null;
 
   return (
     <nav
@@ -33,7 +39,7 @@ export function BottomNav() {
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       <div className="mx-auto flex max-w-lg items-stretch justify-between px-2">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+        {NAV_ITEMS.map(({ href, label, icon: Icon, tour }) => {
           // A worker on /learn/hydraulics is still "on" Learn — match the
           // section, not just the exact URL.
           const active = pathname === href || pathname.startsWith(`${href}/`);
@@ -42,6 +48,7 @@ export function BottomNav() {
             <Link
               key={href}
               href={href}
+              data-tour={tour}
               aria-current={active ? 'page' : undefined}
               className="flex min-w-16 flex-1 flex-col items-center gap-1 py-2.5 text-muted-foreground transition-colors"
             >

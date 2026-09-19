@@ -77,7 +77,33 @@ function zipDirectory(source, destination) {
   }
 }
 
-function buildBundle() {
+/**
+ * The app's environment variables, read back off the Amplify app itself.
+ *
+ * Amplify's own variables reach the SSR compute at runtime, which is enough for
+ * server-only values like APP_TABLE_NAME. It is NOT enough for `NEXT_PUBLIC_*`:
+ * Next inlines those into the client bundle at build time, and the build runs
+ * here, on this machine. Without this, `NEXT_PUBLIC_VOICE_URL` is absent from
+ * the build, the browser falls back to `http://localhost:3002`, and voice is
+ * dead in the deployed app while the Amplify console shows the value set
+ * correctly — which is the worst version of this bug.
+ *
+ * Reading them from the app rather than a local `.env` keeps `web-stack.ts` the
+ * single authority CLAUDE.md requires. No secret is ever in this list.
+ */
+function amplifyEnv(appId) {
+  if (!appId) return {};
+  const vars = aws(['amplify', 'get-app', '--app-id', appId]).app?.environmentVariables ?? {};
+  const names = Object.keys(vars);
+  console.log(`> build env from Amplify app ${appId}: ${names.join(', ') || '(none)'}`);
+  const missing = names.filter((n) => n.startsWith('NEXT_PUBLIC_') && !vars[n]);
+  if (missing.length) {
+    console.warn(`  WARNING: empty in the app, so absent from the bundle: ${missing.join(', ')}`);
+  }
+  return vars;
+}
+
+function buildBundle(env = {}) {
   console.log('> building web (output: standalone)');
   // Node refuses to spawn a .cmd directly since v20, so npm needs a shell on
   // Windows. Arguments here are literals, not user input.
@@ -85,6 +111,9 @@ function buildBundle() {
     cwd: WEB,
     stdio: 'inherit',
     shell: process.platform === 'win32',
+    // The app's values win over whatever this machine happens to have in
+    // `web/.env.local`, so a deploy cannot pick up a stale local override.
+    env: { ...process.env, ...env },
   });
 
   const standalone = join(WEB, '.next', 'standalone');
@@ -208,11 +237,19 @@ async function deploy(appId, branchName) {
 // `--bundle-only` builds and validates the bundle without touching AWS, so the
 // shape can be checked before the stack exists.
 if (process.argv.includes('--bundle-only')) {
-  buildBundle();
+  // Still resolve the app when it exists, so `--bundle-only` validates the same
+  // bundle a real deploy would produce rather than a differently-configured one.
+  let env = {};
+  try {
+    env = amplifyEnv(arg('app-id') ?? stackOutput('AmplifyAppId'));
+  } catch {
+    console.warn('> no skillbridge-web stack yet; building without the app env');
+  }
+  buildBundle(env);
   console.log(`> bundle ready at ${OUT} (not deployed)`);
 } else {
   const appId = arg('app-id') ?? stackOutput('AmplifyAppId');
   const branchName = arg('branch') ?? stackOutput('AmplifyBranchName');
-  buildBundle();
+  buildBundle(amplifyEnv(appId));
   await deploy(appId, branchName);
 }

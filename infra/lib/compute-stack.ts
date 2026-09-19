@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib/core';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
-import * as apprunner from 'aws-cdk-lib/aws-apprunner';
+import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
@@ -21,22 +21,36 @@ export interface ComputeStackProps extends cdk.StackProps {
 }
 
 /**
- * Hosting for the voice service.
+ * Hosting for the voice service, on ECS Express Mode.
  *
  * The voice path needs a persistent process holding WebSocket connections to
- * both the browser and Sarvam's realtime endpoints, which does not fit Lambda or
- * Amplify Hosting — hence App Runner (FEATURES/HANDOFF: chosen over ECS Fargate
- * for lower ops overhead).
+ * both the browser and Sarvam's realtime endpoints at once, which fits neither
+ * Lambda nor Amplify Hosting compute.
  *
- * The App Runner service itself is created in the development session once an
- * image exists in this repository; this stack provides the registry and the
- * runtime role it will assume.
+ * It did not fit App Runner either, which is what this originally used and what
+ * FEATURES/HANDOFF chose for lower ops overhead. **App Runner does not support
+ * WebSockets.** Its Envoy front door answers a valid RFC 6455 upgrade with a
+ * bare `403 Forbidden` — `server: envoy`, no `x-envoy-upstream-service-time`,
+ * no `x-powered-by` — while ordinary HTTP on the same host reaches Express
+ * normally. The request never arrives at the application, so no amount of
+ * origin-allowlist or application configuration can fix it. Verified on the
+ * deployed service with both curl and a real `ws` client on 2026-09-19.
+ *
+ * ECS Express Mode is the replacement AWS itself recommends now that App Runner
+ * is closed to new customers, and crucially it fronts the service with a real
+ * Application Load Balancer, which supports WebSockets natively. Express Mode
+ * provisions the ALB, target group, security groups, log group and autoscaling
+ * itself, so this stays far closer to App Runner's ops overhead than a
+ * hand-built Fargate service would.
+ *
+ * The container image is unchanged — this was a hosting problem, not an
+ * application one.
  */
 export class ComputeStack extends cdk.Stack {
   readonly voiceRepo: ecr.Repository;
   readonly voiceServiceRole: iam.Role;
   /** Only present when deployed with `-c voiceImageTag=<tag>`. */
-  readonly voiceService?: apprunner.CfnService;
+  readonly voiceService?: ecs.CfnExpressGatewayService;
 
   constructor(scope: Construct, id: string, props: ComputeStackProps) {
     super(scope, id, props);
@@ -50,8 +64,11 @@ export class ComputeStack extends cdk.Stack {
     });
 
     this.voiceServiceRole = new iam.Role(this, 'VoiceServiceRole', {
-      assumedBy: new iam.ServicePrincipal('tasks.apprunner.amazonaws.com'),
-      description: 'Runtime role for the voice service on App Runner',
+      // The TASK role: the identity the running container itself has. Changed
+      // from `tasks.apprunner.amazonaws.com` with the move to Express Mode; a
+      // stale trust policy fails at task start, not at deploy.
+      assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
+      description: 'Runtime role for the voice service container',
     });
 
     this.voiceServiceRole.addToPolicy(
@@ -76,99 +93,115 @@ export class ComputeStack extends cdk.Stack {
       })
     );
 
-    // App Runner resolves this at container start under the INSTANCE role and
-    // injects the result as an environment variable, so the value never enters
-    // the image, the template or this repository. Scoped to the one secret.
-    this.voiceServiceRole.addToPolicy(
-      new iam.PolicyStatement({
-        actions: ['secretsmanager:GetSecretValue'],
-        resources: [SARVAM_SECRET_ARN],
-      })
-    );
-
     props.table.grantReadWriteData(this.voiceServiceRole);
 
     /**
-     * The App Runner service, created only once an image exists.
+     * The Express Mode service, created only once an image exists.
      *
-     * Gated on CDK context rather than declared unconditionally: App Runner
-     * validates the image at CreateService, so pointing at a tag that has not
-     * been pushed fails the deploy and would leave `skillbridge-compute`
-     * permanently undeployable. Keeping it optional means the stack — and the
-     * ECR repo and roles the voice track needs in order to push in the first
-     * place — can be deployed and tested standalone today.
+     * Gated on CDK context rather than declared unconditionally: the service
+     * validates the image, so pointing at a tag that has not been pushed fails
+     * the deploy and would leave `skillbridge-compute` permanently undeployable.
+     * Keeping it optional means the stack — and the ECR repo and roles the voice
+     * track needs in order to push in the first place — can be deployed and
+     * tested standalone.
      *
      *   cdk deploy skillbridge-compute -c voiceImageTag=<tag>
-     *
-     * Note App Runner stopped accepting new customers on 2026-04-30 and this
-     * account has never created a service. List/describe calls answer normally,
-     * but CreateService is the real eligibility test — if it is refused, switch
-     * to ECS Express Mode (BACKEND.md).
      */
     const imageTag = this.node.tryGetContext('voiceImageTag');
 
     if (imageTag) {
-      // App Runner assumes this to pull from a PRIVATE ECR repo. It is separate
-      // from the instance role: one fetches the image, the other is what the
-      // running container is.
-      const ecrAccessRole = new iam.Role(this, 'VoiceEcrAccessRole', {
-        assumedBy: new iam.ServicePrincipal('build.apprunner.amazonaws.com'),
-        description: 'Lets App Runner pull the voice image from private ECR',
+      /**
+       * The EXECUTION role: what ECS itself uses to pull the image, write logs
+       * and resolve secrets before the container starts. Distinct from the task
+       * role above, which is the identity the running container has.
+       *
+       * The Sarvam grant belongs here, not on the task role — in ECS the agent
+       * resolves `secrets` and injects them as environment variables, so the
+       * container never calls Secrets Manager itself and the value stays out of
+       * the image, the template and this repository. Putting it on the task role
+       * instead produces a ResourceInitializationError at task start.
+       */
+      const executionRole = new iam.Role(this, 'VoiceExecutionRole', {
+        assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
+        description: 'Pulls the voice image, writes logs and resolves the Sarvam secret',
+        managedPolicies: [
+          iam.ManagedPolicy.fromAwsManagedPolicyName(
+            'service-role/AmazonECSTaskExecutionRolePolicy'
+          ),
+        ],
       });
-      this.voiceRepo.grantPull(ecrAccessRole);
+      executionRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: ['secretsmanager:GetSecretValue'],
+          resources: [SARVAM_SECRET_ARN],
+        })
+      );
 
-      this.voiceService = new apprunner.CfnService(this, 'VoiceService', {
+      /**
+       * The INFRASTRUCTURE role: what Express Mode assumes to create and manage
+       * the ALB, target group, security groups and autoscaling on our behalf.
+       * Used only during service create, update and delete — never at runtime.
+       */
+      const infrastructureRole = new iam.Role(this, 'VoiceInfrastructureRole', {
+        assumedBy: new iam.ServicePrincipal('ecs.amazonaws.com'),
+        description: 'Lets ECS Express Mode manage the load balancer and scaling',
+        managedPolicies: [
+          iam.ManagedPolicy.fromAwsManagedPolicyName(
+            'service-role/AmazonECSInfrastructureRoleforExpressGatewayServices'
+          ),
+        ],
+      });
+
+      this.voiceService = new ecs.CfnExpressGatewayService(this, 'VoiceService', {
         serviceName: `${APP_NAME}-voice`,
-        sourceConfiguration: {
-          authenticationConfiguration: { accessRoleArn: ecrAccessRole.roleArn },
-          // The voice image is built and pushed by the voice track; nothing here
-          // should redeploy it implicitly.
-          autoDeploymentsEnabled: false,
-          imageRepository: {
-            imageRepositoryType: 'ECR',
-            imageIdentifier: `${this.voiceRepo.repositoryUri}:${imageTag}`,
-            imageConfiguration: {
-              port: '3001',
-              runtimeEnvironmentVariables: [
-                { name: 'NODE_ENV', value: 'production' },
-                { name: 'PORT', value: '3001' },
-                { name: 'AWS_REGION', value: this.region },
-                { name: 'APP_TABLE_NAME', value: props.table.tableName },
-                { name: 'COGNITO_USER_POOL_ID', value: props.userPoolId },
-                { name: 'COGNITO_CLIENT_ID', value: props.userPoolClientId },
-                { name: 'ALLOWED_ORIGINS', value: props.allowedOrigins },
-                // Must come from MODELS: services/voice/src/config.ts otherwise
-                // falls back to a hardcoded profile id while IAM above is pinned
-                // to whatever MODELS says, and the drift surfaces as an
-                // AccessDenied that reads like a permissions problem.
-                { name: 'VOICE_MODEL_ID', value: MODELS.voiceOrchestrator },
-              ],
-              // Never in runtimeEnvironmentVariables above, in apprunner.yaml,
-              // in the Dockerfile or in any committed .env: App Runner reads
-              // the secret itself at container start. The `:<key>::` suffix
-              // selects one field out of the secret's JSON — without it the
-              // container would receive the whole JSON document as the key.
-              runtimeEnvironmentSecrets: [
-                {
-                  name: 'SARVAM_API_KEY',
-                  value: SARVAM_SECRET_JSON_KEY
-                    ? `${SARVAM_SECRET_ARN}:${SARVAM_SECRET_JSON_KEY}::`
-                    : SARVAM_SECRET_ARN,
-                },
-              ],
+        executionRoleArn: executionRole.roleArn,
+        infrastructureRoleArn: infrastructureRole.roleArn,
+        taskRoleArn: this.voiceServiceRole.roleArn,
+        cpu: '1024',
+        memory: '2048',
+        // Not `/`, which this service does not serve. A health check on a path
+        // that 404s never lets a task go healthy and the deployment rolls back.
+        healthCheckPath: '/healthz',
+        primaryContainer: {
+          image: `${this.voiceRepo.repositoryUri}:${imageTag}`,
+          containerPort: 3001,
+          environment: [
+            { name: 'NODE_ENV', value: 'production' },
+            { name: 'PORT', value: '3001' },
+            // Set explicitly. `config.ts` falls back to a hardcoded region and
+            // the SDK would resolve its own, so a mismatch would surface as a
+            // Bedrock or DynamoDB error pointing at the wrong region.
+            { name: 'AWS_REGION', value: this.region },
+            { name: 'APP_TABLE_NAME', value: props.table.tableName },
+            { name: 'COGNITO_USER_POOL_ID', value: props.userPoolId },
+            { name: 'COGNITO_CLIENT_ID', value: props.userPoolClientId },
+            { name: 'ALLOWED_ORIGINS', value: props.allowedOrigins },
+            // Must come from MODELS: services/voice/src/config.ts otherwise
+            // falls back to a hardcoded profile id while IAM above is pinned
+            // to whatever MODELS says, and the drift surfaces as an
+            // AccessDenied that reads like a permissions problem.
+            { name: 'VOICE_MODEL_ID', value: MODELS.voiceOrchestrator },
+          ],
+          // Resolved by the execution role at task start. Never in the
+          // environment array above, in the Dockerfile, or in a committed .env.
+          // The `:<key>::` suffix selects one field out of the secret's JSON;
+          // without it the container receives the whole JSON document.
+          secrets: [
+            {
+              name: 'SARVAM_API_KEY',
+              valueFrom: SARVAM_SECRET_JSON_KEY
+                ? `${SARVAM_SECRET_ARN}:${SARVAM_SECRET_JSON_KEY}::`
+                : SARVAM_SECRET_ARN,
             },
-          },
+          ],
         },
-        instanceConfiguration: {
-          cpu: '1 vCPU',
-          memory: '2 GB',
-          instanceRoleArn: this.voiceServiceRole.roleArn,
-        },
-        healthCheckConfiguration: { protocol: 'TCP' },
       });
 
       new cdk.CfnOutput(this, 'VoiceServiceUrl', {
-        value: `wss://${this.voiceService.attrServiceUrl}/voice/stream`,
+        value: `wss://${this.voiceService.attrEndpoint}/voice/stream`,
+      });
+      new cdk.CfnOutput(this, 'VoiceServiceEndpoint', {
+        value: this.voiceService.attrEndpoint,
       });
     }
 

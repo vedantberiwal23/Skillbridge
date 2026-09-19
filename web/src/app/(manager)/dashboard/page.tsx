@@ -3,10 +3,8 @@
 import { useState } from 'react';
 
 import { useI18n } from '@/i18n/provider';
-import {
-  fixtureDeptAggregate,
-  fixtureDeptWorkers,
-} from '@/lib/fixtures';
+import { getDeptAggregate } from '@/lib/api-client';
+import { useApi } from '@/lib/use-api';
 
 /**
  * Manager dashboard: the department's numbers, plus a panel for asking about
@@ -23,11 +21,16 @@ import {
  */
 export default function ManagerDashboardPage() {
   const { t } = useI18n();
-  const agg = fixtureDeptAggregate;
+  // No deptId: the handler resolves the caller's own department from the
+  // verified session. A manager never names their department in a request.
+  const { data, error, loading } = useApi(() => getDeptAggregate(), []);
 
+  if (loading) return <DashboardMessage>{t('common.loading')}</DashboardMessage>;
+  if (error || !data) return <DashboardMessage tone="error">{error ?? t('common.error')}</DashboardMessage>;
+
+  const agg = data.aggregate;
   const attempted = agg.assessmentsPassed + agg.assessmentsFailed;
   const passRate = attempted === 0 ? 0 : Math.round((agg.assessmentsPassed / attempted) * 100);
-  const needAttention = fixtureDeptWorkers.filter((w) => w.progress < 70).length;
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-8">
@@ -43,7 +46,7 @@ export default function ManagerDashboardPage() {
           <dl className="grid grid-cols-2 gap-6 border-b border-border pb-8 sm:grid-cols-3">
             <Metric label={t('manager.workers')} value={agg.workerCount} />
             <Metric label={t('manager.passRate')} value={`${passRate}%`} />
-            <Metric label={t('manager.needAttention')} value={needAttention} alert />
+            <Metric label={t('manager.assessmentsPassed')} value={agg.assessmentsPassed} />
           </dl>
 
           <section className="pt-8">
@@ -74,41 +77,41 @@ export default function ManagerDashboardPage() {
             </ul>
           </section>
 
+          {/*
+            The per-worker roster (M4 drill-down) has no route yet, so there is
+            nothing real to list. It renders as visibly pending rather than as a
+            table of invented names: a screen that looks finished and is not is
+            worse on stage than one that says what it is waiting for.
+          */}
           <section className="pt-8">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-                {t('manager.workers')}
-              </h2>
-              <a href="/workers" className="text-xs font-medium text-muted-foreground hover:text-foreground">
-                {t('manager.viewAll')} &rarr;
-              </a>
-            </div>
-            <ul className="mt-3 flex flex-col">
-              {fixtureDeptWorkers.map((worker) => (
-                <li
-                  key={worker.userId}
-                  className="border-b border-border last:border-0"
-                >
-                  <a
-                    href="/workers"
-                    className="flex items-center gap-4 py-3 hover:bg-muted/30 transition px-1 rounded-sm"
-                  >
-                    <span className="flex-1 text-sm text-foreground">{worker.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {worker.weakest ?? t('manager.noGap')}
-                    </span>
-                    <span className="w-10 text-right text-sm font-medium text-foreground">
-                      {worker.progress}%
-                    </span>
-                  </a>
-                </li>
-              ))}
-            </ul>
+            <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              {t('manager.workers')}
+            </h2>
+            <p className="mt-3 rounded-lg border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
+              {t('manager.rosterPending')}
+            </p>
           </section>
         </div>
 
         <AskAboutTeam />
       </div>
+    </main>
+  );
+}
+
+/** Loading and error both need the page frame, not a bare string in the corner. */
+function DashboardMessage({
+  children,
+  tone,
+}: {
+  children: React.ReactNode;
+  tone?: 'error';
+}) {
+  return (
+    <main className="mx-auto w-full max-w-6xl px-6 py-8">
+      <p className={`text-sm ${tone === 'error' ? 'text-danger' : 'text-muted-foreground'}`}>
+        {children}
+      </p>
     </main>
   );
 }

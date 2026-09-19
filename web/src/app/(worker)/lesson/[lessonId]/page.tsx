@@ -3,11 +3,7 @@ import { notFound } from 'next/navigation';
 import { LessonView } from '@/components/worker/lesson-view';
 import { LESSONS_DATABASE } from '@/data/curriculum';
 
-export default async function LessonPage({
-  params,
-}: {
-  params: Promise<{ lessonId: string }>;
-}) {
+export default async function LessonPage({ params }: PageProps<'/lesson/[lessonId]'>) {
   const { lessonId } = await params;
 
   // Retrieve lesson from the industrial curriculum database, with safe fallback

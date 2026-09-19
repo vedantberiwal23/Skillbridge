@@ -5,10 +5,11 @@ import Link from 'next/link';
 
 import { useI18n } from '@/i18n/provider';
 import { LOCALES, LOCALE_LABELS, type Locale } from '@/i18n/config';
-import { fixtureProfile } from '@/lib/fixtures';
+import { useProfile } from '@/components/providers/profile-provider';
 import { TRADES_CATALOG, type TradeTrack } from '@/data/curriculum';
 
 export default function PlanPage() {
+  const { profile } = useProfile();
   const { locale, setLocale, t } = useI18n();
 
   // Active trade track initialized from localStorage if present
@@ -104,7 +105,7 @@ export default function PlanPage() {
             </div>
             <div>
               <p className="text-sm font-bold text-white leading-tight">
-                {fixtureProfile.name}
+                {profile?.name ?? ''}
               </p>
               <p className="text-xs text-white/70 mt-0.5">
                 Bharat Precision Engineering &bull; Unit #2

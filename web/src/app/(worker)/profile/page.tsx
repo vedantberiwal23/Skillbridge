@@ -1,36 +1,52 @@
+'use client';
+
 import { Award, BookOpen, Briefcase, TrendingUp } from 'lucide-react';
 
 import { Card } from '@/components/ui/card';
-import { fixtureBadges, fixturePlan, fixtureProfile, fixtureSkillProfile } from '@/lib/fixtures';
+import { useProfile } from '@/components/providers/profile-provider';
+import { getPlan } from '@/lib/api-client';
+import { useApi } from '@/lib/use-api';
+import { useI18n } from '@/i18n/provider';
+import { fixtureBadges, fixtureSkillProfile } from '@/lib/fixtures';
 
 /**
- * Phase-3 screen per the product brief — a thin "digital skill passport" for
- * now (identity + headline stats). The shareable/employer-facing view and
- * the full verified-skill ladder are future work; this establishes the data
- * this project already has (fixtureProfile, fixturePlan, fixtureBadges) in
- * the shape the brief describes, so later phases extend rather than replace it.
+ * The worker's "digital skill passport": identity and headline stats.
+ *
+ * Identity and plan progress are live — the profile comes from the shared
+ * `/api/me` fetch, the module counts from `/api/plan`. Badges and the verified
+ * skill ladder are still fixtures: badges have no route and no key builder, and
+ * the skill profile is written by the profiler agent, which has a key builder
+ * (`keys.skillProfile`) but nothing reading it back yet. Both are display-only
+ * until those land, which is the sanctioned cut, not an oversight.
  */
 export default function ProfilePage() {
-  const completedModules = fixturePlan.modules.filter((m) => m.completedAt).length;
+  const { profile } = useProfile();
+  const { t } = useI18n();
+  const { data: planData } = useApi(() => getPlan(), []);
+
+  const plan = planData?.plan ?? null;
+  const modules = plan?.modules ?? [];
+  const completedModules = modules.filter((m) => m.completedAt).length;
 
   const stats = [
-    { icon: BookOpen, label: 'Courses completed', value: '1' },
+    { icon: BookOpen, label: 'Courses completed', value: String(completedModules) },
     { icon: Award, label: 'Certificates', value: String(fixtureBadges.length) },
-    { icon: TrendingUp, label: 'Skill level', value: fixtureProfile.skillLevel ?? '—' },
+    { icon: TrendingUp, label: 'Skill level', value: profile?.skillLevel ?? '—' },
   ];
 
   return (
     <main className="mx-auto flex max-w-lg flex-col gap-6 px-4 pt-8 pb-4">
       <div className="flex items-center gap-4">
         <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-secondary text-xl font-semibold text-primary">
-          {fixtureProfile.name
+          {(profile?.name ?? '')
             .split(' ')
+            .filter(Boolean)
             .map((n) => n[0])
             .join('')}
         </div>
         <div>
-          <p className="text-xl font-semibold text-foreground">{fixtureProfile.name}</p>
-          <p className="text-base text-muted-foreground">{fixtureProfile.profession}</p>
+          <p className="text-xl font-semibold text-foreground">{profile?.name ?? ''}</p>
+          <p className="text-base text-muted-foreground">{profile?.profession ?? ''}</p>
         </div>
       </div>
 
@@ -70,8 +86,9 @@ export default function ProfilePage() {
       <Card className="flex-row items-center gap-3 p-4">
         <Briefcase className="size-5 shrink-0 text-primary" />
         <p className="text-sm text-muted-foreground">
-          {completedModules} of {fixturePlan.modules.length} lessons complete in{' '}
-          {fixturePlan.profession}
+          {plan
+            ? t('worker.modulesDone', { done: completedModules, total: modules.length })
+            : t('common.loading')}
         </p>
       </Card>
     </main>

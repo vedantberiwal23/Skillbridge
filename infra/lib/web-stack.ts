@@ -26,6 +26,20 @@ export interface WebStackProps extends cdk.StackProps {
    */
   readonly assessmentScorerQueue: sqs.IQueue;
   readonly learningPlanQueue: sqs.IQueue;
+  /**
+   * Public origin of the voice service, e.g. `https://xxxx.ap-northeast-1.awsapprunner.com`.
+   *
+   * Optional only because the App Runner service is created once an image
+   * exists, so there is nothing to point at on a first deploy. It is still
+   * declared in `environmentVariables` when absent: `CfnApp` replaces that
+   * whole list on update, so a value added in the console later would be wiped
+   * by the next `cdk deploy` with no diff to show for it.
+   *
+   * The browser reads this to build the `/voice/stream` websocket URL. Empty
+   * leaves the client on its localhost default, which is correct for `next dev`
+   * and visibly broken in Amplify — which is the honest failure mode.
+   */
+  readonly voiceServiceUrl?: string;
 }
 
 /**
@@ -123,6 +137,7 @@ export class WebStack extends cdk.Stack {
         { name: 'APP_TABLE_NAME', value: props.table.tableName },
         { name: 'ASSESSMENT_SCORER_QUEUE_URL', value: props.assessmentScorerQueue.queueUrl },
         { name: 'LEARNING_PLAN_QUEUE_URL', value: props.learningPlanQueue.queueUrl },
+        { name: 'NEXT_PUBLIC_VOICE_URL', value: props.voiceServiceUrl ?? '' },
       ],
     });
 

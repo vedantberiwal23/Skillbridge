@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 import { useI18n } from '@/i18n/provider';
 import { LOCALES, LOCALE_LABELS, type Locale } from '@/i18n/config';
 import { TECHNICAL_QUESTIONS, type DiagnosticQuestion } from '@/data/questions';
+import { submitAttempt } from '@/lib/api-client';
+import { useProfile } from '@/components/providers/profile-provider';
 
 export function AssessmentView({
   assessmentId = 'asmt-hydraulics-l1',
@@ -14,6 +16,7 @@ export function AssessmentView({
   assessmentId?: string;
 }) {
   const { locale, setLocale, t } = useI18n();
+  const { profile } = useProfile();
 
   // Read current trade preference if present
   let activeTrade = 'hydraulics';
@@ -37,6 +40,17 @@ export function AssessmentView({
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [score, setScore] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
+  /**
+   * Every answer given, in order, for the server-side attempt.
+   *
+   * The local `score` above drives the running tally the worker sees between
+   * questions — immediate feedback, nothing more. It is deliberately NOT sent:
+   * `POST /api/assessments` takes `{ assessmentId, response }` and has no
+   * `score` field, because an attempt is graded by the async scorer agent. A
+   * client that could report its own score could report a perfect one.
+   */
+  const [answers, setAnswers] = useState<{ questionId: string; selectedIndex: number }[]>([]);
+  const [submitState, setSubmitState] = useState<'idle' | 'sending' | 'recorded' | 'failed'>('idle');
 
   const currentQ = tradeQuestions[currentIndex] || tradeQuestions[0];
   const isCorrect = selectedOption === currentQ.correctIndex;
@@ -44,6 +58,7 @@ export function AssessmentView({
   const handleSubmitAnswer = () => {
     if (selectedOption === null) return;
     setIsSubmitted(true);
+    setAnswers((prev) => [...prev, { questionId: currentQ.id, selectedIndex: selectedOption }]);
     if (selectedOption === currentQ.correctIndex) {
       setScore((s) => s + 1);
     }
@@ -72,6 +87,23 @@ export function AssessmentView({
   };
 
   const scorePct = Math.round((score / tradeQuestions.length) * 100);
+
+  /**
+   * Hand the attempt to the server exactly once.
+   *
+   * Guarded by a ref rather than by `submitState`, because React 18+ mounts
+   * effects twice in development; keying off state would post the attempt
+   * twice and the scorer would bill two model calls for one run.
+   */
+  const submitted = useRef(false);
+  useEffect(() => {
+    if (!isCompleted || submitted.current) return;
+    submitted.current = true;
+    setSubmitState('sending');
+    submitAttempt(assessmentId, { kind: 'diagnose-by-voice', answers, locale })
+      .then(() => setSubmitState('recorded'))
+      .catch(() => setSubmitState('failed'));
+  }, [isCompleted, assessmentId, answers, locale]);
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] pb-16">
@@ -254,6 +286,21 @@ export function AssessmentView({
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 mt-3">
                 Diagnostic Score: {scorePct}%
               </h2>
+              {/*
+                The percentage above is this run's immediate tally. The graded
+                result is the scorer agent's, which arrives asynchronously —
+                this line says which one the worker is looking at rather than
+                letting the local number stand in for a verified score.
+              */}
+              <p
+                className={`mt-2 text-xs font-medium ${
+                  submitState === 'failed' ? 'text-amber-700' : 'text-slate-500'
+                }`}
+              >
+                {submitState === 'sending' && t('assessment.recording')}
+                {submitState === 'recorded' && t('assessment.recorded')}
+                {submitState === 'failed' && t('assessment.recordFailed')}
+              </p>
               <p className="mt-2 text-sm text-slate-500 max-w-md mx-auto">
                 You scored {score} out of {tradeQuestions.length} technical diagnostics.
                 {scorePct >= 70
@@ -265,7 +312,7 @@ export function AssessmentView({
             <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 text-xs max-w-sm mx-auto text-left space-y-1.5">
               <div className="flex justify-between text-slate-600">
                 <span>Technician:</span>
-                <strong className="text-slate-900">Ravi Kumar</strong>
+                <strong className="text-slate-900">{profile?.name ?? '—'}</strong>
               </div>
               <div className="flex justify-between text-slate-600">
                 <span>Plant:</span>

@@ -8,7 +8,8 @@
     "done": "झाले",
     "next": "पुढील",
     "start": "सुरू करा",
-    "close": "बंद करा"
+    "close": "बंद करा",
+    "error": "काहीतरी चूक झाली."
   },
   "auth": {
     "signIn": "साइन इन करा",
@@ -111,7 +112,10 @@
     "workerFile": "वर्कर फाइल",
     "workerFileDossier": "वर्कर फाइल आणि नोंद",
     "myWorkerFile": "माझी वर्कर फाइल",
-    "backToPlan": "प्रशिक्षण योजनेकडे परत"
+    "backToPlan": "प्रशिक्षण योजनेकडे परत",
+    "voiceConnecting": "जोडत आहे…",
+    "voiceUnavailable": "व्हॉइस ट्यूटर सध्या उपлब्ध नाही.",
+    "heardNothing": "एेकू आले नाही. बटण दाबून पुन्हा बोला."
   },
   "assessment": {
     "identifyPart": "योग्य भागावर टॅप करा",
@@ -125,7 +129,10 @@
     "resetOrder": "पुन्हा सुरू करा",
     "diagnosticVerification": "तपासणी",
     "sopCompetency": "SOP क्षमता",
-    "questionOf": "प्रश्न {current} / {total}"
+    "questionOf": "प्रश्न {current} / {total}",
+    "recording": "तुमचा प्रयत्न तपासणीसाठी पाठवला जात आहे…",
+    "recorded": "प्रयत्न नोंदवला. पडताळलेले गुण लवकरच प्रगती स्क्रीनवर दिसतीл.",
+    "recordFailed": "हा प्रयत्न नोंदवता आला नाही. तुमची उत्तरे या डिव्हाइसवर सुरक्षित आहेत."
   },
   "manager": {
     "dashboard": "टीमचा आढावा",
@@ -148,7 +155,9 @@
     "period": "कालावधी",
     "weakest": "सर्वात कमकुवत भाग",
     "noGap": "लक्ष्यावर",
-    "viewAll": "सर्व पहा"
+    "viewAll": "सर्व पहा",
+    "assessmentsPassed": "उत्तीर्ण मूल्यमापने",
+    "rosterPending": "कामगार-स्तरावरीл तपशीл अद्याप उपलब्ध नाही."
   },
   "admin": {
     "users": "वापरकर्ते",

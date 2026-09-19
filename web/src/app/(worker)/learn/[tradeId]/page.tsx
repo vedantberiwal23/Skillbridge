@@ -12,11 +12,7 @@ function moduleMinutes(lessonId: string): number {
   return LESSONS_DATABASE[lessonId]?.estimatedMinutes ?? 15;
 }
 
-export default function CourseDetailPage({
-  params,
-}: {
-  params: Promise<{ tradeId: string }>;
-}) {
+export default function CourseDetailPage({ params }: PageProps<'/learn/[tradeId]'>) {
   const { tradeId } = use(params);
   const trade = TRADES_CATALOG[tradeId];
   const [saved, setSaved] = useState(false);

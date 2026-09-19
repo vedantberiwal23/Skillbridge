@@ -48,4 +48,7 @@ new WebStack(app, stackName('web'), {
   table: data.table,
   assessmentScorerQueue: ai.assessmentScorerQueue,
   learningPlanQueue: ai.learningPlanQueue,
+  // Set once the App Runner service exists:
+  //   cdk deploy skillbridge-web -c voiceServiceUrl=https://<id>.ap-northeast-1.awsapprunner.com
+  voiceServiceUrl: app.node.tryGetContext('voiceServiceUrl') as string | undefined,
 });

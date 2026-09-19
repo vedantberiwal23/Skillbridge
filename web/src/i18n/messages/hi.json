@@ -8,7 +8,8 @@
     "done": "हो गया",
     "next": "अगला",
     "start": "शुरू करें",
-    "close": "बंद करें"
+    "close": "बंद करें",
+    "error": "कुछ गड़बड़ हो गई।"
   },
   "auth": {
     "signIn": "साइन इन करें",
@@ -111,7 +112,10 @@
     "workerFile": "वर्कर फ़ाइल",
     "workerFileDossier": "वर्कर फ़ाइल और रिकॉर्ड",
     "myWorkerFile": "मेरी वर्कर फ़ाइल",
-    "backToPlan": "ट्रेनिंग प्लान पर वापस"
+    "backToPlan": "ट्रेनिंग प्लान पर वापस",
+    "voiceConnecting": "जुड़ रहा है…",
+    "voiceUnavailable": "वॉइस ट्यूटर अभी उपलब्ध नहीं है।",
+    "heardNothing": "सुनाई नहीं दिया। बटन दबाकर फिर बोलें।"
   },
   "assessment": {
     "identifyPart": "सही पुर्ज़े पर टैप करें",
@@ -125,7 +129,10 @@
     "resetOrder": "फिर से शुरू करें",
     "diagnosticVerification": "जाँच",
     "sopCompetency": "SOP दक्षता",
-    "questionOf": "सवाल {current} / {total}"
+    "questionOf": "सवाल {current} / {total}",
+    "recording": "आपका प्रयास जाँच के लिए भेजा जा रहा है…",
+    "recorded": "प्रयास दर्ज हो गया। सत्यापित अंक जाँचे जा रहे हैं और प्रगति स्क्रीन पर दिखेंगे।",
+    "recordFailed": "यह प्रयास दर्ज नहीं हो सका। आपके उत्तर इस डिवाइस पर सुरक्षित हैं।"
   },
   "manager": {
     "dashboard": "टीम का ब्यौरा",
@@ -148,7 +155,9 @@
     "period": "अवधि",
     "weakest": "सबसे कमज़ोर हिस्सा",
     "noGap": "लक्ष्य पर",
-    "viewAll": "सभी देखें"
+    "viewAll": "सभी देखें",
+    "assessmentsPassed": "उत्तीर्ण आकलन",
+    "rosterPending": "कर्मचारी-स्तर का विवरण अभी उपलब्ध नहीं है।"
   },
   "admin": {
     "users": "यूज़र",

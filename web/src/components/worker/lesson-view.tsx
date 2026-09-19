@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 
 import { InteractiveSimulation } from '@/components/viewer/interactive-simulation';
 import { AskPanel } from '@/components/worker/ask-panel';
+import { useVoiceAsk } from '@/lib/voice/use-voice-ask';
 import { useI18n } from '@/i18n/provider';
 import { LOCALES, LOCALE_LABELS, type Locale } from '@/i18n/config';
 import type { LessonContent } from '@/data/curriculum';
@@ -19,6 +20,7 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
     id: lesson.simulationConfig.components[0]?.id || 'pump',
     label: lesson.simulationConfig.components[0]?.label || 'Hydraulic Pump',
   });
+  const ask = useVoiceAsk(locale, selectedPart.label);
 
   // Checklist of SOP steps completed by worker
   const [checkedSteps, setCheckedSteps] = useState<Record<number, boolean>>({});
@@ -253,7 +255,21 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
             </p>
           </div>
 
-          <AskPanel partLabel={selectedPart.label} />
+          {/*
+            The tapped component travels straight into the turn, so "what is
+            this" resolves to the part the worker is looking at. Language comes
+            from the one UI locale setting — there is no second voice picker.
+          */}
+          <AskPanel
+            partLabel={selectedPart.label}
+            onAskStart={ask.start}
+            onAskEnd={ask.end}
+            transcript={ask.transcript || ask.partial}
+            reply={ask.reply}
+            channelState={ask.channel}
+            error={ask.error}
+            empty={ask.empty}
+          />
         </div>
 
         {/* Completion Action Deck */}

@@ -1,13 +1,27 @@
 /**
- * Development fixtures for the worker spine.
+ * Display-only stand-ins for the parts of the worker spine that have no route.
  *
- * The six /api/* handlers return 501 (backend track), so screens are built
- * against these until the handlers land. Every shape here is the real type from
- * types.ts — when a handler ships, the screen swaps the import for a fetch and
- * nothing else changes.
+ * The handlers have landed, and the screens that had one now call it: profile
+ * and settings through `/api/me`, plan and module progress through `/api/plan`,
+ * lessons, assessments and the department aggregate likewise. `fixtureProfile`,
+ * `fixturePlan`, `fixtureDeptAggregate` and `fixtureDeptWorkers` are no longer
+ * rendered anywhere.
  *
- * Content is engineering maintenance only (hydraulics/electrical/machine
- * operation) and is authored fresh.
+ * What is left is what the backend genuinely does not serve yet:
+ *
+ *   fixtureSkillProfile  the profiler agent writes SKILLPROFILE#CURRENT and
+ *                        `keys.skillProfile` builds the key, but no route reads
+ *                        it back and the profiler has never been observed
+ *                        running end to end.
+ *   fixtureBadges        no route, no key builder. Badges are display-only for
+ *                        every worker on every tier — that is the sanctioned
+ *                        cut, not an oversight, and no `tier === 'paid'` gate
+ *                        goes near them.
+ *   fixtureOpportunities no route and no item type.
+ *
+ * Every shape here is still the real type from types.ts, so wiring any of them
+ * later is an import swap and nothing else. Content is engineering maintenance
+ * only (hydraulics/electrical/machine operation) and is authored fresh.
  */
 
 import type {

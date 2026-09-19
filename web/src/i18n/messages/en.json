@@ -8,7 +8,8 @@
     "done": "Done",
     "next": "Next",
     "start": "Start",
-    "close": "Close"
+    "close": "Close",
+    "error": "Something went wrong."
   },
   "auth": {
     "signIn": "Sign in",
@@ -111,7 +112,10 @@
     "workerFile": "Worker File",
     "workerFileDossier": "Worker File & Dossier",
     "myWorkerFile": "My Worker File",
-    "backToPlan": "Back to training plan"
+    "backToPlan": "Back to training plan",
+    "voiceConnecting": "Connecting…",
+    "voiceUnavailable": "The voice tutor is not reachable right now.",
+    "heardNothing": "I did not catch that. Hold the button and speak again."
   },
   "assessment": {
     "identifyPart": "Tap the right part",
@@ -125,7 +129,10 @@
     "resetOrder": "Start over",
     "diagnosticVerification": "Diagnostic check",
     "sopCompetency": "SOP competency",
-    "questionOf": "Question {current} of {total}"
+    "questionOf": "Question {current} of {total}",
+    "recording": "Sending your attempt for scoring…",
+    "recorded": "Attempt recorded. Your verified score is being marked and will appear on your progress screen.",
+    "recordFailed": "Could not record this attempt. Your answers are saved on this device — reopen this screen when you are back online."
   },
   "manager": {
     "dashboard": "Team overview",
@@ -148,7 +155,9 @@
     "period": "Period",
     "weakest": "Weakest area",
     "noGap": "On target",
-    "viewAll": "View all"
+    "viewAll": "View all",
+    "assessmentsPassed": "Assessments passed",
+    "rosterPending": "Worker-level breakdown is not available yet."
   },
   "admin": {
     "users": "Users",

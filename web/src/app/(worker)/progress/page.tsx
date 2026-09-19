@@ -2,7 +2,9 @@
 
 import { WorkerHeader } from '@/components/worker/worker-header';
 import { useI18n } from '@/i18n/provider';
-import { fixtureBadges, fixturePlan, fixtureSkillProfile } from '@/lib/fixtures';
+import { getPlan } from '@/lib/api-client';
+import { useApi } from '@/lib/use-api';
+import { fixtureBadges, fixtureSkillProfile } from '@/lib/fixtures';
 
 /**
  * Progress, framed as competence rather than completion — strengths and gaps
@@ -13,8 +15,14 @@ import { fixtureBadges, fixturePlan, fixtureSkillProfile } from '@/lib/fixtures'
  */
 export default function ProgressPage() {
   const { t } = useI18n();
+  const { data } = useApi(() => getPlan(), []);
 
-  const done = fixturePlan.modules.filter((m) => m.completedAt).length;
+  // Module counts are live. Strengths, gaps and badges are not: the profiler
+  // writes SKILLPROFILE# but nothing reads it back yet, and badges have no
+  // route at all. Both stay fixtures rather than being faked from module
+  // counts, which would read as a skill signal while being a completion one.
+  const modules = data?.plan?.modules ?? [];
+  const done = modules.filter((m) => m.completedAt).length;
 
   return (
     <main className="flex min-h-screen flex-col bg-background pb-10">
@@ -28,10 +36,10 @@ export default function ProgressPage() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-4xl font-semibold text-foreground">
-              {done}/{fixturePlan.modules.length}
+              {done}/{modules.length}
             </p>
             <p className="mt-1 text-base text-muted-foreground">
-              {t('worker.modulesDone', { done, total: fixturePlan.modules.length })}
+              {t('worker.modulesDone', { done, total: modules.length })}
             </p>
           </div>
           <a

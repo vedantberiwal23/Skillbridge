@@ -6,7 +6,8 @@ import { ArrowRight, Lock } from 'lucide-react';
 
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { fixtureBadges, fixtureOpportunities, fixtureProfile, fixtureSkillProfile } from '@/lib/fixtures';
+import { fixtureBadges, fixtureOpportunities, fixtureSkillProfile } from '@/lib/fixtures';
+import { useProfile } from '@/components/providers/profile-provider';
 import { TRADES_CATALOG, type CurriculumModule, type TradeTrack } from '@/data/curriculum';
 
 /** All modules across all stages, in order — the flat list "progress" means. */
@@ -32,6 +33,7 @@ const TODAY = new Intl.DateTimeFormat('en-IN', {
 });
 
 export default function HomePage() {
+  const { profile } = useProfile();
   // Same localStorage keys /plan uses, so the progress shown here always
   // matches what the worker sees when they tap through to keep learning.
   const [selectedTradeKey] = useState<string>(() => {
@@ -87,11 +89,11 @@ export default function HomePage() {
            to feel like a considered product than decoration would. ---- */}
       <div className="flex items-baseline justify-between">
         <p className="text-2xl font-semibold tracking-tight text-foreground">
-          {greeting()}, {firstName(fixtureProfile.name)}
+          {greeting()}, {firstName((profile?.name ?? ''))}
         </p>
         <p className="font-data text-xs text-muted-foreground">{TODAY.format(new Date())}</p>
       </div>
-      <p className="mt-0.5 text-base text-muted-foreground">{fixtureProfile.profession}</p>
+      <p className="mt-0.5 text-base text-muted-foreground">{profile?.profession ?? ''}</p>
 
       {/* ---- Continue Learning — the one thing on this screen that should
            read as unmissable. No card border, no icon: the size of the

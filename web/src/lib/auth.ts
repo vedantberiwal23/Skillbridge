@@ -242,3 +242,35 @@ export function handleApiError(error: unknown): NextResponse {
   console.error('API Error:', error);
   return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
 }
+
+/**
+ * Where each role lands when it arrives at `/`.
+ *
+ * Kept here rather than in the page so the group layouts can bounce a user who
+ * reaches the wrong section to their own home instead of to a dead end. Route
+ * groups add no URL segment, so `/plan`, `/dashboard` and `/users` share one
+ * flat namespace that any signed-in user can type — this map is the UX half of
+ * that; the enforcement boundary is still the route handler.
+ */
+export const HOME_FOR_ROLE: Record<Role, string> = {
+  worker: '/plan',
+  manager: '/dashboard',
+  admin: '/users',
+};
+
+/**
+ * The non-throwing counterpart to `requireSession`, for pages that must render
+ * *something* either way rather than fail.
+ *
+ * Use it only where "signed out" is a legitimate outcome — the root route, a
+ * public landing page. Anything that reads tenant data uses `requireSession`,
+ * which rejects rather than returning null, so a missing session can never be
+ * mistaken for an empty result.
+ */
+export async function getSession(): Promise<SessionUser | null> {
+  try {
+    return await requireSession();
+  } catch {
+    return null;
+  }
+}

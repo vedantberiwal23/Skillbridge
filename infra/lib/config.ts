@@ -57,6 +57,25 @@ export const EVENT_TTL_DAYS = 90;
  */
 export const WEB_BRANCH = 'master';
 
+/**
+ * Origins the voice socket accepts a WebSocket upgrade from.
+ *
+ * A constant, not a context default, and that distinction is load-bearing.
+ * `skillbridge-web` depends on `skillbridge-compute` for the voice endpoint, so
+ * `cdk deploy skillbridge-web` deploys compute too — and any deploy that omitted
+ * `-c allowedOrigins` silently reverted this to localhost only, which refuses
+ * every browser socket from the deployed app while curl and the smoke test still
+ * pass. That happened once and cost a debugging cycle.
+ *
+ * The Amplify domain is `<branch>.<appId>.amplifyapp.com`. The app id is
+ * generated, but stable for the life of the app, so it is written down here
+ * rather than passed by hand on every deploy.
+ */
+export const ALLOWED_WEB_ORIGINS = [
+  `https://${WEB_BRANCH}.d20i2hklonrt3y.amplifyapp.com`,
+  'http://localhost:3000',
+].join(',');
+
 /** The repository Amplify builds the web tier from. */
 export const WEB_REPOSITORY = 'https://github.com/rxshabN/first-commit-lockedin';
 

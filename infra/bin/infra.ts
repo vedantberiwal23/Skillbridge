@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib/core';
-import { REGION, stackName } from '../lib/config';
+import { REGION, stackName, ALLOWED_WEB_ORIGINS } from '../lib/config';
 import { SecurityStack } from '../lib/security-stack';
 import { DataStack } from '../lib/data-stack';
 import { AuthStack } from '../lib/auth-stack';
@@ -35,8 +35,9 @@ const compute = new ComputeStack(app, stackName('compute'), {
   userPoolId: auth.userPool.userPoolId,
   userPoolClientId: auth.userPoolClient.userPoolClientId,
   // The deployed web origin plus local development. The voice socket checks
-  // this in its upgrade handler, before any frame is read.
-  allowedOrigins: app.node.tryGetContext('allowedOrigins') ?? 'http://localhost:3000',
+  // this in its upgrade handler, before any frame is read. Defaults to the real
+  // origins rather than localhost: see ALLOWED_WEB_ORIGINS for why.
+  allowedOrigins: app.node.tryGetContext('allowedOrigins') ?? ALLOWED_WEB_ORIGINS,
 });
 
 new WebStack(app, stackName('web'), {

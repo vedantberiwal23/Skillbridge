@@ -218,12 +218,21 @@ export function ExplodedPump3D({
     updateCameraPos();
 
     // 2. High-Precision WebGL Renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    // Phones pay for antialiasing and a 2x pixel ratio in fragments, and a 6in
+    // screen shows almost none of the benefit. HANDOFF §2 items 4-5.
+    const small = window.innerWidth < 768;
+    const renderer = new THREE.WebGLRenderer({
+      antialias: !small,
+      alpha: true,
+      powerPreference: 'high-performance',
+    });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, small ? 1.5 : 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
-    renderer.shadowMap.enabled = true;
+    // PCFSoftShadowMap with a directional light is the most expensive thing in
+    // this scene and contributes least at phone size, so mobile goes without.
+    renderer.shadowMap.enabled = !small;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
@@ -649,8 +658,20 @@ export function ExplodedPump3D({
 
     // 6. Kinematic Animation Loop (Continuous 60FPS)
     let animId = 0;
+    // 54 draw calls kept running while the worker read the SOP checklist below
+    // the canvas, and in background tabs. Pure battery. HANDOFF §2 item 2.
+    let onScreen = true;
+    const io =
+      typeof IntersectionObserver !== 'undefined'
+        ? new IntersectionObserver((es) => {
+            onScreen = es.some((e) => e.isIntersecting);
+          })
+        : null;
+    io?.observe(renderer.domElement);
+
     const animate = () => {
       animId = requestAnimationFrame(animate);
+      if (!onScreen || document.visibilityState !== 'visible') return;
 
       // INTERNAL MECHANICAL SPIN ANIMATION
       // When "Start Spin" is enabled, only the drive shaft, swashplate, and pistons move!
@@ -697,7 +718,35 @@ export function ExplodedPump3D({
     return () => {
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animId);
+      io?.disconnect();
+
+      /**
+       * Walk the scene and release the GPU resources.
+       *
+       * `renderer.dispose()` alone frees the renderer's own state and nothing
+       * else: every geometry, material and texture stays resident. With 54
+       * meshes plus a generated CanvasTexture, moving between lessons a few
+       * times leaked the lot. HANDOFF §2 item 3.
+       */
+      scene.traverse((obj) => {
+        const mesh = obj as THREE.Mesh;
+        mesh.geometry?.dispose?.();
+        const mat = mesh.material as THREE.Material | THREE.Material[] | undefined;
+        for (const m of Array.isArray(mat) ? mat : mat ? [mat] : []) {
+          for (const v of Object.values(m)) {
+            if (v && typeof v === 'object' && 'isTexture' in v) {
+              (v as THREE.Texture).dispose();
+            }
+          }
+          m.dispose();
+        }
+      });
       renderer.dispose();
+      // Hand the WebGL context back now. Browsers cap live contexts per
+      // renderer (~16) and reclaim leaked ones only by GC, which is not prompt
+      // for GPU memory — once the cap is hit the OLDEST contexts are killed.
+      renderer.forceContextLoss();
+
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }

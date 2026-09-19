@@ -81,6 +81,13 @@ export interface VoiceChannel {
   state(): ChannelState;
   /** Call SYNCHRONOUSLY from the press handler — it unlocks audio on mobile. */
   startTurn(options: TurnOptions, handlers: TurnHandlers): VoiceTurn;
+  /**
+   * A typed question on the same channel: answered, grounded and SPOKEN exactly
+   * like a spoken one, with no microphone. Call from a click handler — it
+   * unlocks audio playback like startTurn. Returns false if the channel is not
+   * ready or a turn is already running (onError is called with NOT_READY).
+   */
+  ask(text: string, options: TurnOptions, handlers: TurnHandlers): boolean;
   close(): void;
 }
 
@@ -280,6 +287,28 @@ export function openVoiceChannel(opts: {
           }
         },
       };
+    },
+
+    ask(text, options, h) {
+      // Before any await: this must run inside the click gesture.
+      player.unlockAudio();
+      player.stopSpeech();
+      const sock = ws;
+      if (!sock || state !== 'ready' || handlers) {
+        h.onError?.('NOT_READY', 'voice is not connected');
+        return false;
+      }
+      handlers = h;
+      sock.send(
+        JSON.stringify({
+          t: 'ask',
+          text,
+          language: options.language,
+          history: options.history ?? [],
+          part: options.part ?? null,
+        })
+      );
+      return true;
     },
 
     close() {

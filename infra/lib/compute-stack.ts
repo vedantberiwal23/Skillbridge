@@ -153,6 +153,27 @@ export class ComputeStack extends cdk.Stack {
       });
 
       /**
+       * Service-linked roles for the infrastructure Express Mode provisions on
+       * our behalf. This account had never used ECS, ELB or Application Auto
+       * Scaling, so none of them existed.
+       *
+       * AWS creates these lazily on first use, which is a race, not a
+       * convenience: the first deploy failed with "Unable to assume the service
+       * linked role", and `AWSServiceRoleForECS` was created at that exact
+       * moment — ECS made the role and then could not assume it yet. Declaring
+       * them makes the dependency explicit and ordered.
+       *
+       * `AWSServiceRoleForECS` is deliberately NOT declared here: it now exists,
+       * and `CfnServiceLinkedRole` fails outright on a role that already does.
+       */
+      const elbRole = new iam.CfnServiceLinkedRole(this, 'ElbServiceLinkedRole', {
+        awsServiceName: 'elasticloadbalancing.amazonaws.com',
+      });
+      const scalingRole = new iam.CfnServiceLinkedRole(this, 'AutoScalingServiceLinkedRole', {
+        awsServiceName: 'ecs.application-autoscaling.amazonaws.com',
+      });
+
+      /**
        * Logical id is `VoiceExpressService`, not `VoiceService`, on purpose.
        * `VoiceService` was the `AWS::AppRunner::Service`, and CloudFormation
        * refuses to change a resource's TYPE under an existing logical id:
@@ -204,6 +225,11 @@ export class ComputeStack extends cdk.Stack {
           ],
         },
       });
+
+      // Ordered, not merely present: the service must not be created until the
+      // roles it needs to assume exist.
+      this.voiceService.addDependency(elbRole);
+      this.voiceService.addDependency(scalingRole);
 
       new cdk.CfnOutput(this, 'VoiceServiceUrl', {
         value: `wss://${this.voiceService.attrEndpoint}/voice/stream`,

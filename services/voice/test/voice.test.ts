@@ -106,6 +106,13 @@ let service: Server;
 let port = 0;
 type Frame = Record<string, unknown> & { t: string };
 
+/* ── captured persistence (see the attach() call below) ───────────────────── */
+
+type TurnRecord = import('../src/lib/telemetry.js').TurnRecord;
+type SessionRecord = import('../src/lib/telemetry.js').SessionRecord;
+const recordedTurns: TurnRecord[] = [];
+const recordedSessions: SessionRecord[] = [];
+
 before(async () => {
   await new Promise<void>((r) => vendor.listen(0, '127.0.0.1', r));
   const vp = (vendor.address() as AddressInfo).port;
@@ -119,6 +126,25 @@ before(async () => {
     SARVAM_REALTIME_URL: `ws://127.0.0.1:${vp}/stt`,
     SARVAM_TTS_WS_URL: `ws://127.0.0.1:${vp}/tts`,
     SARVAM_FINAL_TIMEOUT_MS: '1500',
+    /**
+     * Pinned, not inherited. Speculation is a WALL-CLOCK behaviour, so any test
+     * that exercises it is really asserting a relationship between three
+     * durations: the gap between consecutive partials, the silent tail before
+     * release, and this window. Inheriting the production 250ms left that
+     * relationship to chance.
+     *
+     * `speak()` sends one frame per `await sleep(50)`, and a sleep always
+     * overshoots — four of them measure ~237ms idle on this machine, against a
+     * 250ms window. A 13ms margin, which any load erases; the partial before
+     * last then speculates, the next partial invalidates it, and the turn spends
+     * two model calls instead of one.
+     *
+     * 400ms puts the window clear of both bounds. See the full-turn test for the
+     * arithmetic. Frame timings only ever stretch, never compress, so the tail
+     * side of the inequality cannot break — only the gap side, and that now
+     * needs a ~69% overshoot rather than 5%.
+     */
+    VOICE_SPEC_STABLE_MS: '400',
   });
   const { attach } = await import('../src/voice/channel.js');
   const { VoiceAuthError } = await import('../src/auth/cognito.js');
@@ -130,6 +156,11 @@ before(async () => {
       if (!token.startsWith('good:')) throw new VoiceAuthError('session expired — sign in again');
       return { userId: token.slice(5), orgId: 'org-acme', role: 'worker', expiresAt: Date.now() + 3600_000 };
     },
+    // Captured rather than written. Without these the suite would issue real
+    // PutItems against 'test-table'; they are swallowed by design, so the only
+    // symptom would be slow tests and warnings in the output.
+    recordTurn: (t) => void recordedTurns.push(t),
+    recordSession: (s) => void recordedSessions.push(s),
   });
   await new Promise<void>((r) => service.listen(0, '127.0.0.1', r));
   port = (service.address() as AddressInfo).port;
@@ -180,6 +211,8 @@ function reset() {
   ttsConfig = null;
   sttFramesReceived = 0;
   sttHandshakeDelayMs = 0;
+  recordedTurns.length = 0;
+  recordedSessions.length = 0;
 }
 
 const HINDI_REPLY = [
@@ -214,7 +247,19 @@ test('a full turn: words while speaking, grounded Hindi answer, ordered audio', 
   c.send({ t: 'begin', language: 'hi-IN', history: [], orgId: 'org-evil', part: 'Hydraulic pump' });
   await c.waitFor((f) => f.t === 'listening');
   const tStart = Date.now();
-  await speak(c, 26);
+  /**
+   * 30 frames, ~50ms each. The count is load-bearing, not arbitrary — it sets
+   * the silent tail after the last NEW partial, which is what must trigger a
+   * speculation. Against VOICE_SPEC_STABLE_MS=400 (set in `before`):
+   *
+   *   longest gap between new partials   4 frames, ~237ms   <- must stay UNDER
+   *   silent tail, frame 16 -> release  14 frames, ~831ms   <- must stay OVER
+   *
+   * Frame 9 and frame 18 are character-prefix replays, so they are ignored and
+   * do NOT restart the timer — which is why the tail is measured from 16, not
+   * 18. Shortening this speak() narrows the tail and reintroduces the flake.
+   */
+  await speak(c, 30);
   const tRelease = Date.now();
   c.send({ t: 'stop' });
 
@@ -231,8 +276,21 @@ test('a full turn: words while speaking, grounded Hindi answer, ordered audio', 
   assert.match(answered.system, /SOP-7/);
   assert.match(answered.messages.at(-1)!.content, /Hydraulic pump/);
 
-  // Speculation started while the button was still held, and was adopted:
-  // exactly one model call for the whole turn.
+  /**
+   * Speculation started while the button was still held, and was adopted.
+   *
+   * These two assertions are the whole point of the test and they only mean
+   * something together: the second says the generation began BEFORE release, so
+   * it was speculative rather than started at the button-up; the first says no
+   * other generation was needed, so that speculation was adopted rather than
+   * thrown away and redone.
+   *
+   * `modelCalls` records every start, aborted ones included, so a restart shows
+   * up here as an extra entry. Do not relax this to `<= 2` — an abandoned
+   * speculation plus a fresh start at release is exactly the wasted-tokens
+   * regression this guards, and it would then pass silently. Restart behaviour
+   * has its own test ('a wrong-script answer is restarted exactly once').
+   */
   assert.equal(modelCalls.length, 1, `model calls: ${modelCalls.length}`);
   assert.ok(modelCalls[0]!.at! < tRelease, 'model should start before release');
 
@@ -354,4 +412,118 @@ test('frames before start are ignored', async () => {
   await sleep(150);
   assert.equal(c.frames.length, 0);
   c.ws.close();
+});
+
+/* ── persistence ──────────────────────────────────────────────────────────── */
+
+test('an answered turn is recorded against the VERIFIED org, off the turn path', async () => {
+  reset();
+  sttScript = { partials: [[2, 'pump']], final: 'pump kaise kholen', language: 'hi-IN' };
+  modelReply = () => HINDI_REPLY;
+  const c = connect();
+  await c.opened;
+  c.send({ t: 'start', token: 'good:worker-rec' });
+  await c.waitFor((f) => f.t === 'ready');
+  c.send({ t: 'begin', language: 'hi-IN', history: [], part: 'rod-seal' });
+  await speak(c, 6);
+  c.send({ t: 'stop' });
+  await c.waitFor((f) => f.t === 'done');
+
+  assert.equal(recordedTurns.length, 1);
+  const turn = recordedTurns[0]!;
+  // Identity comes from the token the channel verified, never from a frame.
+  assert.equal(turn.userId, 'worker-rec');
+  assert.equal(turn.orgId, 'org-acme');
+  assert.equal(turn.question, 'pump kaise kholen');
+  assert.equal(turn.part, 'rod-seal');
+  assert.ok(turn.grounded, 'the fake grounder answered, so the turn is grounded');
+  assert.ok(turn.replyChars > 0);
+  // Raw audio is never carried off the turn.
+  assert.ok(!Object.keys(turn).some((k) => /audio|pcm|b64/i.test(k)));
+
+  c.ws.close();
+  await sleep(50);
+  assert.equal(recordedSessions.length, 1);
+  const session = recordedSessions[0]!;
+  assert.equal(session.userId, 'worker-rec');
+  assert.equal(session.orgId, 'org-acme');
+  assert.equal(session.turns, 1);
+  assert.equal(session.answered, 1);
+  assert.equal(session.sessionId, turn.sessionId, 'the turn files under its own channel');
+});
+
+test('a silent turn is counted but not recorded as a question', async () => {
+  reset();
+  sttScript = { partials: [], final: '" "', language: 'hi-IN' };
+  const c = connect();
+  await c.opened;
+  c.send({ t: 'start', token: 'good:worker-silent' });
+  await c.waitFor((f) => f.t === 'ready');
+  c.send({ t: 'begin', language: 'hi-IN', history: [] });
+  await speak(c, 4);
+  c.send({ t: 'stop' });
+  await c.waitFor((f) => f.t === 'done');
+
+  // Nothing was asked, so the profiler gets no blank line in its digest…
+  assert.equal(recordedTurns.length, 0);
+  c.ws.close();
+  await sleep(50);
+  // …but the session still shows a worker who pressed the button and got nothing,
+  // which is exactly the signal a mic problem leaves behind.
+  assert.equal(recordedSessions[0]!.turns, 1);
+  assert.equal(recordedSessions[0]!.answered, 0);
+});
+
+test('a channel that never authenticates leaves nothing behind', async () => {
+  reset();
+  const c = connect();
+  await c.opened;
+  c.ws.close();
+  await sleep(50);
+  assert.equal(recordedSessions.length, 0);
+  assert.equal(recordedTurns.length, 0);
+});
+
+test('the EVT# item satisfies the fanout and profiler contracts', async () => {
+  const { eventItem, sessionItem } = await import('../src/lib/telemetry.js');
+  const base = {
+    userId: 'u1', orgId: 'org-acme', sessionId: 's1',
+    question: 'pump kaise kholen', heardLanguage: 'hi-IN', spokenLanguage: 'hi-IN',
+    grounded: true, part: null, replyChars: 42, latencyMs: 900,
+  };
+  const item = eventItem(base, '2026-09-19T10:00:00.000Z', 'abc');
+
+  // collectJobs() skips any record failing one of these, silently.
+  assert.equal(item.PK, 'USER#u1');
+  assert.ok(item.SK.startsWith('EVT#'), 'the fanout filters on this prefix');
+  assert.equal(item.orgId, 'org-acme');
+
+  // The sort key's timestamp must survive the round trip the fanout does, and
+  // must order lexicographically — the profiler's only read is a range query.
+  assert.equal(item.SK, 'EVT#2026-09-19T10:00:00.000Z#abc');
+  const older = eventItem(base, '2026-09-19T09:59:59.999Z', 'zzz');
+  assert.ok(older.SK < item.SK, 'ISO-8601 UTC sorts lexicographically');
+
+  // The TTL trap: named exactly `ttl`, and in SECONDS. The table ignores any
+  // other name silently, and a milliseconds value would expire in ~50,000 years.
+  assert.equal(typeof item.ttl, 'number');
+  const days = (item.ttl - Date.now() / 1000) / 86400;
+  assert.ok(days > 89 && days < 91, `expected ~90 days, got ${days.toFixed(1)}`);
+  assert.ok(!('TTL' in item) && !('expiresAt' in item));
+
+  // The profiler joins [question, assessmentId, lessonId, transcript]; setting
+  // both `question` and `transcript` would enter the same string twice.
+  assert.equal(item.type, 'VOICE_QUERY');
+  assert.equal(item.question, 'pump kaise kholen');
+  assert.ok(!('transcript' in item));
+
+  // A session is a durable record, not profiler input: no TTL, and the sort key
+  // orders by when it STARTED.
+  const s = sessionItem({
+    userId: 'u1', orgId: 'org-acme', sessionId: 's1',
+    startedAt: '2026-09-19T09:00:00.000Z', turns: 2, answered: 1, languages: ['hi-IN'],
+  });
+  assert.equal(s.SK, 'SESSION#2026-09-19T09:00:00.000Z#s1');
+  assert.ok(!('ttl' in s), 'the 90-day sweep is for EVT# items only');
+  assert.equal(s.orgId, 'org-acme');
 });

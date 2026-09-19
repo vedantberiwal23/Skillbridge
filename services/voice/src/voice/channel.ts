@@ -1,10 +1,12 @@
 import { WebSocketServer, type WebSocket } from 'ws';
+import { randomUUID } from 'node:crypto';
 import type { IncomingMessage, Server } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { config } from '../config.js';
 import { verifyToken, type VoiceUser } from '../auth/cognito.js';
 import { ModelError } from '../bedrock/stream.js';
 import { isLanguage } from '../sarvam/client.js';
+import { recordTurn, recordSession } from '../lib/telemetry.js';
 import { grounderFor } from './grounding.js';
 import { createTurn, type Turn, type TurnOptions } from './turn.js';
 
@@ -52,11 +54,14 @@ const CHANNEL_IDLE_MS = 5 * 60 * 1000;
 /** A socket that never authenticates is not a channel. */
 const START_TIMEOUT_MS = 10_000;
 
-/** Test seam: replaces Bedrock / the KB for the whole channel. */
+/** Test seam: replaces Bedrock / the KB / persistence for the whole channel. */
 export interface ChannelDeps {
   readonly streamText?: TurnOptions['streamText'];
   readonly grounder?: typeof grounderFor;
   readonly verify?: typeof verifyToken;
+  /** Stubbed in tests so a channel under test reaches no table. */
+  readonly recordTurn?: typeof recordTurn;
+  readonly recordSession?: typeof recordSession;
 }
 
 const isLoopback = (origin: string): boolean => {
@@ -130,6 +135,8 @@ export function handleConnection(
 ): void {
   const verify = deps.verify ?? verifyToken;
   const makeGrounder = deps.grounder ?? grounderFor;
+  const saveTurn = deps.recordTurn ?? recordTurn;
+  const saveSession = deps.recordSession ?? recordSession;
 
   let user: VoiceUser | null = null;
   let started = false;
@@ -138,6 +145,19 @@ export function handleConnection(
   let busy = false;
   let closed = false;
   let frames = 0;
+
+  /**
+   * A channel is a session. The id is minted at `start` rather than at the
+   * upgrade, so a socket that never authenticates leaves nothing behind.
+   *
+   * `sessionStartedAt` becomes the `<ts>` in `SESSION#<ts>#<sessionId>`, so
+   * sessions list in the order they began rather than the order they ended.
+   */
+  let sessionId = '';
+  let sessionStartedAt = '';
+  let turns = 0;
+  let answered = 0;
+  const languages = new Set<string>();
   // The language heard on this channel's last question: a worker who asked in
   // Marathi once will very likely ask in Marathi again, and knowing it lets the
   // next early start answer in Marathi instead of restarting.
@@ -205,6 +225,8 @@ export function handleConnection(
       perUser.set(verified.userId, open + 1);
       counted = true;
       user = verified;
+      sessionId = randomUUID();
+      sessionStartedAt = new Date().toISOString();
       clearTimeout(unauthenticated);
 
       // Mid-session token expiry ends the whole CHANNEL — no in-place refresh,
@@ -226,6 +248,12 @@ export function handleConnection(
     if (msg.t === 'begin') {
       if (busy || turn) return;
       frames = 0;
+      turns += 1;
+      // Captured now so the callback cannot observe a later `user`. The channel
+      // is bound to one identity for its whole life, but reading it out here
+      // makes that independent of anything the turn does.
+      const { userId, orgId } = user;
+      const currentSession = sessionId;
       const language = typeof msg.language === 'string' && isLanguage(msg.language) ? msg.language : 'hi-IN';
       // An explicit pick beats inference; otherwise what was heard last.
       const known = msg.explicit === true && isLanguage(language) ? language : lastLanguage;
@@ -241,6 +269,17 @@ export function handleConnection(
         ground,
         part: typeof msg.part === 'string' ? msg.part : null,
         streamText: deps.streamText,
+        /**
+         * The turn reports what happened; the tenant and the worker come from
+         * the VERIFIED token held by this channel, never from anything the
+         * client sent. `recordTurn` hands the write off without awaiting, so
+         * this returns immediately and the turn path is unaffected.
+         */
+        record: (completed) => {
+          answered += 1;
+          if (completed.spokenLanguage) languages.add(completed.spokenLanguage);
+          saveTurn({ ...completed, userId, orgId, sessionId: currentSession });
+        },
       });
       send({ t: 'listening' });
       return;
@@ -296,6 +335,25 @@ export function handleConnection(
       if (n <= 0) perUser.delete(user.userId);
       else perUser.set(user.userId, n);
       counted = false;
+    }
+    // One SESSION# item per channel, written as it closes — that is the only
+    // moment the turn count and duration are known. A socket that never
+    // authenticated has no identity to file it under and leaves nothing.
+    //
+    // Sessions that opened the panel and asked nothing are still recorded:
+    // "warmed a channel and said nothing" is a real signal about the mic or the
+    // UI, and inferring it later from an absence is impossible.
+    if (user && sessionId) {
+      saveSession({
+        userId: user.userId,
+        orgId: user.orgId,
+        sessionId,
+        startedAt: sessionStartedAt,
+        turns,
+        answered,
+        languages: [...languages],
+      });
+      sessionId = '';
     }
     turn?.cancel();
   };

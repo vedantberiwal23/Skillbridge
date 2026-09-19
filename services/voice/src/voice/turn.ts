@@ -40,6 +40,30 @@ export interface TurnOptions {
   readonly part?: string | null;
   /** Injected in tests; Bedrock otherwise. */
   readonly streamText?: StreamFn;
+  /**
+   * Called once per ANSWERED turn, immediately after the reply is sent.
+   *
+   * Identity and persistence are channel.ts's business: this module knows what
+   * happened, not who it happened to, which keeps DynamoDB out of the turn loop
+   * entirely and leaves tests writing nothing by simply not passing this.
+   *
+   * The implementation must return synchronously and must not throw — it is
+   * called on the turn path, where a blocking write would cost latency on the
+   * one path where latency is the product.
+   */
+  readonly record?: (turn: CompletedTurn) => void;
+}
+
+/** What a turn knows about itself once it has answered. Carries no audio. */
+export interface CompletedTurn {
+  readonly question: string;
+  readonly heardLanguage: string | null;
+  readonly spokenLanguage: string | null;
+  readonly grounded: boolean;
+  readonly part: string | null;
+  readonly replyChars: number;
+  /** Release to first audio out, in ms; null when the turn produced no speech. */
+  readonly latencyMs: number | null;
 }
 
 export interface Turn {
@@ -209,7 +233,7 @@ const cleanPart = (p: unknown): string | null => {
  *   restart, never a loop.
  */
 export function createTurn(options: TurnOptions): Turn {
-  const { send, fail, history, known = null, onHeard, ground } = options;
+  const { send, fail, history, known = null, onHeard, ground, record } = options;
   const stream = options.streamText ?? bedrockStream;
   const part = cleanPart(options.part);
   const fallbackLanguage = isLanguage(options.language) ? options.language : 'hi-IN';
@@ -563,11 +587,13 @@ export function createTurn(options: TurnOptions): Turn {
 
       if (DEBUG_TIMING) console.log('[voice timing] ms from release:', JSON.stringify(marks));
 
+      const replyText = written.trim();
+
       send({
         t: 'reply',
         transcript,
         heard_language: replyLanguage,
-        text: written.trim(),
+        text: replyText,
         language: spokenLanguage,
         grounded: answer.grounded,
         engines: {
@@ -575,6 +601,19 @@ export function createTurn(options: TurnOptions): Turn {
           reply: `bedrock:${config.bedrock.modelId}`,
           tts: `sarvam:${config.sarvam.ttsModel}${restMode ? '' : ':stream'}`,
         },
+      });
+
+      // After the reply is on the wire, never before: the worker hears the
+      // answer first and telemetry is strictly downstream of that. The callback
+      // hands off without awaiting, so this costs the turn nothing.
+      record?.({
+        question: transcript,
+        heardLanguage: replyLanguage,
+        spokenLanguage,
+        grounded: answer.grounded,
+        part,
+        replyChars: replyText.length,
+        latencyMs: firstAudioAt === null ? null : firstAudioAt - tRelease,
       });
     },
   };

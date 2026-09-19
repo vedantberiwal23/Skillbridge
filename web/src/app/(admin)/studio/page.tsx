@@ -269,9 +269,29 @@ export default function SimulationStudioPage() {
   const [selectedPartId, setSelectedPartId] = useState<string>('relief-valve');
   const [autoRotate, setAutoRotate] = useState<boolean>(false);
   const [activeAsset, setActiveAsset] = useState<MachineAsset>(MACHINE_TWIN_ASSET);
+  /**
+   * Whether the Machine Twin engine is actually reachable.
+   *
+   * `null` until asked. The header used to assert "Active" next to a pulsing
+   * green dot unconditionally, which is false everywhere the engine is not
+   * running — that is, everywhere the app is deployed, since its mesh stage is
+   * macOS-only. The scanner panel on the same page reports "Unreachable"
+   * honestly, so the page contradicted itself.
+   */
+  const [engineUp, setEngineUp] = useState<boolean | null>(null);
 
   // Voice Diagnostics State
   const [isRecording, setIsRecording] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/twin?action=capabilities', { cache: 'no-store' })
+      .then((r) => !cancelled && setEngineUp(r.ok))
+      .catch(() => !cancelled && setEngineUp(false));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [channelState, setChannelState] = useState<ChannelState>('connecting');
   const [micLevel, setMicLevel] = useState<number>(0);
   const voiceChannelRef = useRef<VoiceChannel | null>(null);
@@ -713,10 +733,24 @@ export default function SimulationStudioPage() {
             </button>
           </nav>
 
-          {/* Engine Status Tag */}
+          {/* Engine status, from a real probe rather than an assertion. */}
           <div className="hidden lg:flex items-center gap-2 text-[11px] font-mono text-slate-400 pl-4">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Machine Twin (:8000) Active</span>
+            <span
+              className={
+                engineUp === null
+                  ? 'w-1.5 h-1.5 rounded-full bg-slate-500'
+                  : engineUp
+                    ? 'w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse'
+                    : 'w-1.5 h-1.5 rounded-full bg-slate-600'
+              }
+            />
+            <span>
+              {engineUp === null
+                ? 'Machine Twin · checking'
+                : engineUp
+                  ? 'Machine Twin (:8000) Active'
+                  : 'Machine Twin · local engine not running'}
+            </span>
           </div>
         </div>
       </header>
@@ -1550,7 +1584,7 @@ export default function SimulationStudioPage() {
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <footer className="border-t border-slate-800/80 bg-[#0a0f1a] py-3.5 px-6 text-center text-xs text-slate-500 flex flex-wrap items-center justify-between max-w-7xl mx-auto w-full">
         <span>SkillBridge Enterprise SKAD-AI · Multi-Tenant Industrial Skilling Platform</span>
-        <span>Connected to Machine Twin Photogrammetry Engine (:8000) · Sarvam Voice Engine</span>
+        <span>Machine Twin Photogrammetry Engine · Sarvam Voice Engine</span>
       </footer>
     </div>
   );

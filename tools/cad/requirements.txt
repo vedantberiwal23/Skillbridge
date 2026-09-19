@@ -1,0 +1,6 @@
+# Only needed for .step / .stp input. glTF, GLB and OBJ need nothing here -
+# Blender reads those directly.
+#
+# Pulls OpenCascade (a few hundred MB), which is why it is not a blanket
+# requirement of the toolchain.
+cadquery>=2.5

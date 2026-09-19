@@ -23,19 +23,38 @@ import {
   Check,
   Loader2,
 } from 'lucide-react';
+import Link from 'next/link';
 import { MachineViewer } from '@/components/viewer/machine-viewer';
 import { useAccessibility } from '@/components/providers/accessibility-provider';
 import type { MachineAsset } from '@/lib/types';
 import { openVoiceChannel, type VoiceChannel, type ChannelState, type VoiceTurn } from '@/lib/voice/channel';
 import * as player from '@/lib/voice/player';
 
-// Live Machine Twin Photogrammetry Model (Loaded from port 8000)
+/**
+ * The Machine Twin output, served as a static asset.
+ *
+ * Produced by the Machine Twin engine from a 36-photograph run of project
+ * 6ef7a28f2cdb4b1dbccc0022543d4a75 (HPU-400, 36/36 images registered), then committed under
+ * `public/twin/`. Deliberately NOT fetched from the engine at view time, for
+ * three reasons that each break a live demo:
+ *
+ *   - the engine is a local Python service, so a `http://localhost:8000` URL in
+ *     the browser is blocked as mixed content as soon as the app is served over
+ *     https, and resolves to nothing on any machine but the operator's;
+ *   - the engine cannot be deployed beside the app at all - its mesh stage is
+ *     Apple Object Capture, which is macOS-only;
+ *   - a hardcoded project id drifts. The previous value, `proj_axial_pump_twin`,
+ *     returned 404 for both the model and the poster.
+ *
+ * The live engine is still demonstrated, through the API panel below, which goes
+ * through the `/api/twin` proxy rather than straight at the service.
+ */
 const MACHINE_TWIN_ASSET: MachineAsset = {
   orgId: 'local',
-  assetId: 'proj_axial_pump_twin',
-  name: 'Rexroth A10VSO Variable Displacement Axial Piston Pump',
-  glbUrl: 'http://localhost:8000/projects/proj_axial_pump_twin/model?lod=0',
-  posterUrl: 'http://localhost:8000/projects/proj_axial_pump_twin/poster',
+  assetId: '6ef7a28f2cdb4b1dbccc0022543d4a75',
+  name: 'HPU-400 Hydraulic Power Unit (photogrammetry reconstruction)',
+  glbUrl: '/twin/machine.glb',
+  posterUrl: '/twin/poster.webp',
   hotspots: [
     {
       id: 'relief-valve',
@@ -91,6 +110,34 @@ interface ComponentDetail {
     en: string;
     hi: string;
   };
+}
+
+/**
+ * Bridge from the reconstructed machine into the authored training simulation.
+ *
+ * Photogrammetry reconstructs the OUTSIDE of the customer's actual machine. The
+ * internals - exploded assembly, pistons, swashplate motion, fault behaviour -
+ * come from the per-machine-type simulation, which is authored once and reused
+ * by every customer who owns that pump. The two halves are joined by component
+ * identity, so selecting a part on the real twin opens that same part in the
+ * training model instead of dropping the worker at the top of the lesson.
+ *
+ * Not every exterior component has an internal counterpart - a solenoid valve
+ * and a relief cartridge are both external fittings - so anything unmapped opens
+ * the simulation at its own default rather than guessing at a match.
+ */
+const TRAINING_LESSON_ID = 'dynex-model-simulation';
+
+const TRAINING_COMPONENT_MAP: Record<string, string> = {
+  swashplate: 'camshaft_swashplate',
+  'bearing-flange': 'shaft_seal',
+};
+
+function trainingSimHref(partId: string): string {
+  const mapped = TRAINING_COMPONENT_MAP[partId];
+  return mapped
+    ? `/lesson/${TRAINING_LESSON_ID}?component=${mapped}`
+    : `/lesson/${TRAINING_LESSON_ID}`;
 }
 
 const COMPONENTS: Record<string, ComponentDetail> = {
@@ -550,11 +597,7 @@ export default function SimulationStudioPage() {
 
   // Activate Scanned Model in 3D Viewer
   const activateScannedModel = () => {
-    setActiveAsset({
-      ...MACHINE_TWIN_ASSET,
-      glbUrl: `http://localhost:8000/projects/proj_axial_pump_twin/model?lod=0&t=${Date.now()}`,
-      posterUrl: `http://localhost:8000/projects/proj_axial_pump_twin/poster?t=${Date.now()}`,
-    });
+    setActiveAsset({ ...MACHINE_TWIN_ASSET });
     setActiveTab('twin');
     speakAudioNotification(
       language === 'hi'
@@ -947,6 +990,22 @@ export default function SimulationStudioPage() {
                     </p>
                   </div>
                 </div>
+
+                {/* Into the authored internals. See TRAINING_COMPONENT_MAP. */}
+                <Link
+                  href={trainingSimHref(selectedPartId)}
+                  className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-blue-500/40 bg-blue-950/30 px-4 py-3 transition hover:bg-blue-900/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400"
+                >
+                  <span>
+                    <span className="block text-xs font-bold uppercase tracking-wide text-blue-300">
+                      Open Training Simulation
+                    </span>
+                    <span className="mt-0.5 block text-xs text-blue-200/80">
+                      Exploded assembly, internal components, operating sequence
+                    </span>
+                  </span>
+                  <ArrowRight className="h-5 w-5 shrink-0 text-blue-300" />
+                </Link>
               </div>
             </div>
 
@@ -1442,8 +1501,8 @@ export default function SimulationStudioPage() {
 
                 {/* Direct API Endpoints Strip */}
                 <div className="mt-4 pt-3 border-t border-slate-800 text-[11px] font-mono text-slate-400 space-y-1">
-                  <div>Model URL: <a href="http://localhost:8000/projects/proj_axial_pump_twin/model?lod=0" target="_blank" rel="noreferrer" className="text-cyan-400 hover:underline">/projects/proj_axial_pump_twin/model</a></div>
-                  <div>Poster URL: <a href="http://localhost:8000/projects/proj_axial_pump_twin/poster" target="_blank" rel="noreferrer" className="text-cyan-400 hover:underline">/projects/proj_axial_pump_twin/poster</a></div>
+                  <div>Served to viewer: <span className="text-cyan-400">/twin/machine.glb</span> <span className="text-slate-600">(static, committed)</span></div>
+                  <div>Live engine: <a href="http://localhost:8000/projects/6ef7a28f2cdb4b1dbccc0022543d4a75/model?lod=0" target="_blank" rel="noreferrer" className="text-cyan-400 hover:underline">/projects/6ef7a28f…/model</a></div>
                 </div>
               </div>
             </div>

@@ -189,7 +189,7 @@ export default function LibraryPage() {
             </Link>
 
             <Link
-              href="/assessment/asmt-hydraulics-l1"
+              href="/assessment/diag-cylinder-drift"
               className="text-xs font-bold text-[#0B57D0] hover:underline hidden sm:inline"
             >
               Take Assessment &rarr;
@@ -453,13 +453,13 @@ export default function LibraryPage() {
                           item.slug.includes("gear-pump")))
                     ? "/lesson/force-pressure-area"
                     : isQuiz
-                      ? "/assessment/asmt-hydraulics-l1"
+                      ? "/assessment/diag-cylinder-drift"
                       : item.topic === "Automation Controllers"
                         ? "/lesson/lesson-plc-basics"
                         : item.topic === "Mobile Equipment"
-                          ? "/lesson/lesson-mobile-braking"
+                          ? "/lesson/lesson-mobile-brakes"
                           : item.topic === "Electrical"
-                            ? "/lesson/lesson-electrical-breakers"
+                            ? "/lesson/lesson-electrical-safety"
                             : `/lesson/${item.slug || "lesson-hpu-startup"}`;
 
             return (

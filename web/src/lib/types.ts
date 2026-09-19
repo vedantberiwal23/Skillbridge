@@ -122,12 +122,32 @@ export type AssessmentKind =
   | 'sequence-procedure'
   | 'diagnose-by-voice';
 
+/**
+ * One question on an assessment, stored on the `ASMT#` item it belongs to.
+ *
+ * Content lives with the assessment rather than in the client bundle so it
+ * follows the org's own course material: an org whose lessons differ gets
+ * different questions without shipping a new build, and the answer key never
+ * reaches the browser as part of the source.
+ */
+export interface AssessmentQuestion {
+  id: string;
+  topic: string;
+  prompt: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+  safetyRef: string;
+}
+
 export interface Assessment {
   orgId: string;
   assessmentId: string;
   kind: AssessmentKind;
   title: string;
   lessonId: string | null;
+  /** Absent on older items; the view falls back to an empty assessment. */
+  questions?: AssessmentQuestion[];
 }
 
 /**

@@ -50,12 +50,16 @@ export default async function LandingPage() {
             >
               {signedInHome ? "Go to your dashboard" : "Log in"}
             </Link>
-            <Link
-              href="/login"
-              className="rounded-full bg-[#0B57D0] px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:bg-[#094bb8] shadow-sm"
-            >
+            {/*
+              Inert on purpose. There is no sales pipeline behind it, and
+              pointing it at /login sent people to a sign-in form they had not
+              asked for. It stays visible because the page reads as a B2B
+              landing page with it, and does nothing because doing nothing is
+              honest.
+            */}
+            <span className="cursor-default rounded-full bg-[#0B57D0] px-5 py-2.5 text-sm font-semibold text-white shadow-sm">
               Book a demo
-            </Link>
+            </span>
           </nav>
         </div>
       </header>
@@ -86,21 +90,13 @@ export default async function LandingPage() {
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link
-                href="/login"
-                className="group inline-flex min-h-12 items-center gap-2 rounded-full bg-[#0B57D0] px-7 text-base font-semibold text-white transition-all hover:bg-[#094bb8] shadow-md shadow-blue-500/20"
-              >
+              <span className="inline-flex min-h-12 cursor-default items-center gap-2 rounded-full bg-[#0B57D0] px-7 text-base font-semibold text-white shadow-md shadow-blue-500/20">
                 Book a demo
-                <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
-                  →
-                </span>
-              </Link>
-              <Link
-                href="/login"
-                className="inline-flex min-h-12 items-center rounded-full border border-border bg-card px-7 text-base font-medium text-foreground transition-colors hover:border-[#0B57D0]/40"
-              >
+                <span aria-hidden>→</span>
+              </span>
+              <span className="inline-flex min-h-12 cursor-default items-center rounded-full border border-border bg-card px-7 text-base font-medium text-foreground">
                 Talk to sales
-              </Link>
+              </span>
             </div>
 
             {/* Value props */}

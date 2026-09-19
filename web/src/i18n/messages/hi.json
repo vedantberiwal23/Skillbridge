@@ -115,6 +115,7 @@
     "backToPlan": "ट्रेनिंग प्लान पर वापस",
     "voiceConnecting": "जुड़ रहा है…",
     "voiceUnavailable": "वॉइस ट्यूटर अभी उपलब्ध नहीं है।",
+    "assessmentEmpty": "इस assessment के लिए अभी कोई प्रश्न नहीं हैं।",
     "fromYourSop": "आपकी company के SOP से",
     "heardNothing": "सुनाई नहीं दिया। बटन दबाकर फिर बोलें।"
   },

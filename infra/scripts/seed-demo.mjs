@@ -144,6 +144,151 @@ const LESSONS = [
 
 /* ── assessments ──────────────────────────────────────────────────────────── */
 
+/**
+ * Questions live on the `ASMT#` item, not in the web bundle.
+ *
+ * They used to be a hardcoded array in `web/src/data/questions.ts`, filtered by
+ * a trade id read from localStorage, so every org saw the same fourteen
+ * questions regardless of its own course material and the answer key shipped to
+ * the browser inside the source. Seeding them here means an org's assessments
+ * follow its own lessons, and `GET /api/assessments` is the only way to get
+ * them. Each set is written against the lesson its assessment points at.
+ */
+const ASSESSMENT_QUESTIONS = {
+  "diag-cylinder-drift": [
+    {
+      "id": "drift-q1",
+      "topic": "Cylinder drift",
+      "prompt": "A loaded cylinder creeps down slowly with the directional valve centred. What is the most likely cause?",
+      "options": [
+        "Fluid bypassing the piston seal inside the cylinder.",
+        "The pump is worn and cannot build pressure.",
+        "The reservoir breather is blocked.",
+        "The electric motor is running in reverse."
+      ],
+      "correctIndex": 0,
+      "explanation": "With the valve centred the cylinder is hydraulically locked, so movement means fluid is crossing the piston past a worn seal. A worn pump would fail to lift the load at all rather than let it creep.",
+      "safetyRef": "Support or lower the load before working on a drifting cylinder."
+    },
+    {
+      "id": "drift-q2",
+      "topic": "Cylinder drift",
+      "prompt": "The cylinder holds when the valve is centred but drifts when the valve is shifted and held. What does that point to?",
+      "options": [
+        "The directional valve spool is leaking across its lands.",
+        "The piston seal has failed.",
+        "The rod seal is leaking externally.",
+        "The relief valve is set too high."
+      ],
+      "correctIndex": 0,
+      "explanation": "Holding when centred clears the piston seal: the leak path only opens when the spool is shifted, which places it in the valve rather than the cylinder.",
+      "safetyRef": "Isolate and relieve pressure before removing a valve."
+    },
+    {
+      "id": "drift-q3",
+      "topic": "Load holding",
+      "prompt": "What is the purpose of a pilot-operated check valve on a cylinder that holds a load?",
+      "options": [
+        "To block return flow until pilot pressure deliberately opens it.",
+        "To limit the maximum pressure in the circuit.",
+        "To filter particles out of the return line.",
+        "To keep the fluid at a constant temperature."
+      ],
+      "correctIndex": 0,
+      "explanation": "It locks the load hydraulically and only releases when pilot pressure is applied, so a hose failure downstream cannot drop the load.",
+      "safetyRef": "Never rely on a load-holding valve as the only support when working underneath."
+    }
+  ],
+  "identify-dcv-ports": [
+    {
+      "id": "dcv-q1",
+      "topic": "Valve ports",
+      "prompt": "On a 4/3 directional control valve, which port is fed from the pump?",
+      "options": [
+        "P",
+        "T",
+        "A",
+        "B"
+      ],
+      "correctIndex": 0,
+      "explanation": "P is the pressure port and takes pump flow. T returns to tank; A and B go to the two sides of the actuator.",
+      "safetyRef": "Confirm the pump is stopped and pressure relieved before cracking any port."
+    },
+    {
+      "id": "dcv-q2",
+      "topic": "Valve ports",
+      "prompt": "Which port carries fluid back to the reservoir?",
+      "options": [
+        "T",
+        "P",
+        "A",
+        "B"
+      ],
+      "correctIndex": 0,
+      "explanation": "T is the tank port. Restricting it raises back pressure and can damage seals.",
+      "safetyRef": "A blocked tank line can burst a return hose. Never plug T to test a circuit."
+    },
+    {
+      "id": "dcv-q3",
+      "topic": "Centre condition",
+      "prompt": "What does a closed-centre spool do when the valve is in its neutral position?",
+      "options": [
+        "Blocks all four ports, holding the actuator in place.",
+        "Connects P to T so the pump unloads to tank.",
+        "Connects A and B together and blocks P.",
+        "Opens every port to tank."
+      ],
+      "correctIndex": 0,
+      "explanation": "A closed centre blocks P, T, A and B, which holds the actuator but leaves the pump deadheaded unless the system compensates.",
+      "safetyRef": "A deadheaded fixed-displacement pump relies on the relief valve; check its setting."
+    }
+  ],
+  "sequence-loto": [
+    {
+      "id": "loto-q1",
+      "topic": "Lockout/tagout",
+      "prompt": "What is the FIRST step of a lockout/tagout procedure?",
+      "options": [
+        "Notify everyone affected that the equipment is being shut down.",
+        "Apply your personal lock to the isolating device.",
+        "Test that the machine will not start.",
+        "Release stored energy."
+      ],
+      "correctIndex": 0,
+      "explanation": "Notification comes first so nobody is caught out by the shutdown or tries to restart the machine mid-procedure.",
+      "safetyRef": "Lockout/tagout is a life-critical procedure. Follow your site permit exactly."
+    },
+    {
+      "id": "loto-q2",
+      "topic": "Lockout/tagout",
+      "prompt": "After isolating the energy source and applying locks, what must be done before work begins?",
+      "options": [
+        "Verify isolation by attempting a normal start, then returning controls to off.",
+        "Remove the tag so it is not damaged during the work.",
+        "Restore power briefly to confirm the lock holds.",
+        "Sign the permit and begin immediately."
+      ],
+      "correctIndex": 0,
+      "explanation": "Verification is the step that proves the isolation is real. Skipping it is how people are injured by circuits they believed were dead.",
+      "safetyRef": "Try-out is mandatory. An untested isolation is not an isolation."
+    },
+    {
+      "id": "loto-q3",
+      "topic": "Stored energy",
+      "prompt": "Which of these still holds energy after electrical isolation?",
+      "options": [
+        "A raised hydraulic accumulator or a suspended load.",
+        "An open circuit breaker.",
+        "A de-energised contactor coil.",
+        "An isolated control transformer."
+      ],
+      "correctIndex": 0,
+      "explanation": "Accumulators, springs, raised loads and capacitors hold energy after the supply is cut, and each must be discharged or blocked separately.",
+      "safetyRef": "Bleed accumulators and block suspended loads before any work."
+    }
+  ]
+};
+
 const ASSESSMENTS = [
   {
     assessmentId: 'diag-cylinder-drift',
@@ -245,8 +390,9 @@ for (const a of ASSESSMENTS) {
       lessonId: a.lessonId,
       kind: a.kind,
       title: a.title,
+      questions: ASSESSMENT_QUESTIONS[a.assessmentId] ?? [],
     },
-    `ASMT#${a.assessmentId} (${a.kind})`
+    `ASMT#${a.assessmentId} (${a.kind}, ${(ASSESSMENT_QUESTIONS[a.assessmentId] ?? []).length} questions)`
   );
 }
 

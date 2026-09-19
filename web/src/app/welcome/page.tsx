@@ -38,15 +38,12 @@ export default async function LandingPage() {
           </Link>
 
           <nav className="flex items-center gap-7">
-            {["Pricing", "Blog", "Trust"].map((item) => (
-              <a
-                key={item}
-                href="#"
-                className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:inline"
-              >
-                {item}
-              </a>
-            ))}
+            {/*
+              Pricing, Blog and Trust were `href="#"` — three links in the
+              header of the first page anyone sees, each doing nothing. A dead
+              link reads as a broken site, not as an unbuilt page, so they are
+              gone until there is somewhere for them to go.
+            */}
             <Link
               href={signedInHome ?? "/login"}
               className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:inline"

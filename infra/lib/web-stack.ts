@@ -177,6 +177,15 @@ export class WebStack extends cdk.Stack {
         '            - npm ci',
         '        build:',
         '          commands:',
+        // Amplify's environment variables reach the BUILD, not the SSR runtime.
+        // Next inlines `NEXT_PUBLIC_*` at build time, so those survive — but a
+        // server-only value like APP_TABLE_NAME is read from `process.env` when
+        // a request runs, and there it is undefined. `ddb.ts` falls back to `''`,
+        // so every DynamoDB call fails and every data route answers 500 while
+        // auth still works, because Cognito falls back to the NEXT_PUBLIC_ copy.
+        // Writing them into `.env.production` before the build is AWS's
+        // documented fix. Keep the list in step with `environmentVariables`.
+        "            - env | grep -E '^(APP_TABLE_NAME|ASSESSMENT_SCORER_QUEUE_URL|LEARNING_PLAN_QUEUE_URL|MACHINE_TWIN_URL|COGNITO_USER_POOL_ID|COGNITO_CLIENT_ID)=' >> .env.production || true",
         '            - npm run build',
         '      artifacts:',
         '        baseDirectory: .next',

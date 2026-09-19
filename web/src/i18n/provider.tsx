@@ -10,20 +10,37 @@ type Messages = typeof en;
 
 const MESSAGES: Record<Locale, Messages> = { en, hi: hi as Messages, mr: mr as Messages };
 
+/** Values substituted into a message's {named} placeholders. */
+export type MessageVars = Record<string, string | number>;
+
 interface I18nValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
-  t: (path: string) => string;
+  t: (path: string, vars?: MessageVars) => string;
 }
 
 const I18nContext = createContext<I18nValue | null>(null);
 
-const resolve = (messages: Messages, path: string): string => {
+const resolve = (messages: Messages | undefined, path: string): string => {
+  const active = messages ?? MESSAGES[DEFAULT_LOCALE];
   const value = path
     .split('.')
-    .reduce<unknown>((node, key) => (node as Record<string, unknown>)?.[key], messages);
+    .reduce<unknown>((node, key) => (node as Record<string, unknown>)?.[key], active);
   return typeof value === 'string' ? value : path;
 };
+
+/**
+ * Placeholders are named, not positional, because word order moves between
+ * these languages — "{done} of {total}" is "{total} में से {done}" in Hindi.
+ * Building such a string by concatenation gets it wrong in one language or
+ * the other.
+ */
+const interpolate = (template: string, vars?: MessageVars): string =>
+  vars
+    ? template.replace(/\{(\w+)\}/g, (match, key: string) =>
+        key in vars ? String(vars[key]) : match
+      )
+    : template;
 
 export function I18nProvider({
   children,
@@ -37,7 +54,7 @@ export function I18nProvider({
   const value: I18nValue = {
     locale,
     setLocale,
-    t: (path) => resolve(MESSAGES[locale], path),
+    t: (path, vars) => interpolate(resolve(MESSAGES[locale], path), vars),
   };
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

@@ -1,4 +1,5 @@
 import { headers, cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { NextResponse } from 'next/server';
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
@@ -273,4 +274,24 @@ export async function getSession(): Promise<SessionUser | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Role gating for the group layouts.
+ *
+ * UX only. Route groups add no URL segment, so `/plan`, `/dashboard` and
+ * `/users` share one flat namespace that any signed-in user can type; this
+ * bounces them somewhere sensible instead of rendering the wrong section. The
+ * enforcement boundary is still the route handler, which verifies the session
+ * itself and never trusts that a page already did.
+ *
+ * Deliberately an exact role match rather than `requireSession`'s rank test: an
+ * admin *may* call a manager endpoint, but should not be shown the manager UI
+ * when their own section exists.
+ */
+export async function gatePage(role: Role): Promise<SessionUser> {
+  const session = await getSession();
+  if (!session) redirect('/login');
+  if (session.role !== role) redirect(HOME_FOR_ROLE[session.role]);
+  return session;
 }

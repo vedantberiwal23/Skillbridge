@@ -1,8 +1,9 @@
+import { AssessmentView } from '@/components/worker/assessment-view';
+
 export default async function AssessmentPage({
   params,
-}: {
-  params: Promise<{ assessmentId: string }>;
-}) {
+}: PageProps<'/assessment/[assessmentId]'>) {
   const { assessmentId } = await params;
-  return <main>Assessment {assessmentId}</main>;
+
+  return <AssessmentView assessmentId={assessmentId} />;
 }

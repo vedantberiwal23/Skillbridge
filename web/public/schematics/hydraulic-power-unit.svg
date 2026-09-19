@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 300" role="img" aria-label="Hydraulic power unit schematic">
+  <title>Hydraulic power unit schematic</title>
+  <rect width="480" height="300" fill="#f5f4f0"/>
+
+  <!-- fluid path -->
+  <g fill="none" stroke="#5a5a5c" stroke-width="2" stroke-linecap="round">
+    <path d="M120 200 L150 200 L150 120 L210 120"/>
+    <path d="M270 120 L330 120 L330 170"/>
+    <path d="M330 230 L240 230"/>
+    <path d="M150 230 L150 215"/>
+    <path d="M240 230 L150 230"/>
+  </g>
+
+  <!-- reservoir -->
+  <rect x="90" y="200" width="120" height="60" rx="3" fill="#eeede8" stroke="#5a5a5c" stroke-width="2"/>
+  <path d="M100 232 h100" stroke="#8c8c8e" stroke-width="1.5" stroke-dasharray="5 4" fill="none"/>
+  <text x="150" y="278" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#1c1c1e">Reservoir</text>
+
+  <!-- pump -->
+  <circle cx="240" cy="120" r="30" fill="#ffffff" stroke="#1c3d5a" stroke-width="2.5"/>
+  <path d="M240 96 L240 120 L260 132" stroke="#1c3d5a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <text x="240" y="70" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#1c1c1e">Pump</text>
+
+  <!-- relief valve -->
+  <rect x="300" y="170" width="60" height="60" rx="3" fill="#ffffff" stroke="#1c3d5a" stroke-width="2.5"/>
+  <path d="M312 212 L348 188" stroke="#1c3d5a" stroke-width="2" fill="none"/>
+  <path d="M330 170 L330 160" stroke="#5a5a5c" stroke-width="2" fill="none"/>
+  <text x="330" y="252" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#1c1c1e">Relief valve</text>
+
+  <!-- return filter -->
+  <rect x="395" y="95" width="46" height="50" rx="3" fill="#ffffff" stroke="#5a5a5c" stroke-width="2"/>
+  <path d="M403 120 h30 M418 105 v30" stroke="#8c8c8e" stroke-width="1.5"/>
+  <path d="M330 120 L395 120" stroke="#5a5a5c" stroke-width="2" fill="none"/>
+  <text x="418" y="164" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#1c1c1e">Filter</text>
+
+  <!-- pressure gauge -->
+  <circle cx="290" cy="80" r="15" fill="#ffffff" stroke="#5a5a5c" stroke-width="2"/>
+  <path d="M281 80 Q290 68 299 80" stroke="#8c8c8e" stroke-width="1.5" fill="none"/>
+  <path d="M290 80 L295 72" stroke="#b91c1c" stroke-width="2" stroke-linecap="round"/>
+  <path d="M290 95 L290 120" stroke="#5a5a5c" stroke-width="2"/>
+</svg>

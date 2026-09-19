@@ -136,7 +136,7 @@ export function ExplodedPump3D({
   const pistonPlungersRef = useRef<{ mesh: THREE.Group; baseOffset: number; phase: number }[]>([]);
   const shaftAngleRef = useRef(0);
 
-  // Interactive UI state matching Lunchbox Sessions screenshot
+  // Interactive UI state for the exploded-view controls
   const [explodePct, setExplodePct] = useState(65);
   const explodePctRef = useRef(65);
   const [isSpinning, setIsSpinning] = useState(false);
@@ -248,7 +248,7 @@ export function ExplodedPump3D({
     groundReflectLight.position.set(0, -25, 10);
     scene.add(groundReflectLight);
 
-    // 4. Materials Palette matching Lunchbox Sessions Photo 1
+    // 4. Materials palette: cast iron, steel and bronze surface treatments
     const castIronBump = createCastIronNoiseTexture();
 
     const tealCastIron = new THREE.MeshStandardMaterial({
@@ -787,7 +787,7 @@ export function ExplodedPump3D({
   return (
     <div className="relative w-full h-[580px] sm:h-[640px] bg-white rounded-2xl overflow-hidden border border-slate-300 shadow-sm select-none">
       {/* -------------------------------------------------------------
-         TOP APP BAR (Matching Lunchbox Sessions Header)
+         TOP APP BAR
          ------------------------------------------------------------- */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 bg-[#334155]/90 backdrop-blur-xs text-white border-b border-slate-600">
         <button

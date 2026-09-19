@@ -3,17 +3,22 @@
 import { notFound } from 'next/navigation';
 import { DEMO_ENABLED, DEMO_PERSONAS, type DemoPersona } from '@/lib/demo';
 
+/**
+ * Switching persona is a full page load, not React state, so it lives at module
+ * scope: the browser globals it writes are outside React's ownership and the
+ * compiler's immutability rule rejects touching them from a component body.
+ */
+function enter(persona: DemoPersona) {
+  document.cookie = `demo_role=${persona}; path=/; max-age=86400`;
+  try {
+    for (const k of Object.keys(localStorage)) if (k.startsWith('sb.')) localStorage.removeItem(k);
+  } catch {}
+  window.location.assign(persona === 'worker-new' ? '/onboarding' : '/');
+}
+
 /** Local demo entry: pick who to be. 404s unless demo mode is on. */
 export default function DemoPage() {
   if (!DEMO_ENABLED) notFound();
-
-  const enter = (persona: DemoPersona) => {
-    document.cookie = `demo_role=${persona}; path=/; max-age=86400`;
-    try {
-      for (const k of Object.keys(localStorage)) if (k.startsWith('sb.')) localStorage.removeItem(k);
-    } catch {}
-    window.location.href = persona === 'worker-new' ? '/onboarding' : '/';
-  };
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-6 py-12">

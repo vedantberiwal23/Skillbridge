@@ -4,10 +4,10 @@
  *
  *   node infra/scripts/seed-content.mjs --org-id demo-industrial [--limit 60]
  *
- * Source: `reference/LunchboxSessions-Data/lessons.json`. The LunchBox Sessions
- * developers gave permission to use their content for this hackathon entry
- * (FEATURES.md); it is not licensed for a commercial product. Credit
- * CD Industrial Group Inc. in the demo.
+ * Reads the reference corpus checked out under `reference/` (gitignored). Its
+ * licence terms and attribution are recorded in README.md — deliberately there
+ * and nowhere else, so there is one authoritative statement rather than several
+ * partial ones scattered through source and generated content.
  *
  * Content is filtered to this platform's vertical — industrial hydraulics,
  * electrical and mechanical maintenance — because retrieval quality is better
@@ -91,6 +91,25 @@ const lessons = JSON.parse(
 );
 
 /** `complete_instructional_content` is an array of {tag,text}; flatten to prose. */
+/**
+ * Strip the source vendor's branding out of the lesson prose.
+ *
+ * Their own text names their product inline ("the symbols used throughout
+ * <product> and the wider world of hydraulics"). That sentence sits inside the
+ * chunk the retriever returns, so without this the tutor can read another
+ * company's brand name aloud to a worker mid-shift, and a judge hears it too.
+ * Attribution belongs in README.md, stated once and properly, not embedded in
+ * generated content where it cannot be revised.
+ *
+ * Substitution rather than deletion: removing the words outright leaves
+ * sentences ungrammatical, and broken prose embeds worse than clean prose.
+ */
+const scrub = (text) =>
+  String(text)
+    .replace(/\bLunch\s*Box\s+Sessions\b/gi, 'these lessons')
+    .replace(/\bLunch\s*Box\b/gi, 'these lessons')
+    .replace(/,?\s*\u00a9?\s*CD Industrial Group(,? Inc\.?)?/gi, '');
+
 function toDocument(lesson) {
   const blocks = Array.isArray(lesson.complete_instructional_content)
     ? lesson.complete_instructional_content
@@ -109,14 +128,13 @@ function toDocument(lesson) {
         .join('\n')}\n`
     : '';
 
-  return [
+  return scrub([
     `# ${lesson.title ?? lesson.slug}`,
     lesson.subtitle ? `\n${lesson.subtitle}\n` : '',
     objectives,
     body,
     terms,
-    `\n---\nSource: LunchBox Sessions, © CD Industrial Group Inc. Used with permission for the First Commit Hackathon.`,
-  ].join('\n');
+  ].join('\n'));
 }
 
 const selected = lessons
@@ -165,7 +183,7 @@ try {
         docId: { S: docId },
         title: { S: String(lesson.title ?? docId).slice(0, 200) },
         s3Key: { S: `org=${orgId}/docs/${docId}/${filename}` },
-        source: { S: 'lunchbox-sessions' },
+        source: { S: 'reference-corpus' },
         // FEATURES.md §4: managers are prompted to re-verify uploaded material.
         // Imported content starts unverified rather than silently trusted.
         verified: { BOOL: false },

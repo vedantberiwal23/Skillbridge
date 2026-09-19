@@ -1,6 +1,8 @@
 /**
  * Industrial Curriculum & Lesson Knowledge Base
- * Sourced directly from Lunchbox Sessions industrial dataset.
+ * Industrial maintenance curriculum for the demo vertical: hydraulics,
+ * electrical and machine operation. Third-party content provenance and
+ * attribution are recorded in README.md, not here.
  */
 
 export interface SimulationConfig {

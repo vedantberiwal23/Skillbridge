@@ -24,6 +24,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
+import { TwinUploader } from '@/components/viewer/twin-uploader';
 import { MachineViewer } from '@/components/viewer/machine-viewer';
 import { useAccessibility } from '@/components/providers/accessibility-provider';
 import type { MachineAsset } from '@/lib/types';
@@ -940,6 +941,11 @@ export default function SimulationStudioPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Bring-your-own-machine: the organisation-facing path. Uploads go
+                  through /api/twin, which carries the session and keeps the engine's
+                  address out of the browser. */}
+              <TwinUploader />
 
               {/* Active Component Specifications & Hazard Card */}
               <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg">

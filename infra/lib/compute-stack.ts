@@ -152,7 +152,15 @@ export class ComputeStack extends cdk.Stack {
         ],
       });
 
-      this.voiceService = new ecs.CfnExpressGatewayService(this, 'VoiceService', {
+      /**
+       * Logical id is `VoiceExpressService`, not `VoiceService`, on purpose.
+       * `VoiceService` was the `AWS::AppRunner::Service`, and CloudFormation
+       * refuses to change a resource's TYPE under an existing logical id:
+       * "Update of resource type is not permitted." Renaming makes it a delete
+       * of the App Runner service plus a create of this one, which is exactly
+       * what is wanted. Do not rename it back.
+       */
+      this.voiceService = new ecs.CfnExpressGatewayService(this, 'VoiceExpressService', {
         serviceName: `${APP_NAME}-voice`,
         executionRoleArn: executionRole.roleArn,
         infrastructureRoleArn: infrastructureRole.roleArn,

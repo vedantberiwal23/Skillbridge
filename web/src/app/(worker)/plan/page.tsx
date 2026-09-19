@@ -9,7 +9,7 @@ import { fixtureProfile } from '@/lib/fixtures';
 import { TRADES_CATALOG, type TradeTrack } from '@/data/curriculum';
 
 export default function PlanPage() {
-  const { locale, setLocale } = useI18n();
+  const { locale, setLocale, t } = useI18n();
 
   // Active trade track initialized from localStorage if present
   const [selectedTradeKey, setSelectedTradeKey] = useState<string>(() => {
@@ -191,7 +191,7 @@ export default function PlanPage() {
                 <svg className="size-3.5 text-[#0B57D0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                <span>Worker File</span>
+                <span>{t('worker.workerFile')}</span>
               </Link>
               <Link
                 href="/library"

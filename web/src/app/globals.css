@@ -41,6 +41,9 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
 
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+
   /* Status scale. Used for competency/assessment state, which is the one place
      colour carries meaning rather than decoration. */
   --color-success: var(--success);
@@ -88,6 +91,10 @@
   --border: #e7e1d4;
   --input: #e7e1d4;
   --ring: #15803d;
+
+  /* Brand accent for the marketing surface. */
+  --brand: #f2621f;
+  --brand-foreground: #ffffff;
 
   --success: #15803d;
   --success-foreground: #ffffff;
@@ -138,6 +145,9 @@
   --border: #e7e1d4;
   --input: #e7e1d4;
   --ring: #15803d;
+
+  --brand: #ff7a3d;
+  --brand-foreground: #091d30;
 
   --success: #15803d;
   --success-foreground: #ffffff;
@@ -378,3 +388,9 @@
   animation: carousel-progress 4s linear;
 }
 
+
+/* Faint dot grid behind the marketing footer. */
+.footer-dots {
+  background-image: radial-gradient(rgba(28, 28, 30, 0.07) 1px, transparent 1px);
+  background-size: 22px 22px;
+}

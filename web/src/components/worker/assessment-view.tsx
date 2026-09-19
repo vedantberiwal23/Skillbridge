@@ -13,7 +13,7 @@ export function AssessmentView({
   assessment?: unknown;
   assessmentId?: string;
 }) {
-  const { locale, setLocale } = useI18n();
+  const { locale, setLocale, t } = useI18n();
 
   // Read current trade preference if present
   let activeTrade = 'hydraulics';
@@ -85,7 +85,7 @@ export function AssessmentView({
             <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            <span>Back to Training Roadmap</span>
+            <span>{t('worker.backToPlan')}</span>
           </Link>
 
           <div className="flex items-center gap-3">
@@ -107,7 +107,7 @@ export function AssessmentView({
             </div>
 
             <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-[#0B57D0]">
-              Diagnostic Verification
+              {t('assessment.diagnosticVerification')}
             </span>
           </div>
         </div>
@@ -121,10 +121,10 @@ export function AssessmentView({
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-xs font-bold uppercase tracking-wider text-[#0B57D0]">
-                  SOP Competency Assessment &bull; {currentQ.topic}
+                  {t('assessment.sopCompetency')} &bull; {currentQ.topic}
                 </span>
                 <p className="text-sm font-semibold text-slate-500 mt-0.5">
-                  Question {currentIndex + 1} of {tradeQuestions.length}
+                  {t('assessment.questionOf', { current: currentIndex + 1, total: tradeQuestions.length })}
                 </p>
               </div>
 

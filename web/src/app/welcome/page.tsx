@@ -1,8 +1,9 @@
 import Link from "next/link"
-import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { GlobeSection } from "@/components/visual/globe-section"
+import { SiteFooter } from "@/components/marketing/site-footer"
 import { MultilingualHeroCards } from "@/components/visual/multilingual-hero-cards"
+import CloudSky from "@/components/visual/cloud-sky"
 
 const LANG_ICON =
   "M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7m-7 0l-1 2m1-2l2.5-5 2.5 5m0 0l1 2m-1-2h-5"
@@ -18,7 +19,7 @@ export default function LandingPage() {
       <header className="border-b border-border/60 bg-card">
         <div className="mx-auto flex max-w-[1600px] items-center justify-between px-6 py-4 md:px-10">
           <Link href="/welcome" className="flex items-center gap-2.5">
-            <span className="size-2.5 rounded-full bg-primary" />
+            <span className="size-2.5 rounded-full bg-[#0B57D0]" />
             <span className="text-lg font-semibold tracking-tight text-foreground">
               SkillBridge
             </span>
@@ -40,12 +41,12 @@ export default function LandingPage() {
             >
               Log in
             </Link>
-            <a
-              href="#demo"
-              className="rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+            <Link
+              href="/login"
+              className="rounded-full bg-[#0B57D0] px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:bg-[#094bb8] shadow-sm"
             >
               Book a demo
-            </a>
+            </Link>
           </nav>
         </div>
       </header>
@@ -56,8 +57,8 @@ export default function LandingPage() {
           {/* Left: the pitch */}
           <div className="max-w-xl">
             <div className="flex items-center gap-4">
-              <span className="h-px w-10 bg-primary/40" />
-              <p className="text-xs font-data uppercase tracking-[0.18em] text-muted-foreground">
+              <span className="h-px w-10 bg-[#0B57D0]/40" />
+              <p className="text-xs font-data uppercase tracking-[0.18em] text-[#0B57D0] font-semibold">
                 Industrial training for a stronger tomorrow
               </p>
             </div>
@@ -66,7 +67,7 @@ export default function LandingPage() {
               Train your workforce,
               <br />
               in their own{" "}
-              <span className="text-primary">language</span>
+              <span className="text-[#0B57D0]">language</span>
             </h1>
 
             <p className="mt-6 max-w-lg text-base leading-relaxed text-muted-foreground md:text-lg">
@@ -76,21 +77,21 @@ export default function LandingPage() {
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <a
-                href="#demo"
-                className="group inline-flex min-h-12 items-center gap-2 rounded-md bg-primary px-6 text-base font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+              <Link
+                href="/login"
+                className="group inline-flex min-h-12 items-center gap-2 rounded-full bg-[#0B57D0] px-7 text-base font-semibold text-white transition-all hover:bg-[#094bb8] shadow-md shadow-blue-500/20"
               >
                 Book a demo
                 <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
                   →
                 </span>
-              </a>
-              <a
-                href="#demo"
-                className="inline-flex min-h-12 items-center rounded-md border border-border bg-card px-6 text-base font-medium text-foreground transition-colors hover:border-primary/40"
+              </Link>
+              <Link
+                href="/login"
+                className="inline-flex min-h-12 items-center rounded-full border border-border bg-card px-7 text-base font-medium text-foreground transition-colors hover:border-[#0B57D0]/40"
               >
                 Talk to sales
-              </a>
+              </Link>
             </div>
 
             {/* Value props */}
@@ -198,21 +199,19 @@ export default function LandingPage() {
       {/* Product preview on sky background */}
       <section className="relative overflow-hidden px-4 md:px-8">
         <div className="relative rounded-2xl overflow-hidden max-w-7xl mx-auto">
-          <Image
-            src="/cloud.webp"
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-            aria-hidden
+          {/* Interactive WebGL CloudSky Shader (Originkit) */}
+          <CloudSky
+            className="absolute inset-0 w-full h-full"
+            background="#0B57D0"
+            baseColor="#8CB5F5"
+            accentColor="#FFFFFF"
           />
           <div
-            className="absolute inset-0"
+            className="absolute inset-0 pointer-events-none"
             aria-hidden
             style={{
               background:
-                "linear-gradient(180deg, rgba(10,15,22,0.55) 0%, rgba(10,15,22,0.75) 60%, rgba(10,15,22,0.9) 100%)",
+                "linear-gradient(180deg, rgba(10,15,22,0.4) 0%, rgba(10,15,22,0.65) 60%, rgba(10,15,22,0.85) 100%)",
             }}
           />
 
@@ -440,21 +439,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="px-6 md:px-10 py-10 max-w-7xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-t border-border">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-primary" />
-          <span className="text-sm font-semibold text-foreground tracking-tight">
-            SkillBridge
-          </span>
-        </div>
-        <div className="flex items-center gap-6 text-sm text-muted-foreground">
-          <a href="#" className="hover:text-foreground transition-colors">Pricing</a>
-          <a href="#" className="hover:text-foreground transition-colors">Blog</a>
-          <a href="#" className="hover:text-foreground transition-colors">Trust</a>
-          <Link href="/login" className="hover:text-foreground transition-colors">Log in</Link>
-        </div>
-      </footer>
+      <SiteFooter />
+
     </div>
   )
 }

@@ -12,7 +12,7 @@ import type { LessonContent } from '@/data/curriculum';
 
 export function LessonView({ lesson }: { lesson: LessonContent }) {
   const router = useRouter();
-  const { locale, setLocale } = useI18n();
+  const { locale, setLocale, t } = useI18n();
 
   // Selected hotspot for voice questions
   const [selectedPart, setSelectedPart] = useState<{ id: string; label: string }>({
@@ -64,7 +64,7 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
             <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            <span>Back to Training Roadmap</span>
+            <span>{t('worker.backToPlan')}</span>
           </Link>
 
           <div className="flex items-center gap-3">

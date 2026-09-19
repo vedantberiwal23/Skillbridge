@@ -107,7 +107,11 @@
     "strengths": "Going well",
     "weaknesses": "Needs practice",
     "noBadges": "No badges yet",
-    "lessonDone": "I have finished this lesson"
+    "lessonDone": "I have finished this lesson",
+    "workerFile": "Worker File",
+    "workerFileDossier": "Worker File & Dossier",
+    "myWorkerFile": "My Worker File",
+    "backToPlan": "Back to training plan"
   },
   "assessment": {
     "identifyPart": "Tap the right part",
@@ -118,7 +122,10 @@
     "incorrect": "Not quite",
     "scored": "Your score",
     "tapToOrder": "Tap the steps in order",
-    "resetOrder": "Start over"
+    "resetOrder": "Start over",
+    "diagnosticVerification": "Diagnostic check",
+    "sopCompetency": "SOP competency",
+    "questionOf": "Question {current} of {total}"
   },
   "manager": {
     "dashboard": "Team overview",
@@ -140,7 +147,8 @@
     "q3": "Which SOP is out of date?",
     "period": "Period",
     "weakest": "Weakest area",
-    "noGap": "On target"
+    "noGap": "On target",
+    "viewAll": "View all"
   },
   "admin": {
     "users": "Users",

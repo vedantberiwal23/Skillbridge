@@ -80,7 +80,7 @@ export default function ManagerDashboardPage() {
                 {t('manager.workers')}
               </h2>
               <a href="/workers" className="text-xs font-medium text-muted-foreground hover:text-foreground">
-                View all &rarr;
+                {t('manager.viewAll')} &rarr;
               </a>
             </div>
             <ul className="mt-3 flex flex-col">

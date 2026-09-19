@@ -107,7 +107,11 @@
     "strengths": "अच्छा चल रहा है",
     "weaknesses": "अभ्यास चाहिए",
     "noBadges": "अभी कोई बैज नहीं",
-    "lessonDone": "मैंने यह पाठ पूरा कर लिया"
+    "lessonDone": "मैंने यह पाठ पूरा कर लिया",
+    "workerFile": "वर्कर फ़ाइल",
+    "workerFileDossier": "वर्कर फ़ाइल और रिकॉर्ड",
+    "myWorkerFile": "मेरी वर्कर फ़ाइल",
+    "backToPlan": "ट्रेनिंग प्लान पर वापस"
   },
   "assessment": {
     "identifyPart": "सही पुर्ज़े पर टैप करें",
@@ -118,7 +122,10 @@
     "incorrect": "बिलकुल सही नहीं",
     "scored": "आपका स्कोर",
     "tapToOrder": "चरणों पर क्रम से टैप करें",
-    "resetOrder": "फिर से शुरू करें"
+    "resetOrder": "फिर से शुरू करें",
+    "diagnosticVerification": "जाँच",
+    "sopCompetency": "SOP दक्षता",
+    "questionOf": "सवाल {current} / {total}"
   },
   "manager": {
     "dashboard": "टीम का ब्यौरा",
@@ -140,7 +147,8 @@
     "q3": "कौन सा SOP पुराना है?",
     "period": "अवधि",
     "weakest": "सबसे कमज़ोर हिस्सा",
-    "noGap": "लक्ष्य पर"
+    "noGap": "लक्ष्य पर",
+    "viewAll": "सभी देखें"
   },
   "admin": {
     "users": "यूज़र",

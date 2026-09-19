@@ -107,7 +107,11 @@
     "strengths": "चांगले चालले आहे",
     "weaknesses": "सरावाची गरज",
     "noBadges": "अजून बॅज नाहीत",
-    "lessonDone": "मी हा धडा पूर्ण केला"
+    "lessonDone": "मी हा धडा पूर्ण केला",
+    "workerFile": "वर्कर फाइल",
+    "workerFileDossier": "वर्कर फाइल आणि नोंद",
+    "myWorkerFile": "माझी वर्कर फाइल",
+    "backToPlan": "प्रशिक्षण योजनेकडे परत"
   },
   "assessment": {
     "identifyPart": "योग्य भागावर टॅप करा",
@@ -118,7 +122,10 @@
     "incorrect": "अगदी बरोबर नाही",
     "scored": "तुमचा स्कोअर",
     "tapToOrder": "पायऱ्यांवर क्रमाने टॅप करा",
-    "resetOrder": "पुन्हा सुरू करा"
+    "resetOrder": "पुन्हा सुरू करा",
+    "diagnosticVerification": "तपासणी",
+    "sopCompetency": "SOP क्षमता",
+    "questionOf": "प्रश्न {current} / {total}"
   },
   "manager": {
     "dashboard": "टीमचा आढावा",
@@ -140,7 +147,8 @@
     "q3": "कोणता SOP जुना आहे?",
     "period": "कालावधी",
     "weakest": "सर्वात कमकुवत भाग",
-    "noGap": "लक्ष्यावर"
+    "noGap": "लक्ष्यावर",
+    "viewAll": "सर्व पहा"
   },
   "admin": {
     "users": "वापरकर्ते",

@@ -26,7 +26,7 @@ import {
 import { MachineViewer } from '@/components/viewer/machine-viewer';
 import { useAccessibility } from '@/components/providers/accessibility-provider';
 import type { MachineAsset } from '@/lib/types';
-import { openVoiceChannel, type VoiceChannel, type ChannelState, type VoiceTurn } from '@/lib/voice/channel';
+import { openVoiceChannel, type VoiceChannel, type ChannelState, type VoiceTurn, type TurnHandlers } from '@/lib/voice/channel';
 import * as player from '@/lib/voice/player';
 
 // Live Machine Twin Photogrammetry Model (Loaded from port 8000)
@@ -87,10 +87,6 @@ interface ComponentDetail {
     en: string;
     hi: string;
   };
-  diagnosticAnswer: {
-    en: string;
-    hi: string;
-  };
 }
 
 const COMPONENTS: Record<string, ComponentDetail> = {
@@ -124,10 +120,6 @@ const COMPONENTS: Record<string, ComponentDetail> = {
       en: 'Why is this pressure relief valve chattering violently under load?',
       hi: 'भारी लोड के दौरान यह प्रेशर रिलीफ वॉल्व बहुत तेज कंपन और आवाज क्यों कर रहा है?',
     },
-    diagnosticAnswer: {
-      en: 'Chattering indicates pilot poppet seat cavitation or a compromised dampening orifice (0.8mm). Trapped aeration in the case drain line can also trigger instability. Follow SOP-HYD-042: Inspect the pilot seat for micro-pitting, replace the 90-durometer Viton backup ring, and verify case drain pressure is below 1.5 bar.',
-      hi: 'रिलीफ वॉल्व का कांपना और आवाज करना पायलट पॉपेट सीट में कैविटेशन (हवा का दबाव) या 0.8mm डैम्पिंग ओरिफिस के जाम होने का संकेत है। SOP-HYD-042 के अनुसार: पहले हाइड्रोलिक एक्यूमलेटर को 0 bar तक डिस्चार्ज करें, 19mm रिंच से लॉकनट ढीला करें, और केवल पायलट कार्ट्रिज की सील बदलें।',
-    },
   },
   'solenoid-coil': {
     id: 'solenoid-coil',
@@ -158,10 +150,6 @@ const COMPONENTS: Record<string, ComponentDetail> = {
       en: 'The spool is sluggish and coil temperature reached 78°C. What is the root cause?',
       hi: 'स्पूल वॉल्व धीमा चल रहा है और सोलेनोइड कॉइल 78°C तक गर्म हो गया है। क्या समस्या है?',
     },
-    diagnosticAnswer: {
-      en: 'Elevated coil temperature with sluggish actuation points to varnish deposition inside the spool bore or supply PWM under-voltage (<21.6V DC). Check the coil resistance across pins 1-2. If resistance reads <16 ohms, the winding has inter-turn shorting and must be replaced per SOP-ELE-089.',
-      hi: 'कॉइल का 78°C तक गर्म होना और स्पूल का अटकना वॉल्व के अंदर वार्निश (जला हुआ तेल) जमने या वोल्टेज ड्रॉप का संकेत है। मल्टीमीटर से कॉइल रेसिस्टेंस नापें (19.5 Ohms होना चाहिए)। यदि रेसिस्टेंस कम है, तो सोलेनोइड कॉइल बदलें।',
-    },
   },
   'swashplate': {
     id: 'swashplate',
@@ -191,10 +179,6 @@ const COMPONENTS: Record<string, ComponentDetail> = {
     questions: {
       en: 'Pump output flow is hunting between 40L and 80L/min without control input. Why?',
       hi: 'बिना किसी इनपुट के पंप का ऑयल फ्लो 40 से 80 लीटर के बीच क्यों भटक रहा है?',
-    },
-    diagnosticAnswer: {
-      en: 'Flow hunting is caused by stick-slip friction on the swashplate cradle polymer bearings or a clogged bias piston pilot orifice. When the swashplate binds, the DFR1 compensator overshoots. Disassemble per SOP-MEC-029, measure cradle bearing wear, and inspect the slipper retaining plate.',
-      hi: 'ऑयल फ्लो का बार-बार घटना-बढ़ना स्वैशप्लेट क्रैडल बेयरिंग में घिसाव या कंट्रोल पिस्टन ओरिफिस में कचरा फंसने के कारण होता है। SOP-MEC-029 के अनुसार पंप का केसिंग ड्रेन खोलकर तेल की जांच करें और क्रैडल बेयरिंग का गैप 0.12mm से कम चेक करें।',
     },
   },
   'bearing-flange': {
@@ -227,10 +211,6 @@ const COMPONENTS: Record<string, ComponentDetail> = {
       en: 'Oil is weeping past the drive shaft coupling. Does the whole pump need to be swapped?',
       hi: 'ड्राइव शाफ्ट कपलिंग से लगातार हाइड्रोलिक तेल टपक रहा है। क्या पूरा पंप बदलना होगा?',
     },
-    diagnosticAnswer: {
-      en: 'Do not replace the whole pump. Weeping oil usually means case drain pressure spiked above 1.5 bar or the Viton lip seal is worn. Verify that the case drain filter is not restricted. If shaft radial runout is under 0.05mm, replace only the 45mm Viton shaft seal cartridge per SOP-MEC-014.',
-      hi: 'पूरा पंप बदलने की जरूरत नहीं है! तेल टपकना केस ड्रेन प्रेशर 1.5 bar से अधिक होने या शाफ्ट सील कटने के कारण होता है। पहले LOTO लॉकआउट लगाएं, कपलिंग खोलें, और SOP-MEC-014 के तहत केवल 45mm विटन लिप सील बदलें। बेयरिंग रनआउट 0.05mm से कम होना चाहिए।',
-    },
   },
 };
 
@@ -257,7 +237,6 @@ export default function SimulationStudioPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [channelState, setChannelState] = useState<ChannelState>('connecting');
   const [micLevel, setMicLevel] = useState<number>(0);
-  const [isVoiceStreaming, setIsVoiceStreaming] = useState(false);
   const voiceChannelRef = useRef<VoiceChannel | null>(null);
   const currentTurnRef = useRef<VoiceTurn | null>(null);
   const [manualInput, setManualInput] = useState('');
@@ -265,7 +244,16 @@ export default function SimulationStudioPage() {
   const [aiThinking, setAiThinking] = useState(false);
   const [aiResponse, setAiResponse] = useState('');
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [latencyMs, setLatencyMs] = useState<number>(382);
+  /**
+   * Measured, never estimated: from the moment the question was sent (button
+   * released, or Ask clicked) to the first word of the real answer. Null until a
+   * turn has produced one.
+   */
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  /** From the service's reply: whether the org's own SOPs were found and used. */
+  const [aiGrounded, setAiGrounded] = useState<boolean | null>(null);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const sentAtRef = useRef<number | null>(null);
   const [history, setHistory] = useState<
     { role: 'worker' | 'tutor'; text: string; timestamp: string; sop?: string }[]
   >([]);
@@ -288,8 +276,6 @@ export default function SimulationStudioPage() {
   const [apiResult, setApiResult] = useState<string | null>(null);
   const [apiLoading, setApiLoading] = useState(false);
   const [apiDuration, setApiDuration] = useState<number | null>(null);
-
-  const streamIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize Voice Channel WebSocket connection on mount
   useEffect(() => {
@@ -346,141 +332,128 @@ export default function SimulationStudioPage() {
     }
   };
 
-  // Trigger Voice Diagnostic Query
-  const triggerDiagnostic = (customQ?: string) => {
-    const q = customQ || (language === 'hi' ? currentPart.questions.hi : currentPart.questions.en);
-    const expectedAns = language === 'hi' ? currentPart.diagnosticAnswer.hi : currentPart.diagnosticAnswer.en;
+  const offlineMessage = (code: string | null) =>
+    code === 'UNAUTHORIZED'
+      ? language === 'hi'
+        ? 'सत्र समाप्त — फिर से साइन इन करें।'
+        : 'Session expired — sign in again.'
+      : language === 'hi'
+        ? 'वॉइस सेवा अभी उपलब्ध नहीं है।'
+        : 'The voice service is not available right now.';
 
-    setTranscript(q);
-    setAiResponse('');
-    setAiThinking(true);
-    setLatencyMs(Math.floor(340 + Math.random() * 85));
+  const historyForTurn = () =>
+    history.slice(-6).map((h) => ({
+      role: h.role === 'worker' ? ('user' as const) : ('assistant' as const),
+      content: h.text,
+    }));
 
-    if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
-
-    // Simulate Bedrock Haiku 4.5 streaming response
-    setTimeout(() => {
+  /**
+   * Handlers shared by spoken and typed questions. Everything shown here comes
+   * from the voice service: its transcript, its streamed answer, its grounding
+   * flag. There is no scripted answer and no estimated number.
+   */
+  const turnHandlers = (asked: string): TurnHandlers => ({
+    onListening: () => {
+      setTranscript(language === 'hi' ? 'सुन रहा हूँ...' : 'Listening...');
+    },
+    onLevel: (lvl) => setMicLevel(lvl),
+    onPartial: (text) => setTranscript(text),
+    onFinal: (text) => setTranscript(text),
+    onThinking: () => setAiThinking(true),
+    onDelta: (delta) => {
+      if (sentAtRef.current !== null) {
+        setLatencyMs(Date.now() - sentAtRef.current);
+        sentAtRef.current = null;
+      }
       setAiThinking(false);
-      let charIdx = 0;
-      const words = expectedAns.split(' ');
-      let accumulated = '';
+      setAiResponse((prev) => prev + delta);
+    },
+    onReply: (reply) => {
+      setAiThinking(false);
+      setAiResponse(reply.text);
+      setAiGrounded(reply.grounded);
+      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setHistory((prev) => [
+        ...prev,
+        { role: 'worker', text: reply.transcript || asked, timestamp: nowStr },
+        { role: 'tutor', text: reply.text, timestamp: nowStr },
+      ]);
+    },
+    onEmpty: () => {
+      setAiThinking(false);
+      setVoiceError(language === 'hi' ? 'कोई शब्द सुनाई नहीं दिया — माइक्रोफ़ोन जाँचें।' : 'No words were heard — check the microphone.');
+    },
+    onError: (code, msg) => {
+      console.warn('[VoiceTurn error]', code, msg);
+      setAiThinking(false);
+      setVoiceError(code === 'NOT_READY' || code === 'UNAVAILABLE' || code === 'UNAUTHORIZED' ? offlineMessage(code) : msg);
+    },
+    onDone: () => {
+      setAiThinking(false);
+      setMicLevel(0);
+    },
+  });
 
-      streamIntervalRef.current = setInterval(() => {
-        if (charIdx < words.length) {
-          accumulated += (charIdx > 0 ? ' ' : '') + words[charIdx];
-          setAiResponse(accumulated);
-          charIdx++;
-        } else {
-          if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
-          const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          setHistory((prev) => [
-            ...prev,
-            { role: 'worker', text: q, timestamp: nowStr },
-            {
-              role: 'tutor',
-              text: expectedAns,
-              timestamp: nowStr,
-              sop: currentPart.sop.id,
-            },
-          ]);
-          speakAudioNotification(expectedAns);
-        }
-      }, 55);
-    }, 450);
+  const resetAnswer = () => {
+    setAiResponse('');
+    setAiGrounded(null);
+    setVoiceError(null);
+    setLatencyMs(null);
+    sentAtRef.current = null;
+  };
+
+  // A typed or suggested question — the same real turn as a spoken one.
+  const askTyped = (question: string) => {
+    const q = question.trim();
+    if (!q || isRecording) return;
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    resetAnswer();
+    const ch = voiceChannelRef.current;
+    if (!ch || ch.state() !== 'ready') {
+      setVoiceError(offlineMessage(null));
+      return;
+    }
+    setTranscript(q);
+    setAiThinking(true);
+    sentAtRef.current = Date.now();
+    ch.ask(q, { language: language === 'hi' ? 'hi-IN' : 'en-IN', part: currentPart.name, history: historyForTurn() }, turnHandlers(q));
   };
 
   // Push-To-Talk Handlers with AudioWorklet & WebSocket Streaming
   const handleHoldStart = () => {
     if (isRecording) return;
-    setIsRecording(true);
-    setAiResponse('');
-    setTranscript('');
-    setMicLevel(0);
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     player.stopSpeech();
+    resetAnswer();
+    setTranscript('');
+    setMicLevel(0);
 
     const ch = voiceChannelRef.current;
-    if (ch && ch.state() === 'ready') {
-      setIsVoiceStreaming(true);
-      setTranscript(
-        language === 'hi'
-          ? 'माइक्रोफ़ोन सक्रिय (AudioWorklet)... बोलिए...'
-          : 'AudioWorklet 16kHz stream active... Speak now...'
-      );
-      const startTime = Date.now();
-
-      const turn = ch.startTurn(
-        {
-          language: language === 'hi' ? 'hi-IN' : 'en-IN',
-          explicit: true,
-          part: currentPart.name,
-          history: history.slice(-6).map((h) => ({
-            role: h.role === 'worker' ? 'user' : 'assistant',
-            content: h.text,
-          })),
-        },
-        {
-          onListening: () => {
-            setTranscript(language === 'hi' ? 'दुकान तल पर सुन रहा हूँ...' : 'Listening on shop floor...');
-          },
-          onLevel: (lvl) => {
-            setMicLevel(lvl);
-          },
-          onPartial: (text) => {
-            setTranscript(text);
-          },
-          onFinal: (text) => {
-            setTranscript(text);
-          },
-          onThinking: () => {
-            setAiThinking(true);
-            setLatencyMs(Date.now() - startTime);
-          },
-          onDelta: (delta) => {
-            setAiThinking(false);
-            setAiResponse((prev) => prev + delta);
-          },
-          onReply: (reply) => {
-            setAiThinking(false);
-            setAiResponse(reply.text);
-            const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            setHistory((prev) => [
-              ...prev,
-              { role: 'worker', text: reply.transcript || transcript || 'Audio question', timestamp: nowStr },
-              { role: 'tutor', text: reply.text, timestamp: nowStr, sop: currentPart.sop.id },
-            ]);
-          },
-          onError: (code, msg) => {
-            console.warn('[VoiceTurn error]', code, msg);
-            setIsVoiceStreaming(false);
-            if (code === 'NOT_READY' || code === 'UNAVAILABLE' || code === 'UNAUTHORIZED') {
-              triggerDiagnostic();
-            }
-          },
-          onDone: () => {
-            setIsVoiceStreaming(false);
-            setMicLevel(0);
-          },
-        }
-      );
-      currentTurnRef.current = turn;
-    } else {
-      // Fallback: Web Speech API diagnostic
-      setIsVoiceStreaming(false);
-      setTranscript(language === 'hi' ? 'दुकान तल पर सुन रहा हूँ...' : 'Listening on shop floor...');
+    if (!ch || ch.state() !== 'ready') {
+      // No pretend recording: say plainly that voice is offline.
+      setVoiceError(offlineMessage(null));
+      return;
     }
+    setIsRecording(true);
+    currentTurnRef.current = ch.startTurn(
+      {
+        language: language === 'hi' ? 'hi-IN' : 'en-IN',
+        explicit: true,
+        part: currentPart.name,
+        history: historyForTurn(),
+      },
+      turnHandlers('')
+    );
   };
 
   const handleHoldEnd = () => {
     if (!isRecording) return;
     setIsRecording(false);
     setMicLevel(0);
-
     if (currentTurnRef.current) {
+      sentAtRef.current = Date.now();
       currentTurnRef.current.stop();
       currentTurnRef.current = null;
-    } else {
-      triggerDiagnostic();
     }
   };
 
@@ -961,17 +934,17 @@ export default function SimulationStudioPage() {
                       {channelState === 'ready' ? (
                         <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono font-bold flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          WS:3002 Live (16kHz PCM16)
+                          Live
                         </span>
                       ) : channelState === 'connecting' ? (
                         <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-mono font-bold flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-                          WS:3002 Connecting...
+                          Connecting...
                         </span>
                       ) : (
-                        <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full font-mono font-bold flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                          AudioWorklet Ready
+                        <span className="text-[10px] bg-slate-500/10 text-slate-400 border border-slate-500/30 px-2 py-0.5 rounded-full font-mono font-bold flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                          {language === 'hi' ? 'वॉइस ऑफ़लाइन' : 'Voice offline'}
                         </span>
                       )}
                     </div>
@@ -1001,9 +974,14 @@ export default function SimulationStudioPage() {
                         <span className="soundwave-bar" />
                       </div>
                     ) : null}
-                    <div className="text-[10px] font-mono text-slate-400 bg-slate-950 px-2 py-1 rounded border border-slate-800">
-                      {latencyMs}ms
-                    </div>
+                    {latencyMs !== null && (
+                      <div
+                        className="text-[10px] font-mono text-slate-400 bg-slate-950 px-2 py-1 rounded border border-slate-800"
+                        title={language === 'hi' ? 'सवाल भेजने से उत्तर के पहले शब्द तक (मापा गया)' : 'Measured: question sent → first word of the answer'}
+                      >
+                        {language === 'hi' ? 'पहला शब्द' : 'first word'} {latencyMs}ms
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1026,7 +1004,7 @@ export default function SimulationStudioPage() {
                         >
                           <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1 font-mono">
                             <span className="font-bold text-slate-400">
-                              {turn.role === 'worker' ? 'TECHNICIAN' : 'AI TUTOR (SOP)'}
+                              {turn.role === 'worker' ? 'TECHNICIAN' : 'AI TUTOR'}
                             </span>
                             <span>{turn.timestamp}</span>
                           </div>
@@ -1058,7 +1036,7 @@ export default function SimulationStudioPage() {
                   {aiThinking && (
                     <div className="flex items-center gap-2 text-xs text-blue-400 font-mono py-1">
                       <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-ping" />
-                      <span>Bedrock SigV4 reasoning across {currentPart.sop.id}...</span>
+                      <span>{language === 'hi' ? 'उत्तर तैयार हो रहा है...' : 'Preparing the answer...'}</span>
                     </div>
                   )}
 
@@ -1066,9 +1044,19 @@ export default function SimulationStudioPage() {
                   {aiResponse && (
                     <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-xs text-slate-200 shadow-md">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/50">
-                          DIAGNOSTIC GUIDANCE ({currentPart.sop.id})
-                        </span>
+                        {aiGrounded === null ? (
+                          <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-700">
+                            {language === 'hi' ? 'उत्तर' : 'ANSWER'}
+                          </span>
+                        ) : aiGrounded ? (
+                          <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/50">
+                            {language === 'hi' ? 'आपकी कंपनी की SOP पर आधारित' : "FROM YOUR COMPANY'S SOPs"}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/50">
+                            {language === 'hi' ? 'सामान्य जानकारी — कोई SOP नहीं मिली' : 'GENERAL GUIDANCE — NO SOP FOUND'}
+                          </span>
+                        )}
                         <button
                           type="button"
                           onClick={() => speakAudioNotification(aiResponse)}
@@ -1083,6 +1071,12 @@ export default function SimulationStudioPage() {
                   )}
                 </div>
 
+                {voiceError && (
+                  <div role="alert" className="mt-3 text-xs text-amber-300 bg-amber-950/40 border border-amber-800/50 rounded-lg px-3 py-2">
+                    {voiceError}
+                  </div>
+                )}
+
                 {/* Suggested Technician Prompts */}
                 <div className="mt-3">
                   <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">
@@ -1091,7 +1085,7 @@ export default function SimulationStudioPage() {
                   <div className="grid grid-cols-1 gap-1.5">
                     <button
                       type="button"
-                      onClick={() => triggerDiagnostic(language === 'hi' ? currentPart.questions.hi : currentPart.questions.en)}
+                      onClick={() => askTyped(language === 'hi' ? currentPart.questions.hi : currentPart.questions.en)}
                       className="text-xs bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-lg px-3 py-2 text-left transition flex items-center justify-between group"
                     >
                       <span className="truncate">
@@ -1102,7 +1096,7 @@ export default function SimulationStudioPage() {
                     <button
                       type="button"
                       onClick={() =>
-                        triggerDiagnostic(
+                        askTyped(
                           language === 'hi'
                             ? `${currentPart.name} का सुरक्षित LOTO लॉकआउट कैसे करें?`
                             : `What is the exact zero-energy LOTO isolation procedure for ${currentPart.name}?`
@@ -1126,7 +1120,7 @@ export default function SimulationStudioPage() {
                     onChange={(e) => setManualInput(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && manualInput.trim()) {
-                        triggerDiagnostic(manualInput.trim());
+                        askTyped(manualInput.trim());
                         setManualInput('');
                       }
                     }}
@@ -1137,7 +1131,7 @@ export default function SimulationStudioPage() {
                     type="button"
                     onClick={() => {
                       if (manualInput.trim()) {
-                        triggerDiagnostic(manualInput.trim());
+                        askTyped(manualInput.trim());
                         setManualInput('');
                       }
                     }}
@@ -1163,7 +1157,7 @@ export default function SimulationStudioPage() {
                   >
                     <Mic className="w-4 h-4" />
                     <span className="tracking-wide">
-                      {isRecording ? (isVoiceStreaming ? 'STREAMING 16KHZ AUDIO WORKLET → RELEASE TO SEND' : 'RELEASE TO SEND AUDIO TO SARVAM') : 'HOLD TO TALK [SPACEBAR]'}
+                      {isRecording ? 'RELEASE TO SEND' : 'HOLD TO TALK [SPACEBAR]'}
                     </span>
                   </button>
                   <span className="text-[10px] text-slate-500 mt-1">

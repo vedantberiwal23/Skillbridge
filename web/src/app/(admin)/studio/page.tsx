@@ -17,17 +17,14 @@ import {
   Send,
   CheckSquare,
   Camera,
-  Upload,
   Folder,
-  ArrowRight,
-  Check,
-  Loader2,
 } from 'lucide-react';
 import { MachineViewer } from '@/components/viewer/machine-viewer';
 import { useAccessibility } from '@/components/providers/accessibility-provider';
 import type { MachineAsset } from '@/lib/types';
-import { openVoiceChannel, type VoiceChannel, type ChannelState, type VoiceTurn } from '@/lib/voice/channel';
+import { openVoiceChannel, type VoiceChannel, type ChannelState, type VoiceTurn, type TurnHandlers } from '@/lib/voice/channel';
 import * as player from '@/lib/voice/player';
+import { ScanPipelinePanel } from '@/components/studio/scan-pipeline';
 
 // Live Machine Twin Photogrammetry Model (Loaded from port 8000)
 const MACHINE_TWIN_ASSET: MachineAsset = {
@@ -87,10 +84,6 @@ interface ComponentDetail {
     en: string;
     hi: string;
   };
-  diagnosticAnswer: {
-    en: string;
-    hi: string;
-  };
 }
 
 const COMPONENTS: Record<string, ComponentDetail> = {
@@ -124,10 +117,6 @@ const COMPONENTS: Record<string, ComponentDetail> = {
       en: 'Why is this pressure relief valve chattering violently under load?',
       hi: 'भारी लोड के दौरान यह प्रेशर रिलीफ वॉल्व बहुत तेज कंपन और आवाज क्यों कर रहा है?',
     },
-    diagnosticAnswer: {
-      en: 'Chattering indicates pilot poppet seat cavitation or a compromised dampening orifice (0.8mm). Trapped aeration in the case drain line can also trigger instability. Follow SOP-HYD-042: Inspect the pilot seat for micro-pitting, replace the 90-durometer Viton backup ring, and verify case drain pressure is below 1.5 bar.',
-      hi: 'रिलीफ वॉल्व का कांपना और आवाज करना पायलट पॉपेट सीट में कैविटेशन (हवा का दबाव) या 0.8mm डैम्पिंग ओरिफिस के जाम होने का संकेत है। SOP-HYD-042 के अनुसार: पहले हाइड्रोलिक एक्यूमलेटर को 0 bar तक डिस्चार्ज करें, 19mm रिंच से लॉकनट ढीला करें, और केवल पायलट कार्ट्रिज की सील बदलें।',
-    },
   },
   'solenoid-coil': {
     id: 'solenoid-coil',
@@ -158,10 +147,6 @@ const COMPONENTS: Record<string, ComponentDetail> = {
       en: 'The spool is sluggish and coil temperature reached 78°C. What is the root cause?',
       hi: 'स्पूल वॉल्व धीमा चल रहा है और सोलेनोइड कॉइल 78°C तक गर्म हो गया है। क्या समस्या है?',
     },
-    diagnosticAnswer: {
-      en: 'Elevated coil temperature with sluggish actuation points to varnish deposition inside the spool bore or supply PWM under-voltage (<21.6V DC). Check the coil resistance across pins 1-2. If resistance reads <16 ohms, the winding has inter-turn shorting and must be replaced per SOP-ELE-089.',
-      hi: 'कॉइल का 78°C तक गर्म होना और स्पूल का अटकना वॉल्व के अंदर वार्निश (जला हुआ तेल) जमने या वोल्टेज ड्रॉप का संकेत है। मल्टीमीटर से कॉइल रेसिस्टेंस नापें (19.5 Ohms होना चाहिए)। यदि रेसिस्टेंस कम है, तो सोलेनोइड कॉइल बदलें।',
-    },
   },
   'swashplate': {
     id: 'swashplate',
@@ -191,10 +176,6 @@ const COMPONENTS: Record<string, ComponentDetail> = {
     questions: {
       en: 'Pump output flow is hunting between 40L and 80L/min without control input. Why?',
       hi: 'बिना किसी इनपुट के पंप का ऑयल फ्लो 40 से 80 लीटर के बीच क्यों भटक रहा है?',
-    },
-    diagnosticAnswer: {
-      en: 'Flow hunting is caused by stick-slip friction on the swashplate cradle polymer bearings or a clogged bias piston pilot orifice. When the swashplate binds, the DFR1 compensator overshoots. Disassemble per SOP-MEC-029, measure cradle bearing wear, and inspect the slipper retaining plate.',
-      hi: 'ऑयल फ्लो का बार-बार घटना-बढ़ना स्वैशप्लेट क्रैडल बेयरिंग में घिसाव या कंट्रोल पिस्टन ओरिफिस में कचरा फंसने के कारण होता है। SOP-MEC-029 के अनुसार पंप का केसिंग ड्रेन खोलकर तेल की जांच करें और क्रैडल बेयरिंग का गैप 0.12mm से कम चेक करें।',
     },
   },
   'bearing-flange': {
@@ -227,10 +208,6 @@ const COMPONENTS: Record<string, ComponentDetail> = {
       en: 'Oil is weeping past the drive shaft coupling. Does the whole pump need to be swapped?',
       hi: 'ड्राइव शाफ्ट कपलिंग से लगातार हाइड्रोलिक तेल टपक रहा है। क्या पूरा पंप बदलना होगा?',
     },
-    diagnosticAnswer: {
-      en: 'Do not replace the whole pump. Weeping oil usually means case drain pressure spiked above 1.5 bar or the Viton lip seal is worn. Verify that the case drain filter is not restricted. If shaft radial runout is under 0.05mm, replace only the 45mm Viton shaft seal cartridge per SOP-MEC-014.',
-      hi: 'पूरा पंप बदलने की जरूरत नहीं है! तेल टपकना केस ड्रेन प्रेशर 1.5 bar से अधिक होने या शाफ्ट सील कटने के कारण होता है। पहले LOTO लॉकआउट लगाएं, कपलिंग खोलें, और SOP-MEC-014 के तहत केवल 45mm विटन लिप सील बदलें। बेयरिंग रनआउट 0.05mm से कम होना चाहिए।',
-    },
   },
 };
 
@@ -244,20 +221,10 @@ export default function SimulationStudioPage() {
   const [autoRotate, setAutoRotate] = useState<boolean>(false);
   const [activeAsset, setActiveAsset] = useState<MachineAsset>(MACHINE_TWIN_ASSET);
 
-  // Photogrammetry Scanner Studio State (Port 8000)
-  const [scanProjectName, setScanProjectName] = useState('Rexroth A10VSO Pump Unit');
-  const [scanManufacturer, setScanManufacturer] = useState('Bosch Rexroth');
-  const [scanFilesCount, setScanFilesCount] = useState<number>(36);
-  const [isScanning, setIsScanning] = useState(false);
-  const [scanStepIndex, setScanStepIndex] = useState(0);
-  const [scanProgress, setScanProgress] = useState(0);
-  const [scanComplete, setScanComplete] = useState(true);
-
   // Voice Diagnostics State
   const [isRecording, setIsRecording] = useState(false);
   const [channelState, setChannelState] = useState<ChannelState>('connecting');
   const [micLevel, setMicLevel] = useState<number>(0);
-  const [isVoiceStreaming, setIsVoiceStreaming] = useState(false);
   const voiceChannelRef = useRef<VoiceChannel | null>(null);
   const currentTurnRef = useRef<VoiceTurn | null>(null);
   const [manualInput, setManualInput] = useState('');
@@ -265,7 +232,16 @@ export default function SimulationStudioPage() {
   const [aiThinking, setAiThinking] = useState(false);
   const [aiResponse, setAiResponse] = useState('');
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [latencyMs, setLatencyMs] = useState<number>(382);
+  /**
+   * Measured, never estimated: from the moment the question was sent (button
+   * released, or Ask clicked) to the first word of the real answer. Null until a
+   * turn has produced one.
+   */
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  /** From the service's reply: whether the org's own SOPs were found and used. */
+  const [aiGrounded, setAiGrounded] = useState<boolean | null>(null);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const sentAtRef = useRef<number | null>(null);
   const [history, setHistory] = useState<
     { role: 'worker' | 'tutor'; text: string; timestamp: string; sop?: string }[]
   >([]);
@@ -288,8 +264,6 @@ export default function SimulationStudioPage() {
   const [apiResult, setApiResult] = useState<string | null>(null);
   const [apiLoading, setApiLoading] = useState(false);
   const [apiDuration, setApiDuration] = useState<number | null>(null);
-
-  const streamIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize Voice Channel WebSocket connection on mount
   useEffect(() => {
@@ -346,141 +320,128 @@ export default function SimulationStudioPage() {
     }
   };
 
-  // Trigger Voice Diagnostic Query
-  const triggerDiagnostic = (customQ?: string) => {
-    const q = customQ || (language === 'hi' ? currentPart.questions.hi : currentPart.questions.en);
-    const expectedAns = language === 'hi' ? currentPart.diagnosticAnswer.hi : currentPart.diagnosticAnswer.en;
+  const offlineMessage = (code: string | null) =>
+    code === 'UNAUTHORIZED'
+      ? language === 'hi'
+        ? 'सत्र समाप्त — फिर से साइन इन करें।'
+        : 'Session expired — sign in again.'
+      : language === 'hi'
+        ? 'वॉइस सेवा अभी उपलब्ध नहीं है।'
+        : 'The voice service is not available right now.';
 
-    setTranscript(q);
-    setAiResponse('');
-    setAiThinking(true);
-    setLatencyMs(Math.floor(340 + Math.random() * 85));
+  const historyForTurn = () =>
+    history.slice(-6).map((h) => ({
+      role: h.role === 'worker' ? ('user' as const) : ('assistant' as const),
+      content: h.text,
+    }));
 
-    if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
-
-    // Simulate Bedrock Haiku 4.5 streaming response
-    setTimeout(() => {
+  /**
+   * Handlers shared by spoken and typed questions. Everything shown here comes
+   * from the voice service: its transcript, its streamed answer, its grounding
+   * flag. There is no scripted answer and no estimated number.
+   */
+  const turnHandlers = (asked: string): TurnHandlers => ({
+    onListening: () => {
+      setTranscript(language === 'hi' ? 'सुन रहा हूँ...' : 'Listening...');
+    },
+    onLevel: (lvl) => setMicLevel(lvl),
+    onPartial: (text) => setTranscript(text),
+    onFinal: (text) => setTranscript(text),
+    onThinking: () => setAiThinking(true),
+    onDelta: (delta) => {
+      if (sentAtRef.current !== null) {
+        setLatencyMs(Date.now() - sentAtRef.current);
+        sentAtRef.current = null;
+      }
       setAiThinking(false);
-      let charIdx = 0;
-      const words = expectedAns.split(' ');
-      let accumulated = '';
+      setAiResponse((prev) => prev + delta);
+    },
+    onReply: (reply) => {
+      setAiThinking(false);
+      setAiResponse(reply.text);
+      setAiGrounded(reply.grounded);
+      const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setHistory((prev) => [
+        ...prev,
+        { role: 'worker', text: reply.transcript || asked, timestamp: nowStr },
+        { role: 'tutor', text: reply.text, timestamp: nowStr },
+      ]);
+    },
+    onEmpty: () => {
+      setAiThinking(false);
+      setVoiceError(language === 'hi' ? 'कोई शब्द सुनाई नहीं दिया — माइक्रोफ़ोन जाँचें।' : 'No words were heard — check the microphone.');
+    },
+    onError: (code, msg) => {
+      console.warn('[VoiceTurn error]', code, msg);
+      setAiThinking(false);
+      setVoiceError(code === 'NOT_READY' || code === 'UNAVAILABLE' || code === 'UNAUTHORIZED' ? offlineMessage(code) : msg);
+    },
+    onDone: () => {
+      setAiThinking(false);
+      setMicLevel(0);
+    },
+  });
 
-      streamIntervalRef.current = setInterval(() => {
-        if (charIdx < words.length) {
-          accumulated += (charIdx > 0 ? ' ' : '') + words[charIdx];
-          setAiResponse(accumulated);
-          charIdx++;
-        } else {
-          if (streamIntervalRef.current) clearInterval(streamIntervalRef.current);
-          const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          setHistory((prev) => [
-            ...prev,
-            { role: 'worker', text: q, timestamp: nowStr },
-            {
-              role: 'tutor',
-              text: expectedAns,
-              timestamp: nowStr,
-              sop: currentPart.sop.id,
-            },
-          ]);
-          speakAudioNotification(expectedAns);
-        }
-      }, 55);
-    }, 450);
+  const resetAnswer = () => {
+    setAiResponse('');
+    setAiGrounded(null);
+    setVoiceError(null);
+    setLatencyMs(null);
+    sentAtRef.current = null;
+  };
+
+  // A typed or suggested question — the same real turn as a spoken one.
+  const askTyped = (question: string) => {
+    const q = question.trim();
+    if (!q || isRecording) return;
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    resetAnswer();
+    const ch = voiceChannelRef.current;
+    if (!ch || ch.state() !== 'ready') {
+      setVoiceError(offlineMessage(null));
+      return;
+    }
+    setTranscript(q);
+    setAiThinking(true);
+    sentAtRef.current = Date.now();
+    ch.ask(q, { language: language === 'hi' ? 'hi-IN' : 'en-IN', part: currentPart.name, history: historyForTurn() }, turnHandlers(q));
   };
 
   // Push-To-Talk Handlers with AudioWorklet & WebSocket Streaming
   const handleHoldStart = () => {
     if (isRecording) return;
-    setIsRecording(true);
-    setAiResponse('');
-    setTranscript('');
-    setMicLevel(0);
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
     player.stopSpeech();
+    resetAnswer();
+    setTranscript('');
+    setMicLevel(0);
 
     const ch = voiceChannelRef.current;
-    if (ch && ch.state() === 'ready') {
-      setIsVoiceStreaming(true);
-      setTranscript(
-        language === 'hi'
-          ? 'माइक्रोफ़ोन सक्रिय (AudioWorklet)... बोलिए...'
-          : 'AudioWorklet 16kHz stream active... Speak now...'
-      );
-      const startTime = Date.now();
-
-      const turn = ch.startTurn(
-        {
-          language: language === 'hi' ? 'hi-IN' : 'en-IN',
-          explicit: true,
-          part: currentPart.name,
-          history: history.slice(-6).map((h) => ({
-            role: h.role === 'worker' ? 'user' : 'assistant',
-            content: h.text,
-          })),
-        },
-        {
-          onListening: () => {
-            setTranscript(language === 'hi' ? 'दुकान तल पर सुन रहा हूँ...' : 'Listening on shop floor...');
-          },
-          onLevel: (lvl) => {
-            setMicLevel(lvl);
-          },
-          onPartial: (text) => {
-            setTranscript(text);
-          },
-          onFinal: (text) => {
-            setTranscript(text);
-          },
-          onThinking: () => {
-            setAiThinking(true);
-            setLatencyMs(Date.now() - startTime);
-          },
-          onDelta: (delta) => {
-            setAiThinking(false);
-            setAiResponse((prev) => prev + delta);
-          },
-          onReply: (reply) => {
-            setAiThinking(false);
-            setAiResponse(reply.text);
-            const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            setHistory((prev) => [
-              ...prev,
-              { role: 'worker', text: reply.transcript || transcript || 'Audio question', timestamp: nowStr },
-              { role: 'tutor', text: reply.text, timestamp: nowStr, sop: currentPart.sop.id },
-            ]);
-          },
-          onError: (code, msg) => {
-            console.warn('[VoiceTurn error]', code, msg);
-            setIsVoiceStreaming(false);
-            if (code === 'NOT_READY' || code === 'UNAVAILABLE' || code === 'UNAUTHORIZED') {
-              triggerDiagnostic();
-            }
-          },
-          onDone: () => {
-            setIsVoiceStreaming(false);
-            setMicLevel(0);
-          },
-        }
-      );
-      currentTurnRef.current = turn;
-    } else {
-      // Fallback: Web Speech API diagnostic
-      setIsVoiceStreaming(false);
-      setTranscript(language === 'hi' ? 'दुकान तल पर सुन रहा हूँ...' : 'Listening on shop floor...');
+    if (!ch || ch.state() !== 'ready') {
+      // No pretend recording: say plainly that voice is offline.
+      setVoiceError(offlineMessage(null));
+      return;
     }
+    setIsRecording(true);
+    currentTurnRef.current = ch.startTurn(
+      {
+        language: language === 'hi' ? 'hi-IN' : 'en-IN',
+        explicit: true,
+        part: currentPart.name,
+        history: historyForTurn(),
+      },
+      turnHandlers('')
+    );
   };
 
   const handleHoldEnd = () => {
     if (!isRecording) return;
     setIsRecording(false);
     setMicLevel(0);
-
     if (currentTurnRef.current) {
+      sentAtRef.current = Date.now();
       currentTurnRef.current.stop();
       currentTurnRef.current = null;
-    } else {
-      triggerDiagnostic();
     }
   };
 
@@ -514,53 +475,10 @@ export default function SimulationStudioPage() {
     };
   }, [activeTab, isRecording]);
 
-  // Execute Photogrammetry Pipeline on Port 8000
-  const startPhotogrammetryReconstruction = async () => {
-    setIsScanning(true);
-    setScanComplete(false);
-    setScanProgress(5);
-    setScanStepIndex(0);
-
-    // Stage 1: Ingestion & Metadata Check
-    setTimeout(() => {
-      setScanStepIndex(1);
-      setScanProgress(28);
-    }, 2000);
-
-    // Stage 2: COLMAP Sparse Camera Solving
-    setTimeout(() => {
-      setScanStepIndex(2);
-      setScanProgress(60);
-    }, 5000);
-
-    // Stage 3: Apple Object Capture Mesh Synthesis
-    setTimeout(() => {
-      setScanStepIndex(3);
-      setScanProgress(85);
-    }, 9000);
-
-    // Stage 4: Blender LOD Authoring & 2D Poster
-    setTimeout(() => {
-      setScanStepIndex(4);
-      setScanProgress(100);
-      setIsScanning(false);
-      setScanComplete(true);
-    }, 13000);
-  };
-
-  // Activate Scanned Model in 3D Viewer
-  const activateScannedModel = () => {
-    setActiveAsset({
-      ...MACHINE_TWIN_ASSET,
-      glbUrl: `http://localhost:8000/projects/proj_axial_pump_twin/model?lod=0&t=${Date.now()}`,
-      posterUrl: `http://localhost:8000/projects/proj_axial_pump_twin/poster?t=${Date.now()}`,
-    });
+  // A model built by the scanner tab, loaded through the authenticated proxy.
+  const loadScannedModel = (asset: MachineAsset) => {
+    setActiveAsset(asset);
     setActiveTab('twin');
-    speakAudioNotification(
-      language === 'hi'
-        ? 'मशीन ट्विन 3D मॉडल सफलतापूर्वक लोड हो गया है'
-        : 'Photogrammetry 3D Twin model loaded into diagnostic viewer'
-    );
   };
 
   // Execute API Test
@@ -961,17 +879,17 @@ export default function SimulationStudioPage() {
                       {channelState === 'ready' ? (
                         <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-mono font-bold flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          WS:3002 Live (16kHz PCM16)
+                          Live
                         </span>
                       ) : channelState === 'connecting' ? (
                         <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-mono font-bold flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-                          WS:3002 Connecting...
+                          Connecting...
                         </span>
                       ) : (
-                        <span className="text-[10px] bg-blue-500/10 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full font-mono font-bold flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                          AudioWorklet Ready
+                        <span className="text-[10px] bg-slate-500/10 text-slate-400 border border-slate-500/30 px-2 py-0.5 rounded-full font-mono font-bold flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                          {language === 'hi' ? 'वॉइस ऑफ़लाइन' : 'Voice offline'}
                         </span>
                       )}
                     </div>
@@ -1001,9 +919,14 @@ export default function SimulationStudioPage() {
                         <span className="soundwave-bar" />
                       </div>
                     ) : null}
-                    <div className="text-[10px] font-mono text-slate-400 bg-slate-950 px-2 py-1 rounded border border-slate-800">
-                      {latencyMs}ms
-                    </div>
+                    {latencyMs !== null && (
+                      <div
+                        className="text-[10px] font-mono text-slate-400 bg-slate-950 px-2 py-1 rounded border border-slate-800"
+                        title={language === 'hi' ? 'सवाल भेजने से उत्तर के पहले शब्द तक (मापा गया)' : 'Measured: question sent → first word of the answer'}
+                      >
+                        {language === 'hi' ? 'पहला शब्द' : 'first word'} {latencyMs}ms
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1026,7 +949,7 @@ export default function SimulationStudioPage() {
                         >
                           <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1 font-mono">
                             <span className="font-bold text-slate-400">
-                              {turn.role === 'worker' ? 'TECHNICIAN' : 'AI TUTOR (SOP)'}
+                              {turn.role === 'worker' ? 'TECHNICIAN' : 'AI TUTOR'}
                             </span>
                             <span>{turn.timestamp}</span>
                           </div>
@@ -1058,7 +981,7 @@ export default function SimulationStudioPage() {
                   {aiThinking && (
                     <div className="flex items-center gap-2 text-xs text-blue-400 font-mono py-1">
                       <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-ping" />
-                      <span>Bedrock SigV4 reasoning across {currentPart.sop.id}...</span>
+                      <span>{language === 'hi' ? 'उत्तर तैयार हो रहा है...' : 'Preparing the answer...'}</span>
                     </div>
                   )}
 
@@ -1066,9 +989,19 @@ export default function SimulationStudioPage() {
                   {aiResponse && (
                     <div className="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-xs text-slate-200 shadow-md">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/50">
-                          DIAGNOSTIC GUIDANCE ({currentPart.sop.id})
-                        </span>
+                        {aiGrounded === null ? (
+                          <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-700">
+                            {language === 'hi' ? 'उत्तर' : 'ANSWER'}
+                          </span>
+                        ) : aiGrounded ? (
+                          <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/50">
+                            {language === 'hi' ? 'आपकी कंपनी की SOP पर आधारित' : "FROM YOUR COMPANY'S SOPs"}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/50">
+                            {language === 'hi' ? 'सामान्य जानकारी — कोई SOP नहीं मिली' : 'GENERAL GUIDANCE — NO SOP FOUND'}
+                          </span>
+                        )}
                         <button
                           type="button"
                           onClick={() => speakAudioNotification(aiResponse)}
@@ -1083,6 +1016,12 @@ export default function SimulationStudioPage() {
                   )}
                 </div>
 
+                {voiceError && (
+                  <div role="alert" className="mt-3 text-xs text-amber-300 bg-amber-950/40 border border-amber-800/50 rounded-lg px-3 py-2">
+                    {voiceError}
+                  </div>
+                )}
+
                 {/* Suggested Technician Prompts */}
                 <div className="mt-3">
                   <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">
@@ -1091,7 +1030,7 @@ export default function SimulationStudioPage() {
                   <div className="grid grid-cols-1 gap-1.5">
                     <button
                       type="button"
-                      onClick={() => triggerDiagnostic(language === 'hi' ? currentPart.questions.hi : currentPart.questions.en)}
+                      onClick={() => askTyped(language === 'hi' ? currentPart.questions.hi : currentPart.questions.en)}
                       className="text-xs bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-lg px-3 py-2 text-left transition flex items-center justify-between group"
                     >
                       <span className="truncate">
@@ -1102,7 +1041,7 @@ export default function SimulationStudioPage() {
                     <button
                       type="button"
                       onClick={() =>
-                        triggerDiagnostic(
+                        askTyped(
                           language === 'hi'
                             ? `${currentPart.name} का सुरक्षित LOTO लॉकआउट कैसे करें?`
                             : `What is the exact zero-energy LOTO isolation procedure for ${currentPart.name}?`
@@ -1126,7 +1065,7 @@ export default function SimulationStudioPage() {
                     onChange={(e) => setManualInput(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && manualInput.trim()) {
-                        triggerDiagnostic(manualInput.trim());
+                        askTyped(manualInput.trim());
                         setManualInput('');
                       }
                     }}
@@ -1137,7 +1076,7 @@ export default function SimulationStudioPage() {
                     type="button"
                     onClick={() => {
                       if (manualInput.trim()) {
-                        triggerDiagnostic(manualInput.trim());
+                        askTyped(manualInput.trim());
                         setManualInput('');
                       }
                     }}
@@ -1163,7 +1102,7 @@ export default function SimulationStudioPage() {
                   >
                     <Mic className="w-4 h-4" />
                     <span className="tracking-wide">
-                      {isRecording ? (isVoiceStreaming ? 'STREAMING 16KHZ AUDIO WORKLET → RELEASE TO SEND' : 'RELEASE TO SEND AUDIO TO SARVAM') : 'HOLD TO TALK [SPACEBAR]'}
+                      {isRecording ? 'RELEASE TO SEND' : 'HOLD TO TALK [SPACEBAR]'}
                     </span>
                   </button>
                   <span className="text-[10px] text-slate-500 mt-1">
@@ -1176,279 +1115,7 @@ export default function SimulationStudioPage() {
         )}
 
         {/* TAB 2: PHOTOGRAMMETRY SCANNER STUDIO (:8000) */}
-        {activeTab === 'scanner' && (
-          <div className="space-y-6 max-w-6xl mx-auto">
-            {/* Engine Capabilities Header Banner */}
-            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <h2 className="text-base font-bold text-white tracking-tight">
-                    Machine Twin Photogrammetry Engine (:8000)
-                  </h2>
-                  <span className="text-[10px] font-mono bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded">
-                    Apple Silicon Metal GPU
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 mt-1">
-                  Automated photo-to-3D pipeline: COLMAP camera pose solving → Apple Object Capture mesh → Blender LOD authoring.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={activateScannedModel}
-                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg shadow-blue-600/25 transition flex items-center gap-2"
-                >
-                  <Layers className="w-4 h-4" />
-                  <span>Load Live Scanned Pump in 3D Viewer</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Pipeline Stage Tracker & Scan Trigger */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Left 7 Columns: Scan Setup & Pipeline Runner */}
-              <div className="lg:col-span-7 bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                    <Camera className="w-4 h-4 text-cyan-400" />
-                    New Equipment Photogrammetry Scan
-                  </h3>
-
-                  {/* Machine Form Inputs */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                    <div>
-                      <label className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
-                        Equipment Name
-                      </label>
-                      <input
-                        type="text"
-                        value={scanProjectName}
-                        onChange={(e) => setScanProjectName(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500 font-medium"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-mono text-slate-400 uppercase block mb-1">
-                        Manufacturer
-                      </label>
-                      <input
-                        type="text"
-                        value={scanManufacturer}
-                        onChange={(e) => setScanManufacturer(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500 font-medium"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Image Ingest Zone */}
-                  <div className="border-2 border-dashed border-slate-800 rounded-xl p-5 text-center bg-slate-950/40 mb-4">
-                    <Upload className="w-8 h-8 text-blue-400 mx-auto mb-2 opacity-80" />
-                    <div className="text-xs font-bold text-slate-200">
-                      36 Walk-Around Photographs Loaded (10° Angular Intervals)
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-1 max-w-md mx-auto">
-                      High-frequency procedural texture registered · 100% camera coverage verified by COLMAP.
-                    </p>
-                    <div className="flex items-center justify-center gap-2 mt-3">
-                      <span className="text-[10px] bg-slate-900 border border-slate-800 text-cyan-300 font-mono px-2 py-0.5 rounded">
-                        {scanFilesCount} Images
-                      </span>
-                      <span className="text-[10px] bg-slate-900 border border-slate-800 text-emerald-300 font-mono px-2 py-0.5 rounded">
-                        Laplacian Sharpness: Optimal
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Live Pipeline Stages Status */}
-                  <div className="space-y-2 mb-4">
-                    <span className="text-[11px] font-mono text-slate-400 uppercase block">
-                      Pipeline Execution Sequence:
-                    </span>
-                    <div className="grid grid-cols-1 gap-2">
-                      {[
-                        { title: 'Step 1: Ingest & Content-Addressable Storage', detail: 'SHA-256 fingerprinting & write-once preservation (chmod 0444)' },
-                        { title: 'Step 2: COLMAP Sparse Camera Pose Estimation', detail: 'Feature matching & 10° angular coverage gate check' },
-                        { title: 'Step 3: Apple Object Capture Mesh Synthesis', detail: 'PhotogrammetrySession GPU surface reconstruction' },
-                        { title: 'Step 4: Blender LOD Authoring & 2D WebP Poster', detail: 'LOD0 (High-Def), LOD1 (Balanced), LOD2 (Mobile 61KB)' },
-                      ].map((stg, idx) => {
-                        const isDone = scanStepIndex > idx || scanComplete;
-                        const isCurrent = scanStepIndex === idx && isScanning;
-                        return (
-                          <div
-                            key={idx}
-                            className={`p-2.5 rounded-lg border text-xs flex items-center justify-between transition ${
-                              isDone
-                                ? 'bg-emerald-950/20 border-emerald-800/40 text-emerald-200'
-                                : isCurrent
-                                ? 'bg-blue-950/40 border-blue-600 text-blue-200 animate-pulse'
-                                : 'bg-slate-950/40 border-slate-800 text-slate-500'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              {isDone ? (
-                                <Check className="w-4 h-4 text-emerald-400" />
-                              ) : isCurrent ? (
-                                <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
-                              ) : (
-                                <span className="w-4 h-4 rounded-full border border-slate-700 flex items-center justify-center text-[9px] font-mono">
-                                  {idx + 1}
-                                </span>
-                              )}
-                              <div>
-                                <span className="font-semibold block">{stg.title}</span>
-                                <span className="text-[10px] opacity-75">{stg.detail}</span>
-                              </div>
-                            </div>
-                            <span className="text-[10px] font-mono font-bold">
-                              {isDone ? 'COMPLETED' : isCurrent ? 'RUNNING...' : 'QUEUED'}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Progress Bar & Start Button */}
-                <div className="pt-3 border-t border-slate-800">
-                  {isScanning && (
-                    <div className="mb-3">
-                      <div className="flex justify-between text-[11px] font-mono text-slate-400 mb-1">
-                        <span>Reconstruction in Progress...</span>
-                        <span>{scanProgress}%</span>
-                      </div>
-                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-blue-500 h-full transition-all duration-500"
-                          style={{ width: `${scanProgress}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      disabled={isScanning}
-                      onClick={startPhotogrammetryReconstruction}
-                      className={`flex-1 py-3 rounded-xl font-bold text-xs transition shadow-lg flex items-center justify-center gap-2 ${
-                        isScanning
-                          ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                          : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/25'
-                      }`}
-                    >
-                      {isScanning ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Processing 3D Mesh on GPU...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Camera className="w-4 h-4" />
-                          <span>Re-Run 3D Reconstruction Pipeline (~20s)</span>
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={activateScannedModel}
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-5 py-3 rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center gap-2"
-                    >
-                      <span>Load into 3D Viewer</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right 5 Columns: Scanned Project Metadata & LOD Sizes */}
-              <div className="lg:col-span-5 bg-slate-900/80 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-800">
-                    <div>
-                      <span className="text-[10px] font-mono uppercase text-slate-500 font-bold tracking-wider block">
-                        Published Artifact
-                      </span>
-                      <h3 className="text-sm font-bold text-white mt-0.5">
-                        {activeAsset.name}
-                      </h3>
-                    </div>
-                    <span className="text-xs bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 px-2.5 py-1 rounded-md font-mono font-bold">
-                      VALIDATED
-                    </span>
-                  </div>
-
-                  {/* LOD Sizes Table */}
-                  <div className="space-y-2.5 mb-5">
-                    <span className="text-[11px] font-mono text-slate-400 uppercase block">
-                      Multi-LOD Browser Export Specs:
-                    </span>
-                    <div className="bg-slate-950/80 rounded-xl border border-slate-800 overflow-hidden text-xs font-mono">
-                      <div className="grid grid-cols-3 p-2.5 border-b border-slate-800/80 text-[10px] text-slate-400 font-bold">
-                        <span>LOD TIER</span>
-                        <span>VERTICES</span>
-                        <span className="text-right">FILE SIZE</span>
-                      </div>
-                      <div className="grid grid-cols-3 p-2.5 border-b border-slate-900 text-slate-200">
-                        <span className="text-blue-400 font-bold">LOD-0 (Ultra)</span>
-                        <span>5,285 pts</span>
-                        <span className="text-right text-emerald-400">3,773 KB</span>
-                      </div>
-                      <div className="grid grid-cols-3 p-2.5 border-b border-slate-900 text-slate-200">
-                        <span className="text-cyan-400 font-bold">LOD-1 (Balanced)</span>
-                        <span>2,642 pts</span>
-                        <span className="text-right text-emerald-400">1,463 KB</span>
-                      </div>
-                      <div className="grid grid-cols-3 p-2.5 text-slate-200">
-                        <span className="text-amber-400 font-bold">LOD-2 (Mobile)</span>
-                        <span>1,321 pts</span>
-                        <span className="text-right text-emerald-400 font-bold">61 KB</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Discovered Subsystem Components */}
-                  <div className="space-y-2">
-                    <span className="text-[11px] font-mono text-slate-400 uppercase block">
-                      Segmented Component Hotspots:
-                    </span>
-                    <div className="space-y-1.5">
-                      {[
-                        { name: '1. Pilot Relief Valve Cartridge', id: 'SKB_COMP_001', tag: 'valve' },
-                        { name: '2. Directional Solenoid Valve 24V DC', id: 'SKB_COMP_002', tag: 'solenoid' },
-                        { name: '3. Swashplate Angle & Control Piston', id: 'SKB_COMP_003', tag: 'mechanism' },
-                        { name: '4. Input Drive Shaft Seal & Bearing', id: 'SKB_COMP_004', tag: 'seal' },
-                      ].map((c, i) => (
-                        <div
-                          key={i}
-                          className="bg-slate-950 p-2 rounded-lg border border-slate-800 flex items-center justify-between text-xs"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-300 flex items-center justify-center font-mono font-bold text-[10px]">
-                              {i + 1}
-                            </span>
-                            <span className="text-slate-200 font-medium">{c.name}</span>
-                          </div>
-                          <span className="text-[10px] font-mono text-slate-500">{c.id}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Direct API Endpoints Strip */}
-                <div className="mt-4 pt-3 border-t border-slate-800 text-[11px] font-mono text-slate-400 space-y-1">
-                  <div>Model URL: <a href="http://localhost:8000/projects/proj_axial_pump_twin/model?lod=0" target="_blank" rel="noreferrer" className="text-cyan-400 hover:underline">/projects/proj_axial_pump_twin/model</a></div>
-                  <div>Poster URL: <a href="http://localhost:8000/projects/proj_axial_pump_twin/poster" target="_blank" rel="noreferrer" className="text-cyan-400 hover:underline">/projects/proj_axial_pump_twin/poster</a></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {activeTab === 'scanner' && <ScanPipelinePanel onLoadModel={loadScannedModel} />}
 
         {/* TAB 3: INTERACTIVE SOP & GUIDED WORK ORDER */}
         {activeTab === 'sop' && (

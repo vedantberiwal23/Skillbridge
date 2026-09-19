@@ -143,7 +143,7 @@ export default function LoginPage() {
                 key={code}
                 type="button"
                 onClick={() => setLocale(code as Locale)}
-                className={`rounded-lg px-3 py-1.5 transition-all ${
+                className={`min-h-11 rounded-lg px-3 py-2 transition-all ${
                   locale === code
                     ? 'neu-raised font-semibold text-primary'
                     : 'text-muted-foreground hover:text-foreground'
@@ -258,7 +258,7 @@ export default function LoginPage() {
                           setWorkerMode('phone');
                           setError(null);
                         }}
-                        className="text-xs text-muted-foreground hover:text-foreground font-medium transition-colors underline underline-offset-4"
+                        className="inline-flex min-h-11 items-center justify-center px-2 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors underline underline-offset-4"
                       >
                         {t('auth.signInWithPhone')}
                       </button>
@@ -348,7 +348,7 @@ export default function LoginPage() {
                           setWorkerMode('invite');
                           setError(null);
                         }}
-                        className="text-xs text-muted-foreground hover:text-foreground font-medium transition-colors underline underline-offset-4"
+                        className="inline-flex min-h-11 items-center justify-center px-2 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors underline underline-offset-4"
                       >
                         {t('auth.enterCodeInstead')}
                       </button>

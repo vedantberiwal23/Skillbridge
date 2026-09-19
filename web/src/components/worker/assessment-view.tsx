@@ -127,7 +127,7 @@ export function AssessmentView({
                   key={code}
                   type="button"
                   onClick={() => setLocale(code as Locale)}
-                  className={`rounded-lg px-2.5 py-1 font-semibold transition-all ${
+                  className={`min-h-11 rounded-lg px-3 py-2 font-semibold transition-all ${
                     locale === code
                       ? 'bg-[#0B57D0] text-white'
                       : 'text-slate-500 hover:text-slate-900'

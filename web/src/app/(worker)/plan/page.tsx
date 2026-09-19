@@ -173,7 +173,7 @@ export default function PlanPage() {
                   key={code}
                   type="button"
                   onClick={() => setLocale(code as Locale)}
-                  className={`rounded-lg px-3 py-1.5 font-medium transition-all ${
+                  className={`min-h-11 rounded-lg px-3 py-2 font-medium transition-all ${
                     locale === code
                       ? 'bg-[#0B57D0] text-white font-semibold'
                       : 'text-slate-600 hover:text-slate-900'

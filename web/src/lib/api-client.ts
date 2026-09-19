@@ -25,6 +25,8 @@ import type {
   Assessment,
   AssessmentAttempt,
   DeptAggregate,
+  Invite,
+  Role,
   LearningPlan,
   Lesson,
   MachineAsset,
@@ -168,3 +170,28 @@ export const getDeptAggregate = (deptId?: string, period?: string) => {
   const suffix = qs.toString();
   return request<{ aggregate: DeptAggregate }>(`/api/aggregates${suffix ? `?${suffix}` : ''}`);
 };
+
+/* ── /api/invites — A3/A4 ─────────────────────────────────────────────────── */
+
+export interface IssueInviteBody {
+  role: Role;
+  channel: 'email' | 'sms';
+  /** Null places the worker in no department; the key builder maps that to NONE. */
+  deptId?: string | null;
+  email?: string;
+  phone?: string;
+}
+
+/**
+ * Issue an invite. Admin only, enforced by the handler.
+ *
+ * The org is never sent: the handler takes it from the verified session and
+ * stamps it on the stored invite, which is also where redemption later reads
+ * `role`, `orgId` and `deptId` from — never from the redeeming request. The
+ * code itself is generated server-side with crypto.randomBytes.
+ */
+export const issueInvite = (body: IssueInviteBody) =>
+  request<{ invite: Invite }>('/api/invites', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });

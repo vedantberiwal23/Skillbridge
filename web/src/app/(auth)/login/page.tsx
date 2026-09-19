@@ -90,28 +90,10 @@ export default function LoginPage() {
         return;
       }
     } catch {
-      if (
-        process.env.NODE_ENV !== 'production' &&
-        !process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID
-      ) {
-        document.cookie = `dev_role=${activeRole}; path=/; max-age=86400`;
-        if (activeRole === 'worker') router.push('/plan');
-        else if (activeRole === 'manager') router.push('/dashboard');
-        else router.push('/users');
-        return;
-      }
-
       setError(t('auth.invalidCredentials'));
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDevLogin = (role: Role) => {
-    document.cookie = `dev_role=${role}; path=/; max-age=86400`;
-    if (role === 'worker') router.push('/plan');
-    else if (role === 'manager') router.push('/dashboard');
-    else router.push('/users');
   };
 
   return (
@@ -521,36 +503,14 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Footer: Dev Quick Test + Enterprise Isolation Note */}
+        {/*
+          No quick-test role buttons here. They set a `dev_role` cookie that the
+          integrated auth does not honour -- sessions come from verified Cognito
+          claims only -- so every one of them bounced the clicker straight back
+          to this page. A control that silently does nothing is worse on a stage
+          than no control at all.
+        */}
         <div className="mx-auto w-full max-w-md pt-2">
-          {process.env.NODE_ENV !== 'production' ? (
-            <div className="flex items-center justify-between text-xs text-muted-foreground mb-3 px-2">
-              <span className="font-medium">Quick test:</span>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleDevLogin('worker')}
-                  className="neu-raised rounded-lg px-2.5 py-1 font-medium hover:text-foreground"
-                >
-                  Worker
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDevLogin('manager')}
-                  className="neu-raised rounded-lg px-2.5 py-1 font-medium hover:text-foreground"
-                >
-                  Manager
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDevLogin('admin')}
-                  className="neu-raised rounded-lg px-2.5 py-1 font-medium hover:text-foreground"
-                >
-                  Admin
-                </button>
-              </div>
-            </div>
-          ) : null}
           <p className="text-[11px] text-muted-foreground/70 text-center">
             Employer-provisioned access &bull; Tenant-isolated
           </p>

@@ -69,6 +69,40 @@ function getAccessVerifier() {
   return accessVerifierInstance;
 }
 
+/**
+ * Throw away the cached verifiers so the next request rebuilds them.
+ *
+ * `CognitoJwtVerifier` fetches the pool's JWKS once and holds it. If that fetch
+ * fails — the laptop changed network, a VPN came up, DNS blipped — the instance
+ * keeps failing every verification afterwards, and because a retrieval failure
+ * and a bad signature both land in the same catch, every sign-in reports
+ * "Invalid or expired authentication token" until the process restarts. That
+ * happened during demo prep and cost real time to diagnose, because the message
+ * points at the token and the token was fine.
+ */
+function resetVerifiers() {
+  idVerifierInstance = null;
+  accessVerifierInstance = null;
+}
+
+/**
+ * True when verification failed because the KEYS could not be retrieved, rather
+ * than because the token was bad.
+ *
+ * Matched on the error name rather than by importing aws-jwt-verify's error
+ * classes: the class names are not part of its documented surface and have
+ * moved between versions, whereas a retrieval failure always names Jwks or a
+ * fetch. Guessing wrong here is cheap in one direction only — a token error
+ * misread as a network one costs an extra JWKS fetch on the next request; a
+ * network error misread as a token one is the bug above.
+ */
+function isKeyRetrievalFailure(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  return /jwks|fetch|network|timeout|enotfound|econnrefused|eai_again/i.test(
+    `${err.name} ${err.message}`
+  );
+}
+
 const rank = (role: Role) => ROLES.indexOf(role);
 
 const isRole = (value: unknown): value is Role =>
@@ -174,6 +208,17 @@ export async function requireSession(
       role = roleFromGroups(accessPayload['cognito:groups']);
     } catch (innerErr) {
       if (innerErr instanceof AuthError) throw innerErr;
+
+      // Neither token use verified. If either attempt failed because the signing
+      // keys could not be fetched, this is not the caller's fault: drop the
+      // cached verifiers so the next request refetches, and say so with a 503
+      // rather than blaming a token that may be perfectly valid.
+      if (isKeyRetrievalFailure(err) || isKeyRetrievalFailure(innerErr)) {
+        resetVerifiers();
+        console.error('[auth] could not fetch Cognito signing keys:', innerErr);
+        throw new AuthError('Authentication is temporarily unavailable', 503);
+      }
+
       throw new AuthError('Invalid or expired authentication token', 401);
     }
   }

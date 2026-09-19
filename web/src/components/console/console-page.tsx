@@ -76,3 +76,34 @@ export const btn = {
 
 export const inputClass =
   'h-9 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary';
+
+/** The one card style for console sections: title row, optional actions, body. */
+export function Panel({
+  title,
+  description,
+  actions,
+  children,
+  className,
+  ...rest
+}: {
+  title?: string;
+  description?: string;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+} & React.HTMLAttributes<HTMLElement>) {
+  return (
+    <section className={`rounded-2xl border border-border bg-card ${className ?? ''}`} {...rest}>
+      {title ? (
+        <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+            {description ? <p className="mt-0.5 text-xs text-muted-foreground">{description}</p> : null}
+          </div>
+          {actions}
+        </div>
+      ) : null}
+      <div className="p-5">{children}</div>
+    </section>
+  );
+}

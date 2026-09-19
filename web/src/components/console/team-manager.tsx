@@ -327,7 +327,7 @@ export function TeamManager({
           data-tour="bulk-actions"
           className={cn(
             'flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5 text-sm',
-            chosen.length > 0 ? 'bg-secondary/60' : 'bg-muted/30'
+            chosen.length > 0 ? 'bg-muted/60' : 'bg-card'
           )}
         >
           <label className="flex items-center gap-2 pr-2">
@@ -371,7 +371,7 @@ export function TeamManager({
           <p
             className={cn(
               'flex items-center gap-2 border-b border-border px-4 py-2 text-sm',
-              status.tone === 'ok' ? 'text-success' : 'text-danger'
+              status.tone === 'ok' ? 'text-foreground' : 'text-danger'
             )}
           >
             {status.tone === 'ok' ? <Check className="size-4" /> : null}
@@ -532,7 +532,7 @@ function PersonRow({
   onToggle: () => void;
 }) {
   return (
-    <li className={cn('flex items-center gap-3 px-4 py-3 transition-colors', checked && 'bg-secondary/40')}>
+    <li className={cn('flex items-center gap-3 px-4 py-3 transition-colors', checked && 'bg-muted/50')}>
       <Checkbox checked={checked} onChange={onToggle} label={`Select ${member.name}`} />
       <Avatar name={member.name} />
       <div className="min-w-0 flex-1">

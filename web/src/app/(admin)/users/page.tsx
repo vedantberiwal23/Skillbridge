@@ -134,7 +134,7 @@ export default function AdminPeoplePage() {
           role="status"
           className={cn(
             'mt-4 rounded-xl px-4 py-2.5 text-sm',
-            status.tone === 'ok' ? 'bg-success-muted text-success' : 'bg-danger-muted text-danger'
+            status.tone === 'ok' ? 'border border-border text-foreground' : 'border border-danger/30 text-danger'
           )}
         >
           {status.text}
@@ -188,7 +188,7 @@ export default function AdminPeoplePage() {
                       aria-label={`Department for ${p.name}`}
                       className={cn(
                         'h-8 max-w-48 rounded-lg border bg-card px-2 text-sm outline-none focus:border-primary disabled:opacity-60',
-                        p.deptId ? 'border-border text-foreground' : 'border-warning/50 text-warning'
+                        p.deptId ? 'border-border text-foreground' : 'border-danger/40 text-danger'
                       )}
                     >
                       {!p.deptId ? <option value="">Choose department…</option> : null}

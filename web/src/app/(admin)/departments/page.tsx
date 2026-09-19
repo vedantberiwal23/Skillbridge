@@ -132,7 +132,7 @@ function CreateDepartment({ onDone, onCancel }: { onDone: () => void; onCancel: 
   };
 
   return (
-    <form onSubmit={submit} className="mt-6 rounded-2xl border border-primary/30 bg-card p-5 shadow-sm">
+    <form onSubmit={submit} className="mt-6 rounded-2xl border border-border bg-card p-5">
       <p className="text-sm font-semibold text-foreground">New department</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1.4fr]">
         <label className="flex flex-col gap-1.5">
@@ -210,7 +210,7 @@ function DepartmentCard({
 
   if (editing) {
     return (
-      <li className="rounded-2xl border border-primary/30 bg-card p-5 shadow-sm">
+      <li className="rounded-2xl border border-foreground/20 bg-card p-5">
         <EditDepartment
           dept={dept}
           managers={managers}
@@ -268,14 +268,14 @@ function DepartmentCard({
           </dt>
           <dd className="mt-0.5 truncate text-sm font-medium text-foreground">
             {countsLoading ? '…' : runBy.length ? runBy.map((m) => m.name.split(' ')[0]).join(', ') : (
-              <span className="text-warning">No manager yet</span>
+              <span className="text-danger">No manager yet</span>
             )}
           </dd>
         </div>
       </dl>
 
       {confirmDelete ? (
-        <div className="mt-4 rounded-xl bg-danger-muted p-3 text-sm">
+        <div className="mt-4 rounded-xl border border-border p-3 text-sm">
           <p className="text-foreground">
             {members.length > 0
               ? `${members.length} ${members.length === 1 ? 'person is' : 'people are'} still in ${dept.name}. Move them first.`
@@ -283,7 +283,7 @@ function DepartmentCard({
           </p>
           <div className="mt-2 flex gap-2">
             {members.length === 0 ? (
-              <button type="button" onClick={onDelete} disabled={busy} className={cn(btn.danger, 'bg-card')}>
+              <button type="button" onClick={onDelete} disabled={busy} className={btn.danger}>
                 Delete
               </button>
             ) : null}

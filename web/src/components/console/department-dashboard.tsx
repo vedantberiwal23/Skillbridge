@@ -9,7 +9,6 @@ import {
   Check,
   ChevronRight,
   Search,
-  Sparkles,
   UserPlus,
   X,
 } from 'lucide-react';
@@ -20,6 +19,7 @@ import { getDeptAggregate, getTeam } from '@/lib/api-client';
 import { useApi } from '@/lib/use-api';
 import type { DeptAggregate, TeamMember } from '@/lib/types';
 import { useTour } from '@/components/tour/tour-provider';
+import { Ring } from './ring';
 
 /**
  * One department's dashboard: where it stands, what to do about it, and who is
@@ -265,7 +265,6 @@ function GettingStarted({ hasWorkers }: { hasWorkers: boolean }) {
         <X className="size-4" />
       </button>
       <div className="flex items-center gap-2">
-        <Sparkles className="size-4 text-primary" />
         <h2 id="getting-started" className="text-sm font-semibold text-foreground">
           Getting started
         </h2>
@@ -279,7 +278,7 @@ function GettingStarted({ hasWorkers }: { hasWorkers: boolean }) {
             key={item.title}
             className={cn(
               'flex gap-3 rounded-xl border p-3.5',
-              item.done ? 'border-primary/25 bg-secondary/60' : 'border-border'
+              'border-border'
             )}
           >
             <span
@@ -368,7 +367,7 @@ function Kpi({
         <span
           className={cn(
             'font-data text-3xl font-semibold tracking-tight',
-            tone === 'danger' ? 'text-danger' : tone === 'warning' ? 'text-warning' : 'text-foreground'
+            tone === 'danger' ? 'text-danger' : 'text-foreground'
           )}
         >
           {value}
@@ -377,7 +376,7 @@ function Kpi({
           <span
             className={cn(
               'inline-flex items-center gap-0.5 text-xs font-semibold',
-              delta > 0 ? 'text-success' : 'text-danger'
+              delta > 0 ? 'text-primary' : 'text-danger'
             )}
           >
             {delta > 0 ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
@@ -430,7 +429,7 @@ function SkillGaps({ agg, prev }: { agg: DeptAggregate; prev: DeptAggregate | nu
                   <span className="min-w-0 truncate text-sm text-foreground">{skill}</span>
                   <span className="flex shrink-0 items-baseline gap-2">
                     {change !== null && change !== 0 ? (
-                      <span className={cn('text-[11px] font-medium', change < 0 ? 'text-success' : 'text-danger')}>
+                      <span className={cn('text-[11px] font-medium', change < 0 ? 'text-primary' : 'text-danger')}>
                         {change < 0 ? '▼' : '▲'} {Math.abs(change)}
                       </span>
                     ) : null}
@@ -445,7 +444,7 @@ function SkillGaps({ agg, prev }: { agg: DeptAggregate; prev: DeptAggregate | nu
                   <div
                     className={cn(
                       'h-full rounded-full transition-[width] duration-500',
-                      level === 'critical' ? 'bg-danger' : level === 'watch' ? 'bg-warning' : 'bg-success'
+                      level === 'critical' ? 'bg-danger' : 'bg-foreground/70'
                     )}
                     style={{ width: `${Math.max(pct, 2)}%` }}
                   />
@@ -461,9 +460,8 @@ function SkillGaps({ agg, prev }: { agg: DeptAggregate; prev: DeptAggregate | nu
 
 function Legend() {
   const items = [
-    ['bg-danger', `Refresher needed >${CRITICAL}%`],
-    ['bg-warning', `Watch ${WATCH}–${CRITICAL}%`],
-    ['bg-success', `On track`],
+    ['bg-danger', `Needs a refresher (over ${CRITICAL}%)`],
+    ['bg-foreground/70', 'Within range'],
   ] as const;
   return (
     <ul className="flex flex-wrap gap-x-3 gap-y-1">
@@ -481,8 +479,7 @@ function Legend() {
 
 function Outcomes({ agg }: { agg: DeptAggregate }) {
   const total = agg.assessmentsPassed + agg.assessmentsFailed;
-  const passedPct = total === 0 ? 0 : (agg.assessmentsPassed / total) * 100;
-
+  const rate = passRate(agg);
   return (
     <section aria-labelledby="outcomes-title" className="rounded-2xl border border-border bg-card p-5">
       <h2 id="outcomes-title" className="text-sm font-semibold text-foreground">
@@ -491,25 +488,24 @@ function Outcomes({ agg }: { agg: DeptAggregate }) {
       {total === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">No assessments taken in this period yet.</p>
       ) : (
-        <>
-          <div className="mt-4 flex h-3 w-full overflow-hidden rounded-full bg-muted" role="img"
-            aria-label={`${agg.assessmentsPassed} passed, ${agg.assessmentsFailed} failed`}>
-            <div className="h-full bg-success" style={{ width: `${passedPct}%` }} />
-            <div className="h-full bg-danger/70" style={{ width: `${100 - passedPct}%` }} />
-          </div>
-          <dl className="mt-3 flex gap-6 text-sm">
-            <div className="flex items-center gap-2">
-              <span aria-hidden className="size-2 rounded-full bg-success" />
-              <dt className="text-muted-foreground">Passed</dt>
-              <dd className="font-data font-semibold text-foreground">{agg.assessmentsPassed}</dd>
-            </div>
-            <div className="flex items-center gap-2">
-              <span aria-hidden className="size-2 rounded-full bg-danger/70" />
-              <dt className="text-muted-foreground">Failed</dt>
-              <dd className="font-data font-semibold text-foreground">{agg.assessmentsFailed}</dd>
-            </div>
+        <div className="mt-4 flex flex-wrap items-center gap-8">
+          <Ring
+            value={rate}
+            size={96}
+            stroke={9}
+            alert={rate !== null && rate < PASS_TARGET}
+            label="Pass rate"
+            sublabel={`Target ${PASS_TARGET}%`}
+          />
+          <dl className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm">
+            <dt className="text-muted-foreground">Passed</dt>
+            <dd className="font-data font-semibold text-foreground">{agg.assessmentsPassed}</dd>
+            <dt className="text-muted-foreground">Failed</dt>
+            <dd className="font-data font-semibold text-foreground">{agg.assessmentsFailed}</dd>
+            <dt className="text-muted-foreground">Total</dt>
+            <dd className="font-data font-semibold text-foreground">{total}</dd>
           </dl>
-        </>
+        </div>
       )}
     </section>
   );
@@ -570,7 +566,7 @@ function NeedsAttention({
       </h2>
       {items.length === 0 ? (
         <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-          <Check className="size-4 text-success" /> Nothing needs you right now.
+          <Check className="size-4 text-primary" /> Nothing needs you right now.
         </p>
       ) : (
         <ul className="mt-3 flex flex-col gap-2.5">
@@ -579,11 +575,11 @@ function NeedsAttention({
               key={item.title}
               className={cn(
                 'flex gap-3 rounded-xl p-3',
-                item.tone === 'danger' ? 'bg-danger-muted' : 'bg-warning-muted'
+                'border border-border'
               )}
             >
               <AlertTriangle
-                className={cn('mt-0.5 size-4 shrink-0', item.tone === 'danger' ? 'text-danger' : 'text-warning')}
+                className={cn('mt-0.5 size-4 shrink-0', item.tone === 'danger' ? 'text-danger' : 'text-muted-foreground')}
               />
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">{item.title}</p>
@@ -764,12 +760,8 @@ export function Avatar({ name }: { name: string }) {
 
 export function StatusPill({ active }: { active: boolean }) {
   return (
-    <span
-      className={cn(
-        'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium',
-        active ? 'bg-success-muted text-success' : 'bg-warning-muted text-warning'
-      )}
-    >
+    <span className="inline-flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+      <span aria-hidden className={cn('size-1.5 rounded-full', active ? 'bg-primary' : 'bg-border')} />
       {active ? 'Training' : 'Not set up'}
     </span>
   );

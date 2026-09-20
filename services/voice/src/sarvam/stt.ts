@@ -1,5 +1,6 @@
 import WebSocket from 'ws';
 import { config } from '../config.js';
+import { normalizeDetected } from './client.js';
 
 /**
  * Sarvam realtime speech-to-text — `saaras:v3-realtime`.
@@ -14,6 +15,11 @@ import { config } from '../config.js';
  *
  * endpointing=manual: this is push-to-talk, so we know when the turn starts and
  * ends — better than having a VAD infer it from silence.
+ *
+ * language_code=auto is this endpoint's detection value, and is NOT the batch
+ * API's — that one spells it `unknown`. The realtime endpoint also spells Odia
+ * `or-IN` where the rest of Sarvam uses `od-IN`, which is why detected codes are
+ * normalised before they leave this file.
  */
 
 export interface RealtimeSttOptions {
@@ -104,8 +110,8 @@ export function openRealtimeStt(options: RealtimeSttOptions): RealtimeSttSession
           lastPartial = msg.text;
           // With language_code=auto the partial carries the language detected
           // so far — the model may start before the final exists.
-          if (msg.language) partialLanguage = msg.language;
-          onPartial?.(msg.text, msg.language ?? partialLanguage);
+          if (msg.language) partialLanguage = normalizeDetected(msg.language);
+          onPartial?.(msg.text, partialLanguage);
         }
         break;
 
@@ -113,7 +119,7 @@ export function openRealtimeStt(options: RealtimeSttOptions): RealtimeSttSession
         if (msg.text) {
           // A long turn finalises in several utterances; the question is all of them.
           finalText = finalText ? `${finalText} ${msg.text}`.trim() : msg.text;
-          if (msg.language) finalLanguage = msg.language;
+          if (msg.language) finalLanguage = normalizeDetected(msg.language);
           onFinal?.(finalText, finalLanguage);
         }
         if (ended) resolveFinal?.();

@@ -698,3 +698,27 @@ test('a language Sarvam does not know at all still falls back to Hindi', async (
   assert.match(modelCalls.at(-1)!.system, /speaking Hindi/);
   c.ws.close();
 });
+
+test('Odia detected as or-IN is answered in Odia, not Hindi', async () => {
+  reset();
+  // saaras:v3-realtime spells Odia `or-IN`; bulbul:v3 and every list here use
+  // `od-IN`. Untranslated, this turn would fall back to the picker's language.
+  sttScript = { partials: [[2, 'ଏହା କ’ଣ']], final: 'ଏହା କ’ଣ ଅଟେ', language: 'or-IN' };
+  modelReply = () => ['ଏହା ', 'ଏକ ', 'pump ', 'ଅଟେ।'];
+  const c = connect();
+  await c.opened;
+  c.send({ t: 'start', token: 'good:worker-odia' });
+  await c.waitFor((f) => f.t === 'ready');
+  // The interface is in Hindi — only detection knows the worker spoke Odia.
+  c.send({ t: 'begin', language: 'hi-IN', history: [] });
+  await speak(c, 6);
+  c.send({ t: 'stop' });
+  const reply = await c.waitFor((f) => f.t === 'reply');
+  await c.waitFor((f) => f.t === 'done');
+
+  assert.equal(reply.heard_language, 'od-IN', 'or-IN must normalise to od-IN');
+  assert.match(modelCalls.at(-1)!.system, /speaking Odia/);
+  assert.equal(ttsConfig?.language_code, 'od-IN', 'and the Odia voice reads it');
+  assert.equal(reply.spoken, true);
+  c.ws.close();
+});

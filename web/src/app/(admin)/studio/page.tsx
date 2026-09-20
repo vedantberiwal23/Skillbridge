@@ -319,6 +319,8 @@ export default function SimulationStudioPage() {
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
   /** From the service's reply: whether the org's own SOPs were found and used. */
   const [aiGrounded, setAiGrounded] = useState<boolean | null>(null);
+  /** False when the reply's language has no voice — text arrived, audio will not. */
+  const [aiSpoken, setAiSpoken] = useState(true);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const sentAtRef = useRef<number | null>(null);
   const [history, setHistory] = useState<
@@ -386,6 +388,7 @@ export default function SimulationStudioPage() {
     setTranscript('');
     setAiResponse('');
     setAiGrounded(null);
+    setAiSpoken(true);
     setVoiceError(null);
     setLatencyMs(null);
     player.stopSpeech();
@@ -481,6 +484,7 @@ export default function SimulationStudioPage() {
       setAiThinking(false);
       setAiResponse(reply.text);
       setAiGrounded(reply.grounded);
+      setAiSpoken(reply.spoken !== false);
       const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       setHistory((prev) => [
         ...prev,
@@ -506,6 +510,7 @@ export default function SimulationStudioPage() {
   const resetAnswer = () => {
     setAiResponse('');
     setAiGrounded(null);
+    setAiSpoken(true);
     setVoiceError(null);
     setLatencyMs(null);
     sentAtRef.current = null;
@@ -1097,6 +1102,11 @@ export default function SimulationStudioPage() {
                   {aiResponse && (
                     <div className="bg-card border border-border rounded-xl p-3.5 text-xs text-foreground shadow-md">
                       <div className="flex items-center justify-between mb-2">
+                        {!aiSpoken ? (
+                          <span className="text-[10px] font-mono font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded border border-border">
+                            {language === 'hi' ? 'सिर्फ़ टेक्स्ट — इस भाषा की आवाज़ नहीं' : 'TEXT ONLY — NO VOICE FOR THIS LANGUAGE'}
+                          </span>
+                        ) : null}
                         {aiGrounded === null ? (
                           <span className="text-[10px] font-mono font-bold text-muted-foreground bg-card px-2 py-0.5 rounded border border-border">
                             {language === 'hi' ? 'उत्तर' : 'ANSWER'}

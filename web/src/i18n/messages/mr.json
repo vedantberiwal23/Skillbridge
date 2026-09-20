@@ -117,6 +117,7 @@
     "voiceUnavailable": "व्हॉइस ट्यूटर सध्या उपлब्ध नाही.",
     "assessmentEmpty": "या assessment साठी अजून प्रश्न दिलेले नाहीत.",
     "fromYourSop": "तुमच्या company च्या SOP मधून",
+    "textOnlyLanguage": "उत्तर मजकूर स्वरूपात — या भाषेसाठी अजून आवाज उपलब्ध नाही",
     "heardNothing": "एेकू आले नाही. बटण दाबून पुन्हा बोला."
   },
   "assessment": {

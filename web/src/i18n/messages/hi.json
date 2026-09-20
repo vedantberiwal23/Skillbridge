@@ -117,6 +117,7 @@
     "voiceUnavailable": "वॉइस ट्यूटर अभी उपलब्ध नहीं है।",
     "assessmentEmpty": "इस assessment के लिए अभी कोई प्रश्न नहीं हैं।",
     "fromYourSop": "आपकी company के SOP से",
+    "textOnlyLanguage": "उत्तर टेक्स्ट में है — इस भाषा के लिए अभी आवाज़ उपलब्ध नहीं है",
     "heardNothing": "सुनाई नहीं दिया। बटन दबाकर फिर बोलें।"
   },
   "assessment": {

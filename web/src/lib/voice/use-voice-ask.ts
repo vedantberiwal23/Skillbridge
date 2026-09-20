@@ -24,6 +24,8 @@ export interface VoiceAskState {
    * exists.
    */
   grounded: boolean;
+  /** The answer arrived as text only — no voice can read this language aloud. */
+  spoken: boolean;
 }
 
 const EMPTY: VoiceAskState = {
@@ -34,6 +36,7 @@ const EMPTY: VoiceAskState = {
   error: null,
   empty: false,
   grounded: false,
+  spoken: true,
 };
 
 /**
@@ -123,6 +126,9 @@ export function useVoiceAsk(
       error: null,
       empty: false,
       grounded: false,
+      // Assume spoken until the reply says otherwise, so a previous text-only
+      // language does not mark this answer as silent.
+      spoken: true,
     }));
 
     const voiceLang =
@@ -156,6 +162,7 @@ export function useVoiceAsk(
             reply: reply.text,
             transcript: reply.transcript,
             grounded: reply.grounded,
+            spoken: reply.spoken !== false,
           })),
         onEmpty: () => setState((prev) => ({ ...prev, empty: true, partial: '' })),
         onError: (_code, message) => setState((prev) => ({ ...prev, error: message })),

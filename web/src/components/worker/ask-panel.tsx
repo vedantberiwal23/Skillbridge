@@ -38,6 +38,8 @@ export interface AskPanelProps {
   empty?: boolean;
   /** The answer came from this organisation's own SOPs, not general knowledge. */
   grounded?: boolean;
+  /** False when no voice can read this language; the answer is text only. */
+  spoken?: boolean;
 }
 
 export function AskPanel({
@@ -50,6 +52,7 @@ export function AskPanel({
   error,
   empty,
   grounded,
+  spoken = true,
 }: AskPanelProps) {
   const { t } = useI18n();
   const [holding, setHolding] = useState(false);
@@ -138,6 +141,10 @@ export function AskPanel({
             tells "this is in your plant's procedure" from "this is general
             advice, check with your supervisor".
           */}
+          {!spoken ? (
+            <p className="mt-3 text-xs text-muted-foreground">{t('worker.textOnlyLanguage')}</p>
+          ) : null}
+
           {grounded ? (
             <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground">
               <BookCheck className="size-3.5" aria-hidden />

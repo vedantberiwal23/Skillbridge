@@ -643,3 +643,58 @@ test('the server keeps an idle socket warm, without extending the session', asyn
   assert.equal(c.frames.filter((f) => f.t === 'expired').length, 0);
   c.ws.close();
 });
+
+test('a language we understand but cannot speak is written, not spoken', async () => {
+  reset();
+  // Assamese: saaras:v3 transcribes it, bulbul:v3 has no voice for it.
+  modelReply = () => ['এয়া ', 'এটা ', 'পাম্প।'];
+  const c = connect();
+  await c.opened;
+  c.send({ t: 'start', token: 'good:worker-as' });
+  await c.waitFor((f) => f.t === 'ready');
+  c.send({ t: 'ask', text: 'ই কি?', language: 'as-IN', explicit: true });
+  const reply = await c.waitFor((f) => f.t === 'reply');
+  await c.waitFor((f) => f.t === 'done');
+
+  // Told to answer in Assamese, and the answer reached the worker as text.
+  assert.match(modelCalls.at(-1)!.system, /speaking Assamese/);
+  assert.ok(String(reply.text).length > 0);
+  // Assamese uses Bengali script, so the Bengali voice can read it.
+  assert.equal(reply.spoken, true);
+  assert.equal(reply.language, 'bn-IN');
+  assert.equal(ttsConfig?.language_code, 'bn-IN');
+  c.ws.close();
+});
+
+test('a script no voice can read is shown and never spoken in the wrong voice', async () => {
+  reset();
+  // Urdu is Perso-Arabic: no bulbul voice shares that script.
+  modelReply = () => ['یہ ', 'ایک ', 'پمپ ', 'ہے۔'];
+  const c = connect();
+  await c.opened;
+  c.send({ t: 'start', token: 'good:worker-ur' });
+  await c.waitFor((f) => f.t === 'ready');
+  c.send({ t: 'ask', text: 'yeh kya hai?', language: 'ur-IN', explicit: true });
+  const reply = await c.waitFor((f) => f.t === 'reply');
+  await c.waitFor((f) => f.t === 'done');
+
+  assert.match(modelCalls.at(-1)!.system, /speaking Urdu/);
+  assert.ok(String(reply.text).length > 0, 'the answer still reaches the worker');
+  assert.equal(reply.spoken, false, 'and it says plainly that it was not spoken');
+  assert.equal(ttsTexts.length, 0, 'nothing was sent to a voice that cannot read it');
+  assert.equal(c.frames.filter((f) => f.t === 'audio').length, 0);
+  c.ws.close();
+});
+
+test('a language Sarvam does not know at all still falls back to Hindi', async () => {
+  reset();
+  modelReply = () => HINDI_REPLY;
+  const c = connect();
+  await c.opened;
+  c.send({ t: 'start', token: 'good:worker-xx' });
+  await c.waitFor((f) => f.t === 'ready');
+  c.send({ t: 'ask', text: 'kuch bhi', language: 'xx-YY', explicit: true });
+  await c.waitFor((f) => f.t === 'done');
+  assert.match(modelCalls.at(-1)!.system, /speaking Hindi/);
+  c.ws.close();
+});

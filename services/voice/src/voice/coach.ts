@@ -69,6 +69,20 @@ const LANGUAGE_NAMES: Record<string, [string, string]> = {
   'pa-IN': ['Punjabi', 'Gurmukhi'],
   'od-IN': ['Odia', 'Odia'],
   'en-IN': ['English', 'Latin'],
+  // Understood by saaras:v3 but with no bulbul:v3 voice. The answer is still
+  // WRITTEN in these; voiceFor() decides what, if anything, reads it aloud.
+  'as-IN': ['Assamese', 'Bengali'],
+  'ur-IN': ['Urdu', 'Perso-Arabic'],
+  'ne-IN': ['Nepali', 'Devanagari'],
+  'kok-IN': ['Konkani', 'Devanagari'],
+  'ks-IN': ['Kashmiri', 'Perso-Arabic'],
+  'sd-IN': ['Sindhi', 'Perso-Arabic'],
+  'sa-IN': ['Sanskrit', 'Devanagari'],
+  'sat-IN': ['Santali', 'Ol Chiki'],
+  'mni-IN': ['Manipuri', 'Meetei Mayek'],
+  'brx-IN': ['Bodo', 'Devanagari'],
+  'mai-IN': ['Maithili', 'Devanagari'],
+  'doi-IN': ['Dogri', 'Devanagari'],
 };
 
 /**
@@ -140,7 +154,7 @@ export function messagesFrom(history: unknown, asked: string): ChatMessage[] {
    several languages (Devanagari: Hindi and Marathi) the recogniser decides.
    ────────────────────────────────────────────────────────────────────────────*/
 const SCRIPTS: [RegExp, string[]][] = [
-  [/[ঀ-৿]/, ['bn-IN']],
+  [/[ঀ-৿]/, ['bn-IN', 'as-IN']],
   [/[஀-௿]/, ['ta-IN']],
   [/[ఀ-౿]/, ['te-IN']],
   [/[ಀ-೿]/, ['kn-IN']],
@@ -148,8 +162,44 @@ const SCRIPTS: [RegExp, string[]][] = [
   [/[઀-૿]/, ['gu-IN']],
   [/[਀-੿]/, ['pa-IN']],
   [/[଀-୿]/, ['od-IN']],
-  [/[ऀ-ॿ]/, ['hi-IN', 'mr-IN']],
+  [/[ऀ-ॿ]/, ['hi-IN', 'mr-IN', 'ne-IN', 'kok-IN', 'sa-IN', 'brx-IN', 'mai-IN', 'doi-IN']],
+  // No bulbul voice reads these, so a reply in one is shown and not spoken.
+  [/[؀-ۿ]/, ['ur-IN', 'ks-IN', 'sd-IN']],
+  [/[\u1C50-\u1C7F]/, ['sat-IN']],
+  [/[\uABC0-\uABFF]/, ['mni-IN']],
 ];
+
+/**
+ * The voice that should read this text, or null when none can.
+ *
+ * bulbul:v3 speaks 11 languages; saaras:v3 understands 22. For the gap, the
+ * script decides: Assamese is written in Bengali script, so the Bengali voice
+ * reads it correctly; Nepali, Konkani, Bodo, Maithili, Dogri and Sanskrit are
+ * Devanagari, which the Hindi voice reads. Perso-Arabic (Urdu, Kashmiri,
+ * Sindhi), Ol Chiki (Santali) and Meetei Mayek (Manipuri) have no voice that
+ * shares them at all — those answers are shown, not spoken, which is honest
+ * where reading them in a Hindi voice would be gibberish.
+ */
+export function voiceFor(text: string, replyLanguage: string): string | null {
+  const language = languageOfText(text, replyLanguage);
+  if (SPEAKABLE.has(language)) return language;
+  const script = SCRIPTS.find(([re]) => re.test(text));
+  return script ? (NEAREST_VOICE[script[1][0]!] ?? null) : 'en-IN';
+}
+
+/** Voices bulbul:v3 actually has. Kept here so coach.ts stays self-contained. */
+const SPEAKABLE = new Set([
+  'en-IN', 'hi-IN', 'bn-IN', 'ta-IN', 'te-IN', 'kn-IN', 'ml-IN', 'mr-IN', 'gu-IN', 'pa-IN', 'od-IN',
+]);
+
+/** Which voice reads a script whose own language has none. Null = do not speak. */
+const NEAREST_VOICE: Record<string, string | null> = {
+  'bn-IN': 'bn-IN',
+  'hi-IN': 'hi-IN',
+  'ur-IN': null,
+  'sat-IN': null,
+  'mni-IN': null,
+};
 
 export function languageOfText(text: string, preferred?: string | null): string {
   for (const [re, langs] of SCRIPTS) {

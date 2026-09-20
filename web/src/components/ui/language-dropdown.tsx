@@ -38,6 +38,20 @@ export function LanguageDropdown({
     triggerPageTranslation(newCode);
   };
 
+  /**
+   * What each option promises, in the option itself. saaras:v3 understands 22
+   * Indian languages; bulbul:v3 speaks 11. Picking one of the other 11 gets a
+   * written answer in that language — read aloud by a neighbouring voice where
+   * one shares the script, and not read aloud where none does. Saying so here
+   * is the difference between a limitation and a broken feature.
+   */
+  const voiceNote: Record<IndianLanguage['voice'], string> = {
+    own: '',
+    related: ' · spoken in a related voice',
+    text: ' · written answer, not spoken',
+    hindi: ' · answered in Hindi',
+  };
+
   // Group languages into Constitutional Scheduled (22 Official) and Industrial Dialects
   const scheduledLanguages = INDIAN_LANGUAGES.filter(
     (l) => !['bho', 'raj', 'bgc', 'hne'].includes(l.code)
@@ -69,14 +83,14 @@ export function LanguageDropdown({
         <optgroup label="22 Official Constitutional Languages (8th Schedule)">
           {scheduledLanguages.map((lang) => (
             <option key={lang.code} value={lang.code}>
-              {lang.native} — {lang.name} ({lang.region})
+              {lang.native} — {lang.name} ({lang.region}){voiceNote[lang.voice]}
             </option>
           ))}
         </optgroup>
         <optgroup label="Industrial Workforce Dialects">
           {regionalDialects.map((lang) => (
             <option key={lang.code} value={lang.code}>
-              {lang.native} — {lang.name} ({lang.region})
+              {lang.native} — {lang.name} ({lang.region}){voiceNote[lang.voice]}
             </option>
           ))}
         </optgroup>

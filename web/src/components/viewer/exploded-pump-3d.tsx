@@ -758,8 +758,21 @@ export function ExplodedPump3D({
     };
     window.addEventListener('resize', handleResize);
 
+    /**
+     * The window is not the only thing that resizes this.
+     *
+     * Where the pump is laid out by the page rather than given a fixed box —
+     * the landing hero sizes it in vh — the container can still be 0 × 0 when
+     * the renderer first measures it, and no window resize ever follows. The
+     * canvas then stays 0 × 0 and the machine is simply invisible. Watching
+     * the container itself catches that first real measurement.
+     */
+    const resizeObserver = new ResizeObserver(() => handleResize());
+    if (containerRef.current) resizeObserver.observe(containerRef.current);
+
     return () => {
       window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       cancelAnimationFrame(animId);
       io?.disconnect();
 

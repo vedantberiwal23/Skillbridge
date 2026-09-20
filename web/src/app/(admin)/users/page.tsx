@@ -106,7 +106,7 @@ export default function AdminPeoplePage() {
             value={dept}
             onChange={(e) => setDept(e.target.value)}
             aria-label="Filter by department"
-            className="h-9 rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary"
+            className="h-11 rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary"
           >
             <option value="all">All departments</option>
             <option value="none">Not in a department</option>
@@ -123,7 +123,7 @@ export default function AdminPeoplePage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search name or trade"
-              className="h-9 w-full min-w-0 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground sm:w-52"
+              className="h-11 w-full min-w-0 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground sm:w-52"
             />
           </label>
         </div>
@@ -163,7 +163,7 @@ export default function AdminPeoplePage() {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">
                       {p.name || 'Unnamed'}
-                      <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                      <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                         {ROLE_LABEL[p.role] ?? p.role}
                       </span>
                     </p>
@@ -187,7 +187,7 @@ export default function AdminPeoplePage() {
                       onChange={(e) => e.target.value && move(p, e.target.value)}
                       aria-label={`Department for ${p.name}`}
                       className={cn(
-                        'h-8 max-w-48 rounded-lg border bg-card px-2 text-sm outline-none focus:border-primary disabled:opacity-60',
+                        'h-11 max-w-52 rounded-lg border bg-card px-2 text-sm outline-none focus:border-primary disabled:opacity-60',
                         p.deptId ? 'border-border text-foreground' : 'border-danger/40 text-danger'
                       )}
                     >

@@ -205,7 +205,7 @@ export function TeamManager({
           muted
         />
         <div className="mx-2 mt-3 flex items-center justify-between pb-1">
-          <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Groups</span>
+          <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Groups</span>
           <button
             type="button"
             onClick={() => setCreating(true)}
@@ -236,7 +236,7 @@ export function TeamManager({
               <p className="px-1 text-xs text-muted-foreground">Starts with the {chosen.length} selected.</p>
             ) : null}
             <div className="flex gap-2">
-              <button type="submit" disabled={busy || !newName.trim()} className={cn(btn.primary, 'h-8 flex-1')}>
+              <button type="submit" disabled={busy || !newName.trim()} className={cn(btn.primary, "flex-1")}>
                 Create
               </button>
               <button
@@ -245,7 +245,7 @@ export function TeamManager({
                   setCreating(false);
                   setNewName('');
                 }}
-                className={cn(btn.ghost, 'h-8')}
+                className={btn.ghost}
               >
                 Cancel
               </button>
@@ -466,7 +466,7 @@ function RenameField({
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => e.key === 'Escape' && onCancel()}
         maxLength={60}
-        className={cn(inputClass, 'h-8')}
+        className={inputClass}
         aria-label="Group name"
       />
       <button type="submit" disabled={busy} aria-label="Save name" className="flex size-8 shrink-0 items-center justify-center rounded-md text-primary hover:bg-card">
@@ -508,7 +508,7 @@ function ActionSelect({
         if (e.target.value) onPick(e.target.value);
       }}
       aria-label={label}
-      className="h-9 rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground outline-none focus:border-primary disabled:opacity-50"
+      className="h-11 rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground outline-none focus:border-primary disabled:opacity-50"
     >
       <option value="">{label}…</option>
       {options.map((o) => (
@@ -544,7 +544,7 @@ function PersonRow({
       </div>
       <div className="hidden max-w-[40%] flex-wrap justify-end gap-1 md:flex">
         {groups.map((g) => (
-          <span key={g.groupId} className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+          <span key={g.groupId} className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
             {g.name}
           </span>
         ))}

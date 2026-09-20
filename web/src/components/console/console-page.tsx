@@ -2,7 +2,7 @@ import { Loader2 } from 'lucide-react';
 
 /** Page frame shared by every console screen. */
 export function ConsolePage({ children }: { children: React.ReactNode }) {
-  return <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-8 sm:py-8">{children}</main>;
+  return <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-8">{children}</main>;
 }
 
 export function ConsoleHeader({
@@ -65,17 +65,17 @@ export function ConsoleEmpty({ title, body, action }: { title: string; body: str
 /** Primary and secondary console buttons, so every screen's actions look the same. */
 export const btn = {
   primary:
-    'inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/85 disabled:opacity-60',
+    'inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-primary px-5 text-base font-semibold text-primary-foreground transition-colors hover:bg-primary/85 disabled:opacity-60',
   secondary:
-    'inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-3.5 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60',
+    'inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-5 text-base font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60',
   ghost:
-    'inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60',
+    'inline-flex h-11 items-center justify-center gap-1.5 rounded-xl px-4 text-base font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-60',
   danger:
-    'inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-medium text-danger transition-colors hover:bg-danger-muted disabled:opacity-60',
+    'inline-flex h-11 items-center justify-center gap-1.5 rounded-xl px-4 text-base font-medium text-danger transition-colors hover:bg-danger-muted disabled:opacity-60',
 };
 
 export const inputClass =
-  'h-9 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary';
+  'h-11 w-full rounded-xl border border-border bg-card px-4 text-base text-foreground outline-none placeholder:text-muted-foreground focus:border-primary';
 
 /** The one card style for console sections: title row, optional actions, body. */
 export function Panel({

@@ -119,7 +119,7 @@ function Brand({ subtitle, className }: { subtitle: string; className?: string }
       </span>
       <span className="leading-tight">
         <span className="block text-sm font-semibold text-foreground">SkillBridge</span>
-        <span className="block text-[11px] text-muted-foreground">{subtitle}</span>
+        <span className="block text-xs text-muted-foreground">{subtitle}</span>
       </span>
     </div>
   );
@@ -132,7 +132,7 @@ function NavLink({ item, active, compact }: { item: NavItem; active: boolean; co
       <Icon className="size-4 shrink-0" strokeWidth={active ? 2.25 : 1.75} />
       <span className="truncate">{item.label}</span>
       {item.soon ? (
-        <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+        <span className="ml-auto rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
           Soon
         </span>
       ) : null}

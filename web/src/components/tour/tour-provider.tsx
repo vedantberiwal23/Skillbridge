@@ -351,7 +351,7 @@ function TourOverlay({
         style={cardStyle}
       >
         <div className="flex items-center justify-between gap-3">
-          <p className="font-data text-[11px] font-medium uppercase tracking-[0.14em] text-primary">
+          <p className="font-data text-xs font-medium uppercase tracking-[0.14em] text-primary">
             {stepNumber} {ui.of} {total}
           </p>
           <button

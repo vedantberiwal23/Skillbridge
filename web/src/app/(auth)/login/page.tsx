@@ -4,91 +4,74 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'aws-amplify/auth';
+import { ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { cn } from 'cn';
 
 import { GlobeBrandPanel } from '@/components/visual/globe-brand-panel';
 import { configureAmplify } from '@/lib/amplify';
 import { useI18n } from '@/i18n/provider';
-import type { Locale } from '@/i18n/config';
-import type { Role } from '@/lib/types';
+import { LOCALES, LOCALE_LABELS, type Locale } from '@/i18n/config';
 
 /**
- * Sign in screen — tactile Neumorphic industrial finish.
+ * Sign in.
  *
- * Supports all three roles:
- * - Worker: Arrives via employer invite code (or returning phone login) -> /plan
- * - Manager: Plant supervisors and training leads -> /dashboard
- * - Admin: Organization and IT administration -> /users
+ * Two ways in, because there are only two: an invite code for someone who has
+ * never signed in, and phone-or-email plus password for everyone else. The
+ * earlier role tabs asked the wrong question — the role is on the account, not
+ * something the person picks — so signing in just sends them to their own home.
+ *
+ * Phone and email are one field with a dropdown rather than two, so there is
+ * never a wrong box to type into. Phone leads: most of this workforce has no
+ * work email.
  */
+
+type Tab = 'invite' | 'password';
+type IdKind = 'phone' | 'email';
+
+/** Matches the pool: phone sign-in is E.164, and bare Indian numbers get +91. */
+function toUsername(kind: IdKind, raw: string) {
+  const value = raw.trim();
+  if (kind === 'email') return value.toLowerCase();
+  if (value.startsWith('+')) return value;
+  return `+91${value.replace(/\D/g, '')}`;
+}
+
 export default function LoginPage() {
   const { t, locale, setLocale } = useI18n();
   const router = useRouter();
 
-  // Active role tab: 'worker' | 'manager' | 'admin'
-  const [activeRole, setActiveRole] = useState<Role>('worker');
-
-  // Worker view sub-mode: 'invite' (default for new workers) vs 'phone' (returning workers)
-  const [workerMode, setWorkerMode] = useState<'invite' | 'phone'>('invite');
-
-  // Invite code input
+  const [tab, setTab] = useState<Tab>('password');
   const [inviteCode, setInviteCode] = useState('');
-
-  // Credentials inputs
+  const [idKind, setIdKind] = useState<IdKind>('phone');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleRoleChange = (newRole: Role) => {
-    setActiveRole(newRole);
+  const switchTab = (next: Tab) => {
+    setTab(next);
     setError(null);
   };
 
-  const handleWorkerInviteSubmit = (e: React.FormEvent) => {
+  const submitInvite = (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-
-    const cleanCode = inviteCode.trim().toUpperCase();
-    if (!cleanCode) {
-      setError(t('auth.inviteRequired'));
-      return;
-    }
-
-    router.push(`/invite/${encodeURIComponent(cleanCode)}`);
+    const code = inviteCode.trim().toUpperCase();
+    if (!code) return setError(t('auth.inviteRequired'));
+    router.push(`/invite/${encodeURIComponent(code)}`);
   };
 
-  const handleCredentialsSubmit = async (e: React.FormEvent) => {
+  const submitCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    const cleanId = identifier.trim();
-    if (!cleanId) {
-      setError(t('auth.identifierRequired'));
-      return;
-    }
-
-    if (!password) {
-      setError(t('auth.enterPassword'));
-      return;
-    }
-
-    const formattedUsername =
-      activeRole === 'worker' && !cleanId.includes('@')
-        ? cleanId.startsWith('+')
-          ? cleanId
-          : `+91${cleanId.replace(/\D/g, '')}`
-        : cleanId.toLowerCase();
-
+    if (!identifier.trim()) return setError(t('auth.identifierRequired'));
+    if (!password) return setError(t('auth.enterPassword'));
     try {
       setLoading(true);
       configureAmplify();
-      const output = await signIn({ username: formattedUsername, password });
-
-      if (output.isSignedIn) {
-        router.push('/');
-        return;
-      }
+      const output = await signIn({ username: toUsername(idKind, identifier), password });
+      if (output.isSignedIn) router.push('/');
+      else setError(t('auth.invalidCredentials'));
     } catch {
       setError(t('auth.invalidCredentials'));
     } finally {
@@ -97,424 +80,203 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="flex min-h-screen flex-1 neu-bg">
-      {/* Brand panel: desktop only */}
+    <main className="flex min-h-dvh flex-1 bg-background">
       <div className="hidden w-1/2 overflow-hidden lg:block">
         <GlobeBrandPanel text="SkillBridge" />
       </div>
 
-      <div className="flex w-full flex-col justify-between px-6 py-8 lg:w-1/2 lg:px-14">
-        {/* Top bar: Brand + Language selector */}
+      <div className="flex w-full flex-col px-6 py-6 sm:px-10 lg:w-1/2 lg:px-16">
         <div className="flex items-center justify-between">
           <Link href="/welcome" className="inline-flex items-center gap-2.5">
-            <span className="size-3 rounded-full bg-primary neu-raised" />
-            <span className="text-base font-bold tracking-tight text-foreground">
-              SkillBridge
+            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
+              S
             </span>
+            <span className="text-lg font-semibold tracking-tight text-foreground">SkillBridge</span>
           </Link>
-
-          {/* Neumorphic locale switcher */}
-          <div className="neu-sunken inline-flex items-center rounded-xl p-1 text-xs">
-            {(
-              [
-                ['en', 'English'],
-                ['hi', 'हिन्दी'],
-                ['mr', 'मराठी'],
-              ] as const
-            ).map(([code, label]) => (
+          <div className="inline-flex rounded-xl border border-border bg-card p-1">
+            {LOCALES.map((code) => (
               <button
                 key={code}
                 type="button"
                 onClick={() => setLocale(code as Locale)}
-                className={`rounded-lg px-3 py-1.5 transition-all ${
-                  locale === code
-                    ? 'neu-raised font-semibold text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                className={cn(
+                  'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                  locale === code ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'
+                )}
               >
-                {label}
+                {LOCALE_LABELS[code]}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Center Content: Neumorphic Card */}
-        <div className="mx-auto w-full max-w-md py-6">
-          <div className="neu-card p-7 sm:p-9">
-            {/* Neumorphic Role Switcher Tabs */}
-            <div className="neu-sunken mb-7 flex rounded-xl p-1 text-xs font-medium">
+        <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-10">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            {t('auth.signIn')}
+          </h1>
+          <p className="mt-2 text-base text-muted-foreground">{t('auth.signInSubtitle')}</p>
+
+          <div className="mt-7 inline-flex rounded-xl border border-border bg-card p-1">
+            {(
+              [
+                ['password', t('auth.signIn')],
+                ['invite', t('auth.inviteCode')],
+              ] as const
+            ).map(([value, label]) => (
               <button
+                key={value}
                 type="button"
-                onClick={() => handleRoleChange('worker')}
-                className={`flex-1 rounded-lg py-2.5 text-center transition-all ${
-                  activeRole === 'worker'
-                    ? 'neu-raised font-bold text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {t('auth.roleWorker')}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRoleChange('manager')}
-                className={`flex-1 rounded-lg py-2.5 text-center transition-all ${
-                  activeRole === 'manager'
-                    ? 'neu-raised font-bold text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {t('auth.roleManager')}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRoleChange('admin')}
-                className={`flex-1 rounded-lg py-2.5 text-center transition-all ${
-                  activeRole === 'admin'
-                    ? 'neu-raised font-bold text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {t('auth.roleAdmin')}
-              </button>
-            </div>
-
-            {/* =======================================================
-               ROLE: WORKER
-               ======================================================= */}
-            {activeRole === 'worker' ? (
-              <div>
-                {workerMode === 'invite' ? (
-                  /* Worker: Primary Invite Code Access */
-                  <div>
-                    <div className="neu-raised inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-primary">
-                      <span className="size-1.5 rounded-full bg-primary" />
-                      Worker Invite
-                    </div>
-
-                    <h1 className="mt-3 text-2xl font-bold tracking-tight text-foreground">
-                      {t('auth.inviteOnlyTitle')}
-                    </h1>
-                    <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
-                      {t('auth.workerSubtitle')}
-                    </p>
-
-                    <form onSubmit={handleWorkerInviteSubmit} className="mt-6 flex flex-col gap-4">
-                      <div>
-                        <label
-                          htmlFor="invite-code-input"
-                          className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2"
-                        >
-                          {t('auth.inviteCode')}
-                        </label>
-                        <input
-                          id="invite-code-input"
-                          type="text"
-                          autoFocus
-                          autoCapitalize="characters"
-                          autoComplete="off"
-                          spellCheck={false}
-                          value={inviteCode}
-                          onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                          placeholder={t('auth.inviteCodePlaceholder')}
-                          className="neu-input min-h-12 w-full rounded-xl px-4 font-mono text-base uppercase tracking-widest text-foreground outline-none placeholder:text-muted-foreground/45 placeholder:font-sans placeholder:normal-case placeholder:tracking-normal"
-                        />
-                      </div>
-
-                      {error ? (
-                        <p role="alert" className="text-xs font-medium text-danger">
-                          {error}
-                        </p>
-                      ) : null}
-
-                      <button
-                        type="submit"
-                        className="neu-btn-primary mt-2 flex min-h-12 w-full items-center justify-center rounded-xl text-sm font-semibold tracking-wide"
-                      >
-                        {t('auth.continueWithInvite')} &rarr;
-                      </button>
-                    </form>
-
-                    <div className="mt-7 pt-5 border-t border-black/5 text-center">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setWorkerMode('phone');
-                          setError(null);
-                        }}
-                        className="text-xs text-muted-foreground hover:text-foreground font-medium transition-colors underline underline-offset-4"
-                      >
-                        {t('auth.signInWithPhone')}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  /* Worker: Returning Phone + Password */
-                  <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                      {t('auth.signInWorker')}
-                    </h1>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {t('auth.signInSubtitle')}
-                    </p>
-
-                    <form onSubmit={handleCredentialsSubmit} className="mt-6 flex flex-col gap-4">
-                      <div>
-                        <label
-                          htmlFor="worker-phone-input"
-                          className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5"
-                        >
-                          {t('auth.phone')}
-                        </label>
-                        <div className="neu-input flex rounded-xl">
-                          <span className="inline-flex items-center border-r border-black/10 px-3.5 text-sm font-medium text-muted-foreground select-none">
-                            +91
-                          </span>
-                          <input
-                            id="worker-phone-input"
-                            type="tel"
-                            inputMode="numeric"
-                            autoComplete="tel-national"
-                            value={identifier}
-                            onChange={(e) => setIdentifier(e.target.value)}
-                            placeholder={t('auth.phonePlaceholder')}
-                            className="min-h-11 w-full bg-transparent px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/45"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor="worker-password-input"
-                          className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5"
-                        >
-                          {t('auth.password')}
-                        </label>
-                        <div className="neu-input relative flex items-center rounded-xl">
-                          <input
-                            id="worker-password-input"
-                            type={showPassword ? 'text' : 'password'}
-                            autoComplete="current-password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
-                            className="min-h-11 w-full bg-transparent px-3.5 pr-16 text-sm text-foreground outline-none placeholder:text-muted-foreground/45"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-                          >
-                            {showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-                          </button>
-                        </div>
-                      </div>
-
-                      {error ? (
-                        <p role="alert" className="text-xs font-medium text-danger">
-                          {error}
-                        </p>
-                      ) : null}
-
-                      <button
-                        type="submit"
-                        disabled={loading}
-                        className="neu-btn-primary mt-2 flex min-h-12 w-full items-center justify-center rounded-xl text-sm font-semibold tracking-wide disabled:opacity-50"
-                      >
-                        {loading ? t('auth.signingIn') : `${t('auth.signInWorker')} →`}
-                      </button>
-                    </form>
-
-                    <div className="mt-7 pt-5 border-t border-black/5 text-center">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setWorkerMode('invite');
-                          setError(null);
-                        }}
-                        className="text-xs text-muted-foreground hover:text-foreground font-medium transition-colors underline underline-offset-4"
-                      >
-                        {t('auth.enterCodeInstead')}
-                      </button>
-                    </div>
-                  </div>
+                onClick={() => switchTab(value)}
+                aria-pressed={tab === value}
+                className={cn(
+                  'h-11 flex-1 rounded-lg px-5 text-base font-medium transition-colors',
+                  tab === value ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'
                 )}
-              </div>
-            ) : null}
-
-            {/* =======================================================
-               ROLE: MANAGER
-               ======================================================= */}
-            {activeRole === 'manager' ? (
-              <div>
-                <div className="neu-raised inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400">
-                  <span className="size-1.5 rounded-full bg-amber-600" />
-                  Supervisor Console
-                </div>
-
-                <h1 className="mt-3 text-2xl font-bold tracking-tight text-foreground">
-                  {t('auth.signInManager')}
-                </h1>
-                <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
-                  {t('auth.managerSubtitle')}
-                </p>
-
-                <form onSubmit={handleCredentialsSubmit} className="mt-6 flex flex-col gap-4">
-                  <div>
-                    <label
-                      htmlFor="manager-id-input"
-                      className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5"
-                    >
-                      {t('auth.email')} / {t('auth.phone')}
-                    </label>
-                    <input
-                      id="manager-id-input"
-                      type="text"
-                      autoComplete="username"
-                      value={identifier}
-                      onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder="manager@company.com"
-                      className="neu-input min-h-11 w-full rounded-xl px-3.5 text-sm text-foreground outline-none placeholder:text-muted-foreground/45"
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="manager-password-input"
-                      className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5"
-                    >
-                      {t('auth.password')}
-                    </label>
-                    <div className="neu-input relative flex items-center rounded-xl">
-                      <input
-                        id="manager-password-input"
-                        type={showPassword ? 'text' : 'password'}
-                        autoComplete="current-password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="min-h-11 w-full bg-transparent px-3.5 pr-16 text-sm text-foreground outline-none placeholder:text-muted-foreground/45"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-                      >
-                        {showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-                      </button>
-                    </div>
-                  </div>
-
-                  {error ? (
-                    <p role="alert" className="text-xs font-medium text-danger">
-                      {error}
-                    </p>
-                  ) : null}
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="neu-btn-primary mt-2 flex min-h-12 w-full items-center justify-center rounded-xl text-sm font-semibold tracking-wide disabled:opacity-50"
-                  >
-                    {loading ? t('auth.signingIn') : `${t('auth.signInManager')} →`}
-                  </button>
-                </form>
-              </div>
-            ) : null}
-
-            {/* =======================================================
-               ROLE: ADMIN
-               ======================================================= */}
-            {activeRole === 'admin' ? (
-              <div>
-                <div className="neu-raised inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                  <span className="size-1.5 rounded-full bg-emerald-600" />
-                  Enterprise Admin
-                </div>
-
-                <h1 className="mt-3 text-2xl font-bold tracking-tight text-foreground">
-                  {t('auth.signInAdmin')}
-                </h1>
-                <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
-                  {t('auth.adminSubtitle')}
-                </p>
-
-                <form onSubmit={handleCredentialsSubmit} className="mt-6 flex flex-col gap-4">
-                  <div>
-                    <label
-                      htmlFor="admin-email-input"
-                      className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5"
-                    >
-                      {t('auth.adminEmail')}
-                    </label>
-                    <input
-                      id="admin-email-input"
-                      type="email"
-                      autoComplete="email"
-                      value={identifier}
-                      onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder={t('auth.adminEmailPlaceholder')}
-                      className="neu-input min-h-11 w-full rounded-xl px-3.5 text-sm text-foreground outline-none placeholder:text-muted-foreground/45"
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="admin-password-input"
-                      className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5"
-                    >
-                      {t('auth.password')}
-                    </label>
-                    <div className="neu-input relative flex items-center rounded-xl">
-                      <input
-                        id="admin-password-input"
-                        type={showPassword ? 'text' : 'password'}
-                        autoComplete="current-password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="min-h-11 w-full bg-transparent px-3.5 pr-16 text-sm text-foreground outline-none placeholder:text-muted-foreground/45"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-                      >
-                        {showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-                      </button>
-                    </div>
-                  </div>
-
-                  {error ? (
-                    <p role="alert" className="text-xs font-medium text-danger">
-                      {error}
-                    </p>
-                  ) : null}
-
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="neu-btn-primary mt-2 flex min-h-12 w-full items-center justify-center rounded-xl text-sm font-semibold tracking-wide disabled:opacity-50"
-                  >
-                    {loading ? t('auth.signingIn') : `${t('auth.signInAdmin')} →`}
-                  </button>
-                </form>
-              </div>
-            ) : null}
+              >
+                {label}
+              </button>
+            ))}
           </div>
+
+          {tab === 'password' ? (
+            <form onSubmit={submitCredentials} className="mt-6 flex flex-col gap-5">
+              <div>
+                <label htmlFor="identifier" className="block text-sm font-medium text-foreground">
+                  {idKind === 'phone' ? t('auth.phone') : t('auth.email')}
+                </label>
+                {/* One field, one dropdown: there is no wrong box to type into. */}
+                <div className="mt-2 flex h-14 items-center rounded-xl border border-border bg-card focus-within:border-primary">
+                  <select
+                    value={idKind}
+                    onChange={(e) => {
+                      setIdKind(e.target.value as IdKind);
+                      setIdentifier('');
+                      setError(null);
+                    }}
+                    aria-label="Sign in with"
+                    className="h-full shrink-0 rounded-l-xl bg-transparent pl-4 pr-2 text-base font-medium text-foreground outline-none"
+                  >
+                    {/* Short labels: the field's own label above already says which it is. */}
+                    <option value="phone">Phone</option>
+                    <option value="email">Email</option>
+                  </select>
+                  <span aria-hidden className="h-7 w-px bg-border" />
+                  {idKind === 'phone' ? (
+                    <span className="pl-3 text-base text-muted-foreground">+91</span>
+                  ) : null}
+                  <input
+                    id="identifier"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    type={idKind === 'phone' ? 'tel' : 'email'}
+                    inputMode={idKind === 'phone' ? 'numeric' : 'email'}
+                    autoComplete={idKind === 'phone' ? 'tel' : 'email'}
+                    placeholder={idKind === 'phone' ? t('auth.phonePlaceholder') : t('auth.emailPlaceholder')}
+                    className="h-full min-w-0 flex-1 bg-transparent px-3 text-base text-foreground outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-foreground">
+                  {t('auth.password')}
+                </label>
+                <div className="mt-2 flex h-14 items-center rounded-xl border border-border bg-card focus-within:border-primary">
+                  <input
+                    id="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    placeholder={t('auth.enterPassword')}
+                    className="h-full min-w-0 flex-1 bg-transparent px-4 text-base text-foreground outline-none placeholder:text-muted-foreground"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                    className="flex size-12 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+                  </button>
+                </div>
+              </div>
+
+              {error ? (
+                <p role="alert" className="rounded-xl border border-danger/30 px-4 py-3 text-sm text-danger">
+                  {error}
+                </p>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary text-base font-semibold text-primary-foreground transition-colors hover:bg-primary/85 disabled:opacity-60"
+              >
+                {loading ? <Loader2 className="size-5 animate-spin" /> : null}
+                {loading ? t('auth.signingIn') : t('auth.signIn')}
+                {loading ? null : <ArrowRight className="size-5" />}
+              </button>
+
+              <p className="text-center text-sm text-muted-foreground">
+                {t('auth.haveInvite').split('?')[0]}?{' '}
+                <button
+                  type="button"
+                  onClick={() => switchTab('invite')}
+                  className="font-semibold text-primary underline underline-offset-4"
+                >
+                  {t('auth.activateAccount')}
+                </button>
+              </p>
+            </form>
+          ) : (
+            <form onSubmit={submitInvite} className="mt-6 flex flex-col gap-5">
+              <div>
+                <label htmlFor="invite" className="block text-sm font-medium text-foreground">
+                  {t('auth.inviteCode')}
+                </label>
+                <p className="mt-1 text-sm text-muted-foreground">{t('auth.invitePrompt')}</p>
+                <input
+                  id="invite"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  autoCapitalize="characters"
+                  autoComplete="one-time-code"
+                  placeholder={t('auth.inviteCodePlaceholder')}
+                  className="mt-2 h-14 w-full rounded-xl border border-border bg-card px-4 font-data text-lg uppercase tracking-[0.2em] text-foreground outline-none placeholder:tracking-normal placeholder:text-muted-foreground focus:border-primary"
+                />
+              </div>
+
+              {error ? (
+                <p role="alert" className="rounded-xl border border-danger/30 px-4 py-3 text-sm text-danger">
+                  {error}
+                </p>
+              ) : null}
+
+              <button
+                type="submit"
+                className="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-primary text-base font-semibold text-primary-foreground transition-colors hover:bg-primary/85"
+              >
+                {t('auth.continueWithInvite')} <ArrowRight className="size-5" />
+              </button>
+
+              <p className="text-center text-sm text-muted-foreground">
+                {t('auth.alreadyActivated').split('?')[0]}?{' '}
+                <button
+                  type="button"
+                  onClick={() => switchTab('password')}
+                  className="font-semibold text-primary underline underline-offset-4"
+                >
+                  {t('auth.signIn')}
+                </button>
+              </p>
+            </form>
+          )}
         </div>
 
-        {/*
-          No quick-test role buttons here. They set a `dev_role` cookie that the
-          integrated auth does not honour -- sessions come from verified Cognito
-          claims only -- so every one of them bounced the clicker straight back
-          to this page. A control that silently does nothing is worse on a stage
-          than no control at all.
-        */}
-        <div className="mx-auto w-full max-w-md pt-2">
-          <p className="text-[11px] text-muted-foreground/70 text-center">
-            Employer-provisioned access &bull; Tenant-isolated
-          </p>
-        </div>
+        <p className="text-center text-sm text-muted-foreground lg:text-left">
+          SkillBridge is invite-only. Accounts are created by your employer.
+        </p>
       </div>
     </main>
   );

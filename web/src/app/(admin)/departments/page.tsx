@@ -393,7 +393,7 @@ function EditDepartment({
                       className="size-4 accent-[var(--primary)]"
                     />
                     <span className="truncate text-foreground">{m.name}</span>
-                    {isHome ? <span className="ml-auto text-[11px]">joined here</span> : null}
+                    {isHome ? <span className="ml-auto text-xs">joined here</span> : null}
                   </label>
                 </li>
               );

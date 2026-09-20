@@ -429,7 +429,7 @@ function SkillGaps({ agg, prev }: { agg: DeptAggregate; prev: DeptAggregate | nu
                   <span className="min-w-0 truncate text-sm text-foreground">{skill}</span>
                   <span className="flex shrink-0 items-baseline gap-2">
                     {change !== null && change !== 0 ? (
-                      <span className={cn('text-[11px] font-medium', change < 0 ? 'text-primary' : 'text-danger')}>
+                      <span className={cn('text-xs font-medium', change < 0 ? 'text-primary' : 'text-danger')}>
                         {change < 0 ? '▼' : '▲'} {Math.abs(change)}
                       </span>
                     ) : null}
@@ -466,7 +466,7 @@ function Legend() {
   return (
     <ul className="flex flex-wrap gap-x-3 gap-y-1">
       {items.map(([color, label]) => (
-        <li key={label} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <li key={label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <span aria-hidden className={cn('size-2 rounded-full', color)} />
           {label}
         </li>
@@ -784,7 +784,7 @@ function AskAboutTeam() {
     <aside data-tour="ask" className="flex h-fit flex-col rounded-2xl border border-border bg-card p-5">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-foreground">{t('manager.askTitle')}</h2>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
           Soon
         </span>
       </div>

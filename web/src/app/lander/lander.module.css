@@ -252,10 +252,20 @@
   will-change: transform;
 }
 
-/* The pump component ships its own HUD; here it is a subject, not a tool. */
-.subject > div > *:not(:nth-child(2)) {
-  display: none !important;
-}
+/*
+ * The pump's HUD is suppressed by the component itself.
+ *
+ * This used to be `.subject > div > *:not(:nth-child(2)) { display: none }`,
+ * which kept only the second child — written when the component rendered its
+ * toolbar first and the canvas second. Passing `transparent` skips all four HUD
+ * blocks, so the wrapper now renders exactly one child: the canvas host. The
+ * rule then matched that single child and hid the machine outright, leaving an
+ * empty hero.
+ *
+ * Nothing replaces it. Selecting children by position was the bug; the
+ * component's own `transparent` prop is the supported way to ask for a bare
+ * subject.
+ */
 
 /* On a phone the copy leads and the figure follows it: eyebrow, headline,
    paragraph, buttons — then SKILL, the machine and BRIDGE as one block at the

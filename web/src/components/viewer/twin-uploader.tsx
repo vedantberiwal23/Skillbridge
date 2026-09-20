@@ -78,6 +78,23 @@ const BROWSER_RENDERABLE = ['.glb', '.gltf'] as const;
  * because the engine is a local service: it is not reachable from a deployed
  * app, and a model the browser can already draw should not depend on it.
  */
+/**
+ * CAD exporters write part names in the file's own language, and some write
+ * them wrong: SolidWorks exports UTF-8 bytes as if they were latin-1, so
+ * "الفراشة" arrives as "Ø§Ù„ÙØ±Ø§Ø´Ø©". Repaired here rather than shown as
+ * mojibake to an operator — and, since these names are what the tutor is told
+ * the machine is made of, repaired before they reach it.
+ */
+function repairEncoding(name: string): string {
+  if (!/[ÃÂØÙ×Ð]/.test(name)) return name;
+  try {
+    const bytes = Uint8Array.from([...name].map((c) => c.charCodeAt(0) & 0xff));
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return name;
+  }
+}
+
 async function readGltfParts(file: File): Promise<string[]> {
   try {
     let json: { nodes?: { name?: string }[] };
@@ -90,9 +107,28 @@ async function readGltfParts(file: File): Promise<string[]> {
     } else {
       json = JSON.parse(await file.text());
     }
-    return (json.nodes ?? [])
-      .map((node) => node.name ?? '')
-      .filter((name) => name.startsWith('SKB_COMPONENT_'));
+    const names = (json.nodes ?? []).map((node) => repairEncoding(node.name ?? '')).filter(Boolean);
+
+    // Models this pipeline authored mark their parts. Anything else — a real
+    // SolidWorks, Onshape or Fusion export — names its nodes after the parts,
+    // which is the only description of the machine we get on this path. Taking
+    // only SKB_COMPONENT_ meant a genuine 37-mesh assembly reached the tutor as
+    // "components have not been labelled yet".
+    const authored = names.filter((name) => name.startsWith('SKB_COMPONENT_'));
+    if (authored.length) return authored;
+
+    const seen = new Set<string>();
+    return names
+      // glTF repeats each part as an "occurrence of X" instance node.
+      .filter((name) => !name.startsWith('occurrence of '))
+      // "الهيكل.1-1 <1>" and "الهيكل.1-1" are one part.
+      .map((name) => name.replace(/\s*<\d+>\s*$/, '').trim())
+      .filter((name) => {
+        if (!name || seen.has(name)) return false;
+        seen.add(name);
+        return true;
+      })
+      .slice(0, 24);
   } catch {
     return [];
   }
@@ -231,9 +267,11 @@ export function TwinUploader({ onTwinReady }: TwinUploaderProps = {}) {
       setDetail('Reading the assembly');
       const parts = await readGltfParts(files[0]);
       setComponents(
-        parts.map((stableId) => ({
-          stable_id: stableId,
-          label: 'unknown_component',
+        parts.map((name, i) => ({
+          stable_id: `SKB_COMP_${String(i + 1).padStart(3, '0')}`,
+          // The file's own name for the part, not a placeholder: it is what an
+          // operator recognises, and what the tutor is told the machine has.
+          label: name,
           validation_status: 'review_required',
         }))
       );
@@ -253,7 +291,7 @@ export function TwinUploader({ onTwinReady }: TwinUploaderProps = {}) {
       onTwinReadyRef.current?.(localAsset, {
         source: 'cad',
         fileName: files[0].name,
-        parts: parts.map((stableId) => ({ label: stableId })),
+        parts: parts.map((name) => ({ label: name })),
       });
       setLocalOnly(true);
       setPhase('done');

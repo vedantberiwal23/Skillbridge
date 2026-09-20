@@ -778,7 +778,7 @@ export default function SimulationStudioPage() {
                 </div>
 
                 {/* 3D Viewer Container */}
-                <div className="relative rounded-xl overflow-hidden border border-border shadow-inner">
+                <div className="relative rounded-xl overflow-hidden border border-border shadow-inner min-h-[640px]">
                   <MachineViewer
                     asset={activeAsset}
                     selectedPartId={selectedPartId}

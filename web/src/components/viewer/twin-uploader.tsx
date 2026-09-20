@@ -437,7 +437,7 @@ export function TwinUploader() {
             </span>
           </div>
 
-          <div className="w-full rounded-xl overflow-hidden shadow-inner">
+          <div className="w-full rounded-xl overflow-hidden shadow-inner min-h-[640px]">
             <MachineViewer asset={asset} onPartSelected={() => undefined} />
           </div>
 

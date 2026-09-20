@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ZoomIn, ZoomOut, RotateCcw, Maximize2, Minimize2 } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, Maximize2, Minimize2, ChevronsUpDown } from 'lucide-react';
 import { useAccessibility } from '@/components/providers/accessibility-provider';
 import type { MachineAsset } from '@/lib/types';
 
@@ -33,6 +33,7 @@ export interface MachineViewerProps {
   onPartSelected?: (hotspotId: string) => void;
   selectedPartId?: string;
   autoRotate?: boolean;
+  height?: number;
 }
 
 export function MachineViewer({
@@ -40,6 +41,7 @@ export function MachineViewer({
   onPartSelected,
   selectedPartId,
   autoRotate = false,
+  height = 640,
 }: MachineViewerProps) {
   const { prefer2D } = useAccessibility();
   const [ready, setReady] = useState(false);
@@ -51,6 +53,11 @@ export function MachineViewer({
   const viewerRef = useRef<HTMLElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [currentHeight, setCurrentHeight] = useState<number>(height);
+
+  const toggleExpandHeight = () => {
+    setCurrentHeight((prev) => (prev <= 640 ? 820 : 640));
+  };
 
   useEffect(() => {
     const handleFsChange = () => {
@@ -194,9 +201,19 @@ export function MachineViewer({
    * the payload saving actually comes from.
    */
   return (
-    <div ref={containerRef} className="relative w-full group">
+    <div
+      ref={containerRef}
+      className="relative w-full group transition-all duration-300"
+      style={{ minHeight: `${currentHeight}px`, height: `${currentHeight}px` }}
+    >
       <model-viewer
         className="machine-viewer"
+        style={{
+          width: '100%',
+          height: `${currentHeight}px`,
+          minHeight: `${currentHeight}px`,
+          display: 'block',
+        }}
         src={asset.glbUrl}
         poster={asset.posterUrl}
         alt={asset.name}
@@ -206,7 +223,7 @@ export function MachineViewer({
         loading="eager"
         reveal="auto"
         bounds="tight"
-        camera-orbit="0deg 75deg 70%"
+        camera-orbit="0deg 75deg 62%"
         min-camera-orbit="auto auto 5%"
         max-camera-orbit="auto auto 160%"
         interpolation-decay="150"
@@ -260,6 +277,17 @@ export function MachineViewer({
           className="p-1.5 rounded-lg hover:bg-muted text-foreground transition flex items-center justify-center cursor-pointer"
         >
           <RotateCcw className="w-4 h-4" />
+        </button>
+        <div className="h-4 w-px bg-border mx-0.5" />
+        <button
+          type="button"
+          onClick={toggleExpandHeight}
+          title={currentHeight <= 640 ? 'Expand Viewport to 820px' : 'Reset Viewport to 640px'}
+          aria-label="Toggle Viewport Size"
+          className="px-2 py-1 rounded-lg hover:bg-muted text-foreground transition flex items-center gap-1 text-[11px] font-mono cursor-pointer border border-border/50"
+        >
+          <ChevronsUpDown className="w-3.5 h-3.5 text-primary" />
+          <span>{currentHeight}px</span>
         </button>
         <div className="h-4 w-px bg-border mx-0.5" />
         <button

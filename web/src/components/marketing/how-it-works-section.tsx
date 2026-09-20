@@ -10,7 +10,7 @@ export function HowItWorksSection() {
             {/* Orange bar + Eyebrow */}
             <div className="inline-flex items-center gap-2.5">
               <span className="w-8 h-[2.5px] bg-[#f2621f] rounded-full" />
-              <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-neutral-500">
+              <span className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500">
                 HOW IT WORKS
               </span>
             </div>
@@ -28,7 +28,7 @@ export function HowItWorksSection() {
 
           {/* Top-Right Tagline Badge */}
           <div className="hidden sm:flex flex-col items-end text-right self-start pt-1">
-            <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-400 leading-snug">
+            <span className="text-xs sm:text-xs font-semibold uppercase tracking-[0.22em] text-neutral-400 leading-snug">
               SKILLED PEOPLE<br />
               A STRONGER INDIA
             </span>
@@ -139,7 +139,7 @@ export function HowItWorksSection() {
                       <span className="w-0.5 h-1 bg-[#f2621f] rounded-full" />
                     </div>
                   </div>
-                  <div className="bg-neutral-100/90 rounded-2xl rounded-tl-sm px-3.5 py-2 text-[11px] sm:text-xs text-neutral-700 leading-relaxed">
+                  <div className="bg-neutral-100/90 rounded-2xl rounded-tl-sm px-3.5 py-2 text-xs sm:text-xs text-neutral-700 leading-relaxed">
                     <p className="font-semibold text-neutral-900 mb-1">
                       Here&rsquo;s the step-by-step process:
                     </p>
@@ -155,7 +155,7 @@ export function HowItWorksSection() {
 
               {/* Bottom Input Box */}
               <div className="rounded-full border border-neutral-200 bg-neutral-50/70 px-3 py-1.5 flex items-center justify-between">
-                <span className="text-[11px] text-neutral-400 pl-1">
+                <span className="text-xs text-neutral-400 pl-1">
                   Ask a question...
                 </span>
                 <div className="w-6 h-6 rounded-full bg-neutral-900 text-white flex items-center justify-center text-xs">
@@ -252,7 +252,7 @@ export function HowItWorksSection() {
             <span className="w-6 h-[1.5px] bg-neutral-300 rounded-full" />
             <span>Real skills for a stronger India.</span>
           </div>
-          <div className="font-mono text-[11px] text-neutral-400">
+          <div className="font-mono text-xs text-neutral-400">
             SkillBridge &nbsp;|&nbsp; 2026
           </div>
         </div>

@@ -55,13 +55,13 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
   };
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] pb-16">
+    <main className="min-h-screen bg-background pb-16">
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-xs px-6 py-3.5">
         <div className="mx-auto flex max-w-6xl items-center justify-between">
           <Link
             href="/plan"
-            className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-[#0B57D0] transition-colors"
+            className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-primary transition-colors"
           >
             <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -79,7 +79,7 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
                   onClick={() => setLocale(code as Locale)}
                   className={`rounded-lg px-2.5 py-1 font-semibold transition-all ${
                     locale === code
-                      ? 'bg-[#0B57D0] text-white'
+                      ? 'bg-primary text-white'
                       : 'text-slate-500 hover:text-slate-900'
                   }`}
                 >
@@ -88,7 +88,7 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
               ))}
             </div>
 
-            <span className="hidden sm:inline-block rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-[#0B57D0]">
+            <span className="hidden sm:inline-block rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-primary">
               Active SOP Session
             </span>
           </div>
@@ -100,7 +100,7 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
         {/* Procedure Header Card */}
         <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs">
           <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#0B57D0]">
+            <span className="text-xs font-bold uppercase tracking-wider text-primary">
               Standard Operating Procedure &bull; Bharat Precision Engineering
             </span>
             <span className="text-xs font-medium text-slate-500">
@@ -172,7 +172,7 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
                     <div
                       className={`mt-1 flex size-5 shrink-0 items-center justify-center rounded-md border transition-all ${
                         isChecked
-                          ? 'bg-[#0B57D0] border-[#0B57D0] text-white'
+                          ? 'bg-primary border-primary text-white'
                           : 'border-slate-300 bg-white group-hover:border-slate-400'
                       }`}
                     >
@@ -188,7 +188,7 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
                         <span className="text-xs font-bold text-slate-400">
                           Step {step.step}
                         </span>
-                        <h3 className="text-sm font-bold text-slate-900 group-hover:text-[#0B57D0] transition-colors">
+                        <h3 className="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">
                           {step.title}
                         </h3>
                       </div>
@@ -225,7 +225,7 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
               <ul className="space-y-3 text-xs sm:text-sm text-slate-600">
                 {lesson.objectives.map((obj, i) => (
                   <li key={i} className="flex items-start gap-2.5">
-                    <span className="size-1.5 rounded-full bg-[#0B57D0] shrink-0 mt-2" />
+                    <span className="size-1.5 rounded-full bg-primary shrink-0 mt-2" />
                     <span>{obj}</span>
                   </li>
                 ))}
@@ -243,7 +243,7 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
         {/* Section 3: Hands-Free Voice Tutor with Inspected Part */}
         <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs">
           <div className="bg-slate-50/80 px-6 py-4 border-b border-slate-200/80">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#0B57D0]">
+            <span className="text-xs font-bold uppercase tracking-wider text-primary">
               Step 3: Hands-Free Voice Guidance
             </span>
             <h2 className="text-base font-bold text-slate-900 mt-0.5">
@@ -292,7 +292,7 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
               className={`rounded-xl px-6 py-3 text-sm font-bold shadow-sm transition-all ${
                 allStepsChecked
                   ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                  : 'bg-[#0B57D0] hover:bg-[#094bb8] text-white'
+                  : 'bg-primary hover:bg-primary/85 text-white'
               }`}
             >
               {allStepsChecked ? 'Verify & Complete Procedure' : 'Mark Completed & Return →'}

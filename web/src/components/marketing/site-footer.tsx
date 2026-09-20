@@ -37,10 +37,10 @@ export function SiteFooter() {
 
             {/* Sub-tagline uppercase */}
             <div className="mt-3.5 space-y-0.5">
-              <p className="text-[11px] font-semibold tracking-[0.22em] text-neutral-400">
+              <p className="text-xs font-semibold tracking-[0.22em] text-neutral-400">
                 SKILLED PEOPLE
               </p>
-              <p className="text-[11px] font-semibold tracking-[0.22em] text-neutral-400">
+              <p className="text-xs font-semibold tracking-[0.22em] text-neutral-400">
                 A STRONGER INDIA
               </p>
             </div>
@@ -48,7 +48,7 @@ export function SiteFooter() {
 
           {/* Column 2: COMPANY */}
           <div>
-            <h4 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-400 mb-5">
+            <h4 className="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-400 mb-5">
               COMPANY
             </h4>
             <ul className="space-y-3.5 text-sm font-medium text-neutral-800">
@@ -72,7 +72,7 @@ export function SiteFooter() {
 
           {/* Column 3: PRODUCT */}
           <div>
-            <h4 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-400 mb-5">
+            <h4 className="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-400 mb-5">
               PRODUCT
             </h4>
             <ul className="space-y-3.5 text-sm font-medium text-neutral-800">
@@ -96,7 +96,7 @@ export function SiteFooter() {
 
           {/* Column 4: RESOURCES */}
           <div>
-            <h4 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-400 mb-5">
+            <h4 className="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-400 mb-5">
               RESOURCES
             </h4>
             <ul className="space-y-3.5 text-sm font-medium text-neutral-800">
@@ -120,7 +120,7 @@ export function SiteFooter() {
 
           {/* Column 5: SOCIAL */}
           <div>
-            <h4 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-400 mb-5">
+            <h4 className="text-xs font-semibold uppercase tracking-[0.22em] text-neutral-400 mb-5">
               SOCIAL
             </h4>
             <ul className="space-y-3.5 text-sm font-medium text-neutral-800">
@@ -187,7 +187,7 @@ export function SiteFooter() {
         {/* Top-Right Mission Tagline positioned right above the watermark */}
         <div className="flex justify-end pt-12 sm:pt-14 pb-2">
           <div className="flex flex-col items-end text-right">
-            <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.24em] text-neutral-400 leading-relaxed">
+            <span className="text-xs sm:text-xs font-semibold uppercase tracking-[0.24em] text-neutral-400 leading-relaxed">
               BUILT FOR THE<br />
               PEOPLE WHO KEEP<br />
               INDIA MOVING

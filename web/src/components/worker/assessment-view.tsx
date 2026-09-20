@@ -106,13 +106,13 @@ export function AssessmentView({
   }, [isCompleted, assessmentId, answers, locale]);
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] pb-16">
+    <main className="min-h-screen bg-background pb-16">
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-xs px-6 py-3.5">
         <div className="mx-auto flex max-w-4xl items-center justify-between">
           <Link
             href="/plan"
-            className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-[#0B57D0] transition-colors"
+            className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-primary transition-colors"
           >
             <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -129,7 +129,7 @@ export function AssessmentView({
                   onClick={() => setLocale(code as Locale)}
                   className={`rounded-lg px-2.5 py-1 font-semibold transition-all ${
                     locale === code
-                      ? 'bg-[#0B57D0] text-white'
+                      ? 'bg-primary text-white'
                       : 'text-slate-500 hover:text-slate-900'
                   }`}
                 >
@@ -138,7 +138,7 @@ export function AssessmentView({
               ))}
             </div>
 
-            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-[#0B57D0]">
+            <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-primary">
               {t('assessment.diagnosticVerification')}
             </span>
           </div>
@@ -152,7 +152,7 @@ export function AssessmentView({
             {/* Progress & Header */}
             <div className="flex items-center justify-between">
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-[#0B57D0]">
+                <span className="text-xs font-bold uppercase tracking-wider text-primary">
                   {t('assessment.sopCompetency')} &bull; {currentQ.topic}
                 </span>
                 <p className="text-sm font-semibold text-slate-500 mt-0.5">
@@ -187,7 +187,7 @@ export function AssessmentView({
                       cardStyle = 'border border-slate-200 bg-slate-50/50 opacity-60';
                     }
                   } else if (isSelected) {
-                    cardStyle = 'border-2 border-[#0B57D0] bg-blue-50/40 shadow-xs';
+                    cardStyle = 'border-2 border-primary bg-blue-50/40 shadow-xs';
                   }
 
                   return (
@@ -205,7 +205,7 @@ export function AssessmentView({
                             : isSubmitted && isSelected && !isCorrect
                               ? 'bg-red-500 text-white'
                               : isSelected
-                                ? 'bg-[#0B57D0] text-white'
+                                ? 'bg-primary text-white'
                                 : 'bg-slate-100 text-slate-600'
                         }`}
                       >
@@ -233,7 +233,7 @@ export function AssessmentView({
                     {isCorrect ? 'Correct Verification ✓' : 'Incorrect SOP Reference'}
                   </p>
                   <p>{currentQ.explanation}</p>
-                  <p className="mt-2 text-[11px] font-mono text-slate-500">
+                  <p className="mt-2 text-xs font-mono text-slate-500">
                     Standard: {currentQ.safetyRef}
                   </p>
                 </div>
@@ -252,7 +252,7 @@ export function AssessmentView({
                     onClick={handleSubmitAnswer}
                     className={`rounded-xl px-6 py-2.5 text-xs font-bold transition-all ${
                       selectedOption !== null
-                        ? 'bg-[#0B57D0] hover:bg-[#094bb8] text-white shadow-xs'
+                        ? 'bg-primary hover:bg-primary/85 text-white shadow-xs'
                         : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                     }`}
                   >
@@ -262,7 +262,7 @@ export function AssessmentView({
                   <button
                     type="button"
                     onClick={handleNextQuestion}
-                    className="rounded-xl bg-[#0B57D0] hover:bg-[#094bb8] px-6 py-2.5 text-xs font-bold text-white shadow-xs transition-all"
+                    className="rounded-xl bg-primary hover:bg-primary/85 px-6 py-2.5 text-xs font-bold text-white shadow-xs transition-all"
                   >
                     {currentIndex < tradeQuestions.length - 1 ? 'Next Question →' : 'Complete Assessment →'}
                   </button>
@@ -327,7 +327,7 @@ export function AssessmentView({
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
                 href="/plan"
-                className="w-full sm:w-auto rounded-xl bg-[#0B57D0] hover:bg-[#094bb8] px-8 py-3 text-xs font-bold text-white shadow-xs transition-all"
+                className="w-full sm:w-auto rounded-xl bg-primary hover:bg-primary/85 px-8 py-3 text-xs font-bold text-white shadow-xs transition-all"
               >
                 Return to Training Roadmap &rarr;
               </Link>

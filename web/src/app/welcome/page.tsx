@@ -20,7 +20,7 @@ export default function LandingPage() {
       <header className="border-b border-border/60 bg-card">
         <div className="mx-auto flex max-w-[1600px] items-center justify-between px-6 py-4 md:px-10">
           <Link href="/welcome" className="flex items-center gap-2.5">
-            <span className="size-2.5 rounded-full bg-[#0B57D0]" />
+            <span className="size-2.5 rounded-full bg-primary" />
             <span className="text-lg font-semibold tracking-tight text-foreground">
               SkillBridge
             </span>
@@ -44,7 +44,7 @@ export default function LandingPage() {
             </Link>
             <Link
               href="/login"
-              className="rounded-full bg-[#0B57D0] px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:bg-[#094bb8] shadow-sm"
+              className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:bg-primary/85 shadow-sm"
             >
               Book a demo
             </Link>
@@ -58,8 +58,8 @@ export default function LandingPage() {
           {/* Left: the pitch */}
           <div className="max-w-xl">
             <div className="flex items-center gap-4">
-              <span className="h-px w-10 bg-[#0B57D0]/40" />
-              <p className="text-xs font-data uppercase tracking-[0.18em] text-[#0B57D0] font-semibold">
+              <span className="h-px w-10 bg-primary/40" />
+              <p className="text-xs font-data uppercase tracking-[0.18em] text-primary font-semibold">
                 Industrial training for a stronger tomorrow
               </p>
             </div>
@@ -68,7 +68,7 @@ export default function LandingPage() {
               Train your workforce,
               <br />
               in their own{" "}
-              <span className="text-[#0B57D0]">language</span>
+              <span className="text-primary">language</span>
             </h1>
 
             <p className="mt-6 max-w-lg text-base leading-relaxed text-muted-foreground md:text-lg">
@@ -80,7 +80,7 @@ export default function LandingPage() {
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
                 href="/login"
-                className="group inline-flex min-h-12 items-center gap-2 rounded-full bg-[#0B57D0] px-7 text-base font-semibold text-white transition-all hover:bg-[#094bb8] shadow-md shadow-blue-500/20"
+                className="group inline-flex h-12 items-center gap-2 rounded-full bg-primary px-7 text-base font-semibold text-white transition-all hover:bg-primary/85 shadow-md shadow-blue-500/20"
               >
                 Book a demo
                 <span aria-hidden className="transition-transform group-hover:translate-x-0.5">
@@ -89,7 +89,7 @@ export default function LandingPage() {
               </Link>
               <Link
                 href="/login"
-                className="inline-flex min-h-12 items-center rounded-full border border-border bg-card px-7 text-base font-medium text-foreground transition-colors hover:border-[#0B57D0]/40"
+                className="inline-flex h-12 items-center rounded-full border border-border bg-card px-7 text-base font-medium text-foreground transition-colors hover:border-primary/40"
               >
                 Talk to sales
               </Link>
@@ -179,7 +179,7 @@ export default function LandingPage() {
                 <br />
                 India
               </p>
-              <p className="absolute bottom-8 right-6 text-right text-[10px] font-medium uppercase leading-5 tracking-[0.14em] text-foreground/30">
+              <p className="absolute bottom-8 right-6 text-right text-xs font-medium uppercase leading-5 tracking-[0.14em] text-foreground/30">
                 People
                 <br />
                 Skills
@@ -226,13 +226,13 @@ export default function LandingPage() {
                   </svg>
                 </div>
                 <div className="px-2 py-2 border-b border-border flex flex-col gap-0.5">
-                  <div className="flex items-center gap-2 px-2 py-1.5 rounded text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-2 px-2 py-1.5 rounded text-xs text-muted-foreground">
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                     Workflows
                   </div>
-                  <div className="flex items-center gap-2 px-2 py-1.5 rounded text-[11px] text-muted-foreground">
+                  <div className="flex items-center gap-2 px-2 py-1.5 rounded text-xs text-muted-foreground">
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     </svg>
@@ -240,11 +240,11 @@ export default function LandingPage() {
                   </div>
                 </div>
                 <div className="px-3 pt-3 pb-1">
-                  <p className="text-[10px] font-data uppercase tracking-widest text-muted-foreground">Today</p>
+                  <p className="text-xs font-data uppercase tracking-widest text-muted-foreground">Today</p>
                 </div>
                 <div className="px-2 flex flex-col gap-0.5">
                   {["Troubleshooting skill drop", "Welder dept pass rate", "New SOP upload review"].map((t, i) => (
-                    <div key={t} className={`px-2 py-1.5 rounded text-[11px] truncate ${i === 0 ? "bg-secondary text-primary font-medium" : "text-muted-foreground"}`}>
+                    <div key={t} className={`px-2 py-1.5 rounded text-xs truncate ${i === 0 ? "bg-secondary text-primary font-medium" : "text-muted-foreground"}`}>
                       {t}
                     </div>
                   ))}
@@ -254,8 +254,8 @@ export default function LandingPage() {
                     MS
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[11px] font-medium text-foreground truncate">Meera Shah</p>
-                    <p className="text-[10px] text-muted-foreground truncate">meera@bharatmfg.com</p>
+                    <p className="text-xs font-medium text-foreground truncate">Meera Shah</p>
+                    <p className="text-xs text-muted-foreground truncate">meera@bharatmfg.com</p>
                   </div>
                 </div>
               </div>
@@ -276,11 +276,11 @@ export default function LandingPage() {
 
                 <div className="flex-1 overflow-hidden px-6 py-5">
                   <div className="flex items-start gap-2.5 mb-4">
-                    <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center text-[10px] font-semibold text-primary flex-shrink-0">
+                    <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center text-xs font-semibold text-primary flex-shrink-0">
                       MS
                     </div>
                     <div>
-                      <p className="text-[11px] font-medium text-muted-foreground mb-0.5">You</p>
+                      <p className="text-xs font-medium text-muted-foreground mb-0.5">You</p>
                       <p className="text-xs text-foreground leading-relaxed">
                         Why has the troubleshooting score dropped for the CNC department this month?
                       </p>
@@ -294,15 +294,15 @@ export default function LandingPage() {
                       </svg>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-medium text-muted-foreground mb-0.5">Assistant</p>
-                      <p className="text-[10px] text-muted-foreground mb-2">Completed 4 actions ›</p>
+                      <p className="text-xs font-medium text-muted-foreground mb-0.5">Assistant</p>
+                      <p className="text-xs text-muted-foreground mb-2">Completed 4 actions ›</p>
                       <p className="text-xs text-foreground leading-relaxed">
                         Attempt logs show workers stalling on the hydraulic fault-diagnosis
                         scenario. The linked SOP hasn&rsquo;t been updated since March.
                       </p>
                       <div className="border border-border rounded-md px-3 py-2 mt-2.5 flex items-center justify-between gap-3">
-                        <span className="text-[11px] text-foreground">Flag SOP for re-verification</span>
-                        <Badge variant="success" className="flex-shrink-0 text-[10px] px-1.5 py-0">Confirmed</Badge>
+                        <span className="text-xs text-foreground">Flag SOP for re-verification</span>
+                        <Badge variant="success" className="flex-shrink-0 text-xs px-1.5 py-0">Confirmed</Badge>
                       </div>
                     </div>
                   </div>

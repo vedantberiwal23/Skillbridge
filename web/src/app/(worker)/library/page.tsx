@@ -107,14 +107,14 @@ export default function LibraryPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] pb-16">
+    <main className="min-h-screen bg-background pb-16">
       {/* Top Header */}
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-xs px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center gap-4">
             <Link
               href="/plan"
-              className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-[#0B57D0] transition-colors"
+              className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 hover:text-primary transition-colors"
             >
               <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -126,7 +126,7 @@ export default function LibraryPage() {
               <span className="text-sm font-bold text-slate-900">
                 Complete Industrial Library
               </span>
-              <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-[#0B57D0]">
+              <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-primary">
                 {catalogData.total_materials} Materials
               </span>
             </div>
@@ -142,7 +142,7 @@ export default function LibraryPage() {
                   onClick={() => setLocale(code as Locale)}
                   className={`rounded-lg px-2.5 py-1 font-semibold transition-all ${
                     locale === code
-                      ? 'bg-[#0B57D0] text-white'
+                      ? 'bg-primary text-white'
                       : 'text-slate-500 hover:text-slate-900'
                   }`}
                 >
@@ -155,7 +155,7 @@ export default function LibraryPage() {
               href="/worker-file"
               className="rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 px-3 py-1 text-xs font-bold shadow-2xs transition-all inline-flex items-center gap-1.5"
             >
-              <svg className="size-3.5 text-[#0B57D0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <svg className="size-3.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
               <span>Worker File</span>
@@ -163,7 +163,7 @@ export default function LibraryPage() {
 
             <Link
               href="/assessment/asmt-hydraulics-l1"
-              className="text-xs font-bold text-[#0B57D0] hover:underline hidden sm:inline"
+              className="text-xs font-bold text-primary hover:underline hidden sm:inline"
             >
               Take Assessment &rarr;
             </Link>
@@ -176,7 +176,7 @@ export default function LibraryPage() {
         {/* Hero Banner */}
         <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="max-w-2xl">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#0B57D0]">
+            <span className="text-xs font-bold uppercase tracking-wider text-primary">
               Universal Vocational Dataset &bull; Lunchbox Sessions Repository
             </span>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 mt-1">
@@ -191,15 +191,15 @@ export default function LibraryPage() {
           <div className="flex items-center gap-3 shrink-0">
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center min-w-24">
               <span className="text-2xl font-black text-slate-900 block">495</span>
-              <span className="text-[10px] font-bold uppercase text-slate-500">Simulations</span>
+              <span className="text-xs font-bold uppercase text-slate-500">Simulations</span>
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center min-w-24">
               <span className="text-2xl font-black text-slate-900 block">86</span>
-              <span className="text-[10px] font-bold uppercase text-slate-500">Sessions</span>
+              <span className="text-xs font-bold uppercase text-slate-500">Sessions</span>
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center min-w-24">
               <span className="text-2xl font-black text-slate-900 block">8</span>
-              <span className="text-[10px] font-bold uppercase text-slate-500">Disciplines</span>
+              <span className="text-xs font-bold uppercase text-slate-500">Disciplines</span>
             </div>
           </div>
         </div>
@@ -222,7 +222,7 @@ export default function LibraryPage() {
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Search 976 materials by keyword (e.g. relief valve, gear pump, CAN Bus, air brakes, PLC ladder, cylinder)..."
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-3 pl-11 pr-4 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:border-[#0B57D0] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#0B57D0] transition-all"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50/70 py-3 pl-11 pr-4 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary transition-all"
             />
             {searchQuery && (
               <button
@@ -244,7 +244,7 @@ export default function LibraryPage() {
                 onClick={() => handleCategoryChange(cat.id)}
                 className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
                   selectedCategory === cat.id
-                    ? 'bg-[#0B57D0] text-white shadow-xs'
+                    ? 'bg-primary text-white shadow-xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                 }`}
               >
@@ -277,10 +277,10 @@ export default function LibraryPage() {
           <div className="rounded-2xl border-2 border-teal-500/40 bg-gradient-to-br from-teal-50/70 to-white p-5 shadow-xs flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between gap-2">
-                <span className="rounded-md bg-teal-600 text-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                <span className="rounded-md bg-teal-600 text-white px-2 py-0.5 text-xs font-bold uppercase tracking-wider">
                   Featured 3D Twin &bull; ID 2236
                 </span>
-                <span className="text-[11px] font-mono text-teal-700 font-semibold">
+                <span className="text-xs font-mono text-teal-700 font-semibold">
                   WebGL Exploded View
                 </span>
               </div>
@@ -303,13 +303,13 @@ export default function LibraryPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border-2 border-[#0B57D0]/30 bg-gradient-to-br from-blue-50/60 to-white p-5 shadow-xs flex flex-col justify-between">
+          <div className="rounded-2xl border-2 border-primary/30 bg-gradient-to-br from-blue-50/60 to-white p-5 shadow-xs flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between gap-2">
-                <span className="rounded-md bg-[#0B57D0] text-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                <span className="rounded-md bg-primary text-white px-2 py-0.5 text-xs font-bold uppercase tracking-wider">
                   Featured Digital Twin &bull; ID 1221
                 </span>
-                <span className="text-[11px] font-mono text-emerald-700 font-semibold">
+                <span className="text-xs font-mono text-emerald-700 font-semibold">
                   Live Animated Rotation
                 </span>
               </div>
@@ -324,7 +324,7 @@ export default function LibraryPage() {
               <span className="text-xs font-semibold text-slate-500">Fixed Displacement Pumps</span>
               <Link
                 href="/lesson/crescent-pump-simulation"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#0B57D0] hover:bg-blue-700 text-white px-4 py-2 text-xs font-bold transition-all shadow-xs"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-primary hover:bg-blue-700 text-white px-4 py-2 text-xs font-bold transition-all shadow-xs"
               >
                 <span>Launch Interactive Sim</span>
                 <span>&rarr;</span>
@@ -335,10 +335,10 @@ export default function LibraryPage() {
           <div className="rounded-2xl border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-50/60 to-white p-5 shadow-xs flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between gap-2">
-                <span className="rounded-md bg-emerald-600 text-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                <span className="rounded-md bg-emerald-600 text-white px-2 py-0.5 text-xs font-bold uppercase tracking-wider">
                   Featured Digital Twin &bull; ID 686
                 </span>
-                <span className="text-[11px] font-mono text-blue-700 font-semibold">
+                <span className="text-xs font-mono text-blue-700 font-semibold">
                   P = F ÷ A Physics Twin
                 </span>
               </div>
@@ -401,14 +401,14 @@ export default function LibraryPage() {
             return (
               <div
                 key={item.id}
-                className="group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs hover:border-[#0B57D0]/60 hover:shadow-sm transition-all"
+                className="group flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs hover:border-primary/60 hover:shadow-sm transition-all"
               >
                 <div>
                   <div className="flex items-start justify-between gap-2 pb-2">
                     <span
-                      className={`rounded-lg px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                      className={`rounded-lg px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${
                         isSimulation
-                          ? 'bg-blue-50 text-[#0B57D0] border border-blue-100'
+                          ? 'bg-blue-50 text-primary border border-blue-100'
                           : isLesson
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
                             : isQuiz
@@ -419,12 +419,12 @@ export default function LibraryPage() {
                       {item.category}
                     </span>
 
-                    <span className="text-[11px] font-mono text-slate-400">
+                    <span className="text-xs font-mono text-slate-400">
                       ~{item.average_time || 15}m
                     </span>
                   </div>
 
-                  <h3 className="text-base font-bold text-slate-900 group-hover:text-[#0B57D0] transition-colors line-clamp-2 mt-1">
+                  <h3 className="text-base font-bold text-slate-900 group-hover:text-primary transition-colors line-clamp-2 mt-1">
                     {item.name}
                   </h3>
 
@@ -434,13 +434,13 @@ export default function LibraryPage() {
                 </div>
 
                 <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-slate-400">
+                  <span className="text-xs font-semibold text-slate-400">
                     SOP Validated
                   </span>
 
                   <Link
                     href={itemHref}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 group-hover:bg-[#0B57D0] group-hover:text-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-all"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 group-hover:bg-primary group-hover:text-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-all"
                   >
                     <span>{isSimulation ? 'Launch Sim' : isQuiz ? 'Take Quiz' : 'Start'}</span>
                     <span>&rarr;</span>
@@ -476,7 +476,7 @@ export default function LibraryPage() {
                 setSelectedTopic('All Topics');
                 setSelectedCategory('all');
               }}
-              className="mt-4 rounded-xl bg-[#0B57D0] px-4 py-2 text-xs font-bold text-white shadow-xs"
+              className="mt-4 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white shadow-xs"
             >
               Reset Filters
             </button>

@@ -127,7 +127,7 @@ export function InviteRedeemView({ code }: InviteRedeemViewProps) {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder={t('auth.phonePlaceholder')}
-                className="min-h-11 w-full bg-transparent px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/50"
+                className="h-11 w-full bg-transparent px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/50"
               />
             </div>
           </div>
@@ -147,7 +147,7 @@ export function InviteRedeemView({ code }: InviteRedeemViewProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="min-h-11 w-full rounded-md border border-border bg-card px-3 pr-16 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/50"
+                className="h-11 w-full rounded-md border border-border bg-card px-3 pr-16 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/50"
               />
               <button
                 type="button"
@@ -173,7 +173,7 @@ export function InviteRedeemView({ code }: InviteRedeemViewProps) {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="••••••••"
-              className="mt-1.5 min-h-11 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/50"
+              className="mt-1.5 h-11 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/50"
             />
           </div>
 
@@ -186,7 +186,7 @@ export function InviteRedeemView({ code }: InviteRedeemViewProps) {
           <button
             type="submit"
             disabled={loading}
-            className="mt-2 flex min-h-11 w-full items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="mt-2 flex h-11 w-full items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {loading ? t('auth.activating') : t('auth.activateAccount')}
           </button>

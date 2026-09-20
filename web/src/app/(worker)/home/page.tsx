@@ -158,7 +158,7 @@ export default function HomePage() {
         <SectionLabel>Your skills</SectionLabel>
         <div className="mt-4 flex flex-col divide-y divide-border">
           {fixtureSkillProfile.strengths.map((skill) => (
-            <div key={skill} className="flex min-h-11 items-center justify-between gap-3 py-2.5">
+            <div key={skill} className="flex h-11 items-center justify-between gap-3 py-2.5">
               <span className="text-base text-foreground">{skill}</span>
               <span className="text-sm font-medium text-primary">Verified</span>
             </div>
@@ -166,7 +166,7 @@ export default function HomePage() {
           {fixtureSkillProfile.weaknesses.map((skill) => (
             <div
               key={skill}
-              className="flex min-h-11 items-center justify-between gap-3 py-2.5 text-muted-foreground"
+              className="flex h-11 items-center justify-between gap-3 py-2.5 text-muted-foreground"
             >
               <span className="text-base">{skill}</span>
               <span className="flex items-center gap-1.5 text-sm">
@@ -207,6 +207,7 @@ export default function HomePage() {
             })}
           </div>
           <Button
+            nativeButton={false}
             render={<Link href="/opportunities" />}
             size="xl"
             variant="outline"

@@ -147,7 +147,7 @@ export function MachineViewer({
             onClick={() => onPartSelected?.(hotspot.id)}
             aria-label={hotspot.label}
           >
-            <span className="text-[11px] font-bold">{idx + 1}</span>
+            <span className="text-xs font-bold">{idx + 1}</span>
             <span className="hotspot-annotation">{hotspot.label}</span>
           </button>
         );

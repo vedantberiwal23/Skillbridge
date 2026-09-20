@@ -52,6 +52,7 @@ export default function CourseDetailPage({ params }: PageProps<'/learn/[tradeId]
 
         <div className="mt-5 flex items-center gap-3">
           <Button
+            nativeButton={false}
             render={<Link href={`/lesson/${allModules[0]?.lessonId}`} />}
             size="xl"
             className="flex-1"

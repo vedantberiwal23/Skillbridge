@@ -451,7 +451,7 @@ export function WorkerFileDashboard({
                       <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
                         {worker.profession}
                       </p>
-                      <div className="mt-2 flex items-center justify-between text-[11px]">
+                      <div className="mt-2 flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">{worker.employeeId}</span>
                         <span
                           className={`font-medium ${
@@ -698,7 +698,7 @@ export function WorkerFileDashboard({
                     </span>
                     <div>
                       <span className="text-xs font-medium text-foreground">{badge.title}</span>
-                      <p className="text-[10px] text-muted-foreground">{badge.awardedAt}</p>
+                      <p className="text-xs text-muted-foreground">{badge.awardedAt}</p>
                     </div>
                   </div>
                 ))

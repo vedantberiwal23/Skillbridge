@@ -83,15 +83,15 @@ export default function PlanPage() {
   const progressPct = Math.round((completedCount / totalModules) * 100) || 25;
 
   return (
-    <main className="flex min-h-screen w-full flex-col lg:flex-row bg-[#F8FAFC]">
+    <main className="flex min-h-screen w-full flex-col lg:flex-row bg-background">
       {/* =======================================================
          LEFT BRAND & OVERVIEW CANVAS (#0B57D0)
          ======================================================= */}
-      <div className="flex w-full flex-col justify-between bg-[#0B57D0] px-8 py-10 lg:w-[36%] lg:min-h-screen lg:px-14 lg:py-16 text-white shrink-0">
+      <div className="flex w-full flex-col justify-between bg-primary px-8 py-10 lg:w-[36%] lg:min-h-screen lg:px-14 lg:py-16 text-white shrink-0">
         {/* Top: Logo & Plant Badge */}
         <div>
           <Link href="/welcome" className="inline-flex items-center gap-3 group">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-white text-[#0B57D0] font-black text-xl shadow-xs transition-transform group-hover:scale-105">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-white text-primary font-black text-xl shadow-xs transition-transform group-hover:scale-105">
               S
             </div>
             <span className="text-xl font-bold tracking-tight text-white">
@@ -156,7 +156,7 @@ export default function PlanPage() {
       {/* =======================================================
          RIGHT WORKSPACE CANVAS (#F8FAFC)
          ======================================================= */}
-      <div className="flex flex-1 flex-col justify-between px-6 py-10 sm:px-12 lg:px-16 lg:py-16 bg-[#F8FAFC]">
+      <div className="flex flex-1 flex-col justify-between px-6 py-10 sm:px-12 lg:px-16 lg:py-16 bg-background">
         {/* Top Header: Track Name & Language Switcher */}
         <div className="flex flex-wrap items-center justify-between gap-4 pb-8">
           <div>
@@ -175,7 +175,7 @@ export default function PlanPage() {
                   onClick={() => setLocale(code as Locale)}
                   className={`rounded-lg px-3 py-1.5 font-medium transition-all ${
                     locale === code
-                      ? 'bg-[#0B57D0] text-white font-semibold'
+                      ? 'bg-primary text-white font-semibold'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -189,14 +189,14 @@ export default function PlanPage() {
                 href="/worker-file"
                 className="rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 px-3.5 py-1.5 text-xs font-bold shadow-2xs transition-all inline-flex items-center gap-1.5"
               >
-                <svg className="size-3.5 text-[#0B57D0]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <svg className="size-3.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
                 <span>{t('worker.workerFile')}</span>
               </Link>
               <Link
                 href="/library"
-                className="rounded-xl bg-[#0B57D0] hover:bg-blue-700 text-white px-3.5 py-1.5 text-xs font-bold shadow-xs transition-all"
+                className="rounded-xl bg-primary hover:bg-blue-700 text-white px-3.5 py-1.5 text-xs font-bold shadow-xs transition-all"
               >
                 Sim Library (976)
               </Link>
@@ -232,7 +232,7 @@ export default function PlanPage() {
                 onClick={() => handleSelectTrade(t.id)}
                 className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
                   selectedTradeKey === t.id
-                    ? 'bg-[#0B57D0] text-white shadow-xs'
+                    ? 'bg-primary text-white shadow-xs'
                     : 'bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300'
                 }`}
               >
@@ -333,11 +333,11 @@ export default function PlanPage() {
                                 )}
 
                                 <div>
-                                  <span className="text-sm font-semibold text-slate-900 group-hover:text-[#0B57D0] transition-colors block">
+                                  <span className="text-sm font-semibold text-slate-900 group-hover:text-primary transition-colors block">
                                     {item.title}
                                   </span>
                                   {isInProgress && (
-                                    <span className="text-[11px] text-[#0B57D0] font-medium mt-0.5 inline-block">
+                                    <span className="text-xs text-primary font-medium mt-0.5 inline-block">
                                       Active Simulation Ready &bull; Tap to launch
                                     </span>
                                   )}
@@ -363,7 +363,7 @@ export default function PlanPage() {
           {/* Docked Hands-Free Voice Assistant Bar */}
           <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#0B57D0] border border-blue-100">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-primary border border-blue-100">
                 <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                 </svg>
@@ -386,7 +386,7 @@ export default function PlanPage() {
               onTouchEnd={() => setIsAskingVoice(false)}
               className={`rounded-xl px-5 py-2.5 text-xs font-bold transition-all shrink-0 ${
                 isAskingVoice
-                  ? 'bg-[#0B57D0] text-white scale-95'
+                  ? 'bg-primary text-white scale-95'
                   : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
               }`}
             >

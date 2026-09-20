@@ -59,8 +59,8 @@ export function BottomNav() {
               <span
                 className={
                   active
-                    ? 'text-[11px] font-semibold text-primary'
-                    : 'text-[11px] font-medium'
+                    ? 'text-xs font-semibold text-primary'
+                    : 'text-xs font-medium'
                 }
               >
                 {label}

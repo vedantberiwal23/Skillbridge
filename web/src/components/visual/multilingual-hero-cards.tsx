@@ -240,7 +240,7 @@ export function MultilingualHeroCards() {
               }`}
             >
               <span className="text-muted-foreground truncate">{current.voiceInstructor}</span>
-              <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary shrink-0">
+              <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary shrink-0">
                 {current.nativeName}
               </span>
             </div>

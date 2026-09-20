@@ -26,6 +26,8 @@ import type { MachineAsset } from '@/lib/types';
 import { openVoiceChannel, type VoiceChannel, type ChannelState, type VoiceTurn, type TurnHandlers } from '@/lib/voice/channel';
 import * as player from '@/lib/voice/player';
 import { ScanPipelinePanel } from '@/components/studio/scan-pipeline';
+import { twinContext } from '@/lib/voice/context';
+import type { TwinBuilt } from '@/components/viewer/twin-uploader';
 import { LanguageDropdown } from '@/components/ui/language-dropdown';
 import { INDIAN_LANGUAGES } from '@/i18n/config';
 
@@ -280,6 +282,12 @@ export default function SimulationStudioPage() {
   const [autoRotate, setAutoRotate] = useState<boolean>(false);
   const [activeAsset, setActiveAsset] = useState<MachineAsset>(MACHINE_TWIN_ASSET);
   /**
+   * What the engine made of the machine on screen. Without it the tutor knows
+   * only a name — usually a filename — so "what is this file I uploaded?" has
+   * nothing to answer from.
+   */
+  const [activeTwin, setActiveTwin] = useState<TwinBuilt | null>(null);
+  /**
    * Whether the Machine Twin engine is actually reachable.
    *
    * `null` until asked. The header used to assert "Active" next to a pulsing
@@ -402,6 +410,24 @@ export default function SimulationStudioPage() {
    * silently turns "what is this?" into "what is the relief valve?".
    */
   const selectedPartLabel = partOptions.find((p) => p.id === selectedPartId)?.name ?? null;
+  /**
+   * What the tutor is told the screen is showing. The demo pump is a sample;
+   * anything else arrived through the uploader or the scanner, and the engine's
+   * own account of it — CAD or photographs, which file, which components — is
+   * what lets the tutor answer "what is this?" about the real thing.
+   */
+  const screenForVoice = () =>
+    twinContext({
+      machine: activeAsset.name,
+      source: activeTwin?.source ?? (isDemoAsset ? 'sample' : null),
+      fileName: activeTwin?.fileName ?? null,
+      parts: activeTwin?.parts ?? partOptions.map((p) => ({ label: p.name })),
+      part: currentPart
+        ? { label: currentPart.name, description: currentPart.subsystem }
+        : selectedPartLabel
+          ? { label: selectedPartLabel }
+          : undefined,
+    });
   /**
    * The prompts offered under the answer. With a demo part selected they are its
    * authored questions; otherwise they ask about whatever machine is loaded,
@@ -532,7 +558,13 @@ export default function SimulationStudioPage() {
     sentAtRef.current = Date.now();
     ch.ask(
       q,
-      { language: currentVoiceCode, part: selectedPartLabel, machine: activeAsset.name, history: historyForTurn() },
+      {
+        language: currentVoiceCode,
+        part: selectedPartLabel,
+        machine: activeAsset.name,
+        context: screenForVoice(),
+        history: historyForTurn(),
+      },
       turnHandlers(q)
     );
   };
@@ -559,6 +591,7 @@ export default function SimulationStudioPage() {
         explicit: true,
         part: selectedPartLabel,
         machine: activeAsset.name,
+        context: screenForVoice(),
         history: historyForTurn(),
       },
       turnHandlers('')
@@ -607,8 +640,9 @@ export default function SimulationStudioPage() {
   }, [activeTab, isRecording]);
 
   // A model built by the scanner tab, loaded through the authenticated proxy.
-  const loadScannedModel = (asset: MachineAsset) => {
+  const loadScannedModel = (asset: MachineAsset, built?: TwinBuilt) => {
     setActiveAsset(asset);
+    setActiveTwin(built ?? null);
     setActiveTab('twin');
   };
 

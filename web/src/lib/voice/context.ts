@@ -77,3 +77,47 @@ export function lessonContext(
 export function screenContext(input: ScreenContext): ScreenContext {
   return input;
 }
+
+/**
+ * The Studio's machine twin: the model actually on screen, including one the
+ * admin just uploaded or scanned.
+ *
+ * Without this the tutor is handed a bare name — often a filename — and a
+ * worker asking "what is this file I uploaded?" gets an answer about nothing,
+ * or a flat "I do not see any model". The twin engine already knows what it
+ * built: where the geometry came from, and which components it separated. That
+ * is what a person looking at the screen can see, so it is what the tutor is
+ * told.
+ */
+export function twinContext(input: {
+  machine: string;
+  /** How the twin was made: an uploaded CAD assembly, or a photo reconstruction. */
+  source?: 'cad' | 'photogrammetry' | 'sample' | null;
+  /** The file the admin uploaded, when this twin came from one. */
+  fileName?: string | null;
+  /** Parts the engine separated. A fresh photo scan usually has none yet. */
+  parts?: { label?: string; description?: string }[];
+  /** The part the worker tapped, if any. */
+  part?: { label?: string; description?: string; safety?: string };
+}): ScreenContext {
+  const origin =
+    input.source === 'cad'
+      ? `A CAD assembly the team uploaded${input.fileName ? ` (${input.fileName})` : ''}, shown as a 3D model.`
+      : input.source === 'photogrammetry'
+        ? `A 3D model reconstructed from photographs of the real machine${input.fileName ? ` (${input.fileName})` : ''}.`
+        : 'A 3D model of this machine, shown in the Studio viewer.';
+
+  const parts = (input.parts ?? []).filter((p) => p.label);
+  const partNote = parts.length
+    ? `The engine separated ${parts.length} component${parts.length === 1 ? '' : 's'}.`
+    : 'Its components have not been labelled yet, so questions are about the machine as a whole.';
+
+  return {
+    screen: 'twin',
+    title: input.machine,
+    machine: input.machine,
+    summary: `${origin} ${partNote}`,
+    parts: parts.length ? parts : undefined,
+    part: input.part,
+  };
+}

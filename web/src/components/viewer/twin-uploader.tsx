@@ -118,7 +118,14 @@ export interface TwinUploaderProps {
    * Without it an admin uploads a compressor, asks "what is this?", and is
    * answered about whichever machine the viewer still holds.
    */
-  onTwinReady?: (asset: MachineAsset) => void;
+  onTwinReady?: (asset: MachineAsset, built: TwinBuilt) => void;
+}
+
+/** What the engine made, so the screen — and the tutor — can describe it. */
+export interface TwinBuilt {
+  source: 'cad' | 'photogrammetry';
+  fileName: string;
+  parts: { label?: string; description?: string }[];
 }
 
 export function TwinUploader({ onTwinReady }: TwinUploaderProps = {}) {
@@ -243,7 +250,11 @@ export function TwinUploader({ onTwinReady }: TwinUploaderProps = {}) {
         hotspots: [],
       };
       setAsset(localAsset);
-      onTwinReadyRef.current?.(localAsset);
+      onTwinReadyRef.current?.(localAsset, {
+        source: 'cad',
+        fileName: files[0].name,
+        parts: parts.map((stableId) => ({ label: stableId })),
+      });
       setLocalOnly(true);
       setPhase('done');
       setDetail('');
@@ -339,7 +350,11 @@ export function TwinUploader({ onTwinReady }: TwinUploaderProps = {}) {
         hotspots: [],
       };
       setAsset(builtAsset);
-      onTwinReadyRef.current?.(builtAsset);
+      onTwinReadyRef.current?.(builtAsset, {
+        source: cad ? 'cad' : 'photogrammetry',
+        fileName: files[0].name,
+        parts: parts.map((c) => ({ label: c.label })),
+      });
       setPhase('done');
       setDetail('');
     } catch (err) {

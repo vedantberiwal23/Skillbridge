@@ -1,0 +1,492 @@
+/*
+ * Warm editorial studio surface, scoped to this route.
+ *
+ * One ground, one ink, one pigment. The pigment is type, a rule or a marker —
+ * never a filled area — so it always means "read this", not "decoration".
+ * Square corners everywhere, including buttons.
+ */
+
+.page {
+  --ground: #e7e3da;
+  --ground-2: #dcd7cb;
+  --ink: #1a1917;
+  --ink-2: #4a4741;
+  --muted: #6e6a61;
+  --pigment: #9b3418;
+  --hair: rgba(26, 25, 23, 0.16);
+
+  background: var(--ground);
+  color: var(--ink);
+  min-height: 100dvh;
+  font-family: var(--font-mono-editorial), ui-monospace, monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+.page *,
+.page *::before,
+.page *::after {
+  border-radius: 0 !important;
+  box-sizing: border-box;
+}
+
+/* ── type ─────────────────────────────────────────────────────────────── */
+
+.serif {
+  font-family: var(--font-serif-editorial), Georgia, serif;
+  letter-spacing: -0.015em;
+  font-weight: 400;
+  line-height: 1.02;
+}
+
+.label {
+  font-family: var(--font-mono-editorial), ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.labelPigment {
+  composes: label;
+  color: var(--pigment);
+}
+
+.body {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  max-width: 62ch;
+}
+
+.italic {
+  font-style: italic;
+  color: var(--pigment);
+}
+
+/* ── nav ──────────────────────────────────────────────────────────────── */
+
+.nav {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 60px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 clamp(16px, 3vw, 40px);
+  background: color-mix(in srgb, var(--ground) 82%, transparent);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--hair);
+}
+
+.wordmarkSmall {
+  font-family: var(--font-serif-editorial), Georgia, serif;
+  font-size: 19px;
+  letter-spacing: -0.015em;
+}
+
+.navLinks {
+  display: none;
+  gap: 26px;
+  align-items: center;
+}
+
+@media (min-width: 860px) {
+  .navLinks {
+    display: flex;
+  }
+}
+
+.navLink {
+  composes: label;
+  color: var(--ink-2);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  padding-bottom: 2px;
+}
+
+.navLink:hover {
+  color: var(--ink);
+  border-bottom-color: var(--pigment);
+}
+
+/* ── buttons ──────────────────────────────────────────────────────────── */
+
+.btn {
+  composes: label;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 20px;
+  border: 1px solid var(--ink);
+  color: var(--ink);
+  background: transparent;
+  text-decoration: none;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.btn:hover {
+  background: var(--ink);
+  color: var(--ground);
+}
+
+.btnSolid {
+  composes: btn;
+  background: var(--ink);
+  color: var(--ground);
+}
+
+.btnSolid:hover {
+  background: transparent;
+  color: var(--ink);
+}
+
+/* ── hero ─────────────────────────────────────────────────────────────── */
+
+.hero {
+  position: relative;
+  min-height: calc(100dvh - 60px);
+  margin-top: 60px;
+  background: var(--ground-2);
+  overflow: clip;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  padding: 40px clamp(16px, 3vw, 40px) 64px;
+}
+
+.heroCopy {
+  position: relative;
+  z-index: 3;
+  max-width: 44vw;
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+@media (max-width: 900px) {
+  .heroCopy {
+    max-width: 100%;
+  }
+}
+
+.heroHeadline {
+  composes: serif;
+  font-size: clamp(30px, 4vw, 56px);
+  max-width: 14ch;
+}
+
+.heroActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.heroCaption {
+  position: absolute;
+  left: clamp(16px, 3vw, 40px);
+  bottom: 24px;
+  z-index: 3;
+  composes: label;
+  max-width: 38ch;
+}
+
+/* The signature: two stacked wordmark lines, the subject standing in the gap. */
+.wordLine {
+  position: absolute;
+  right: clamp(8px, 2vw, 36px);
+  composes: serif;
+  font-size: clamp(74px, 17.5vw, 258px);
+  line-height: 0.82;
+  color: var(--ink);
+  pointer-events: none;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.wordLineTop {
+  composes: wordLine;
+  top: 12%;
+  z-index: 4;
+}
+
+.wordLineBottom {
+  composes: wordLine;
+  bottom: 14%;
+  z-index: 1;
+}
+
+.subject {
+  position: absolute;
+  z-index: 2;
+  right: clamp(40px, 22vw, 360px);
+  bottom: 12%;
+  /* Sized by HEIGHT with width auto: a width-driven box grows taller than the
+     hero on a short viewport, crops the machine and buries the copy. */
+  height: clamp(220px, 46vh, 420px);
+  width: min(620px, 60vw);
+  pointer-events: none;
+  /* The renderer paints its own light ground; multiply knocks that white out
+     against the bone field so the machine reads as a cut-out standing in the
+     wordmark's gap rather than a picture pasted over it. */
+  mix-blend-mode: multiply;
+  will-change: transform;
+}
+
+/* The pump component ships its own HUD; here it is a subject, not a tool. */
+.subject > div > *:not(:nth-child(2)) {
+  display: none !important;
+}
+
+@media (max-width: 760px) {
+  .subject {
+    right: 50%;
+    transform: translateX(50%);
+    height: clamp(170px, 30vh, 260px);
+  }
+
+  .wordLineTop {
+    top: 6%;
+  }
+}
+
+/* ── sections ─────────────────────────────────────────────────────────── */
+
+.section {
+  padding: clamp(64px, 9vw, 128px) clamp(16px, 3vw, 40px);
+  border-top: 1px solid var(--hair);
+}
+
+.two {
+  display: grid;
+  gap: clamp(32px, 5vw, 72px);
+  grid-template-columns: 1fr;
+  max-width: 1320px;
+  margin: 0 auto;
+  align-items: start;
+}
+
+@media (min-width: 960px) {
+  .two {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  }
+}
+
+.h2 {
+  composes: serif;
+  font-size: clamp(26px, 3.2vw, 44px);
+  max-width: 16ch;
+}
+
+.rows {
+  margin-top: 28px;
+  border-top: 1px solid var(--hair);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 20px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--hair);
+  align-items: baseline;
+}
+
+@media (min-width: 720px) {
+  .row {
+    grid-template-columns: 16ch 1fr auto;
+  }
+}
+
+.rowValue {
+  composes: label;
+  color: var(--ink);
+  text-align: right;
+}
+
+.drawing {
+  width: 100%;
+  height: auto;
+  background: var(--ground);
+  border: 1px solid var(--hair);
+}
+
+/* ── pinned study ─────────────────────────────────────────────────────── */
+
+.studyOuter {
+  height: 320vh;
+  position: relative;
+  border-top: 1px solid var(--hair);
+  background: var(--ground-2);
+}
+
+.studyStage {
+  position: sticky;
+  top: 60px;
+  height: calc(100dvh - 60px);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(24px, 4vw, 56px) clamp(16px, 3vw, 40px);
+  overflow: hidden;
+}
+
+.studyPlot {
+  position: relative;
+  flex: 1;
+  margin: 24px 0;
+  min-height: 0;
+}
+
+.readouts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 24px;
+  border-top: 1px solid var(--hair);
+  padding-top: 16px;
+}
+
+@media (min-width: 760px) {
+  .readouts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.readoutValue {
+  composes: serif;
+  font-size: clamp(22px, 2.6vw, 34px);
+  margin-top: 4px;
+}
+
+/* ── work table ───────────────────────────────────────────────────────── */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  max-width: 1320px;
+  margin: 28px auto 0;
+}
+
+.table th {
+  font-family: var(--font-mono-editorial), ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: left;
+  padding: 0 16px 12px 0;
+  border-bottom: 1px solid var(--hair);
+  font-weight: 500;
+}
+
+.table td {
+  padding: 18px 16px 18px 0;
+  border-bottom: 1px solid var(--hair);
+  vertical-align: baseline;
+  color: var(--ink-2);
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.projectName {
+  composes: serif;
+  font-size: clamp(15px, 1.5vw, 21px);
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: -0.015em;
+}
+
+@media (max-width: 720px) {
+  .table,
+  .table tbody,
+  .table tr,
+  .table td {
+    display: block;
+    width: 100%;
+  }
+
+  .table thead {
+    display: none;
+  }
+
+  .table tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 16px;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--hair);
+  }
+
+  .table td {
+    border: 0;
+    padding: 0;
+  }
+
+  .table td:first-child {
+    grid-column: 1 / -1;
+    margin-bottom: 6px;
+  }
+}
+
+/* ── close ────────────────────────────────────────────────────────────── */
+
+.closeActions {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 40px;
+  max-width: 1320px;
+  margin-inline: auto;
+}
+
+.footStrip {
+  border-top: 1px solid var(--hair);
+  margin-top: 40px;
+  padding-top: 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  max-width: 1320px;
+  margin-inline: auto;
+}
+
+.wordmarkCrop {
+  composes: serif;
+  font-size: clamp(80px, 20vw, 300px);
+  line-height: 0.8;
+  text-align: center;
+  transform: translateY(0.17em);
+  overflow: clip;
+  margin-top: 24px;
+}
+
+/* ── reveal ───────────────────────────────────────────────────────────── */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 620ms cubic-bezier(0.22, 1, 0.36, 1), transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.revealIn {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

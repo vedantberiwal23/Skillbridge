@@ -53,10 +53,19 @@ export function MachineViewer({
   const viewerRef = useRef<HTMLElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [currentHeight, setCurrentHeight] = useState<number>(height);
+  const [currentHeight, setCurrentHeight] = useState<number>(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 640) {
+      return 420;
+    }
+    return height;
+  });
 
   const toggleExpandHeight = () => {
-    setCurrentHeight((prev) => (prev <= 640 ? 820 : 640));
+    setCurrentHeight((prev) => {
+      if (prev <= 440) return 600;
+      if (prev <= 640) return 820;
+      return typeof window !== 'undefined' && window.innerWidth < 640 ? 420 : 640;
+    });
   };
 
   useEffect(() => {
@@ -250,44 +259,44 @@ export function MachineViewer({
       </model-viewer>
 
       {/* Floating Viewport HUD Controls */}
-      <div className="absolute top-3 right-3 flex items-center gap-1 bg-card/90 backdrop-blur-md p-1.5 rounded-xl border border-border shadow-lg z-10">
+      <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex items-center gap-1 bg-card/95 backdrop-blur-md p-1 sm:p-1.5 rounded-xl border border-border shadow-lg z-10">
         <button
           type="button"
           onClick={handleZoomIn}
           title="Zoom In (+)"
           aria-label="Zoom In"
-          className="p-1.5 rounded-lg hover:bg-muted text-foreground transition flex items-center justify-center cursor-pointer"
+          className="p-1.5 rounded-lg hover:bg-muted text-foreground transition flex items-center justify-center cursor-pointer active:scale-95"
         >
-          <ZoomIn className="w-4 h-4" />
+          <ZoomIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </button>
         <button
           type="button"
           onClick={handleZoomOut}
           title="Zoom Out (-)"
           aria-label="Zoom Out"
-          className="p-1.5 rounded-lg hover:bg-muted text-foreground transition flex items-center justify-center cursor-pointer"
+          className="p-1.5 rounded-lg hover:bg-muted text-foreground transition flex items-center justify-center cursor-pointer active:scale-95"
         >
-          <ZoomOut className="w-4 h-4" />
+          <ZoomOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </button>
         <button
           type="button"
           onClick={handleReset}
           title="Reset Camera & Center"
           aria-label="Reset Camera"
-          className="p-1.5 rounded-lg hover:bg-muted text-foreground transition flex items-center justify-center cursor-pointer"
+          className="p-1.5 rounded-lg hover:bg-muted text-foreground transition flex items-center justify-center cursor-pointer active:scale-95"
         >
-          <RotateCcw className="w-4 h-4" />
+          <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </button>
         <div className="h-4 w-px bg-border mx-0.5" />
         <button
           type="button"
           onClick={toggleExpandHeight}
-          title={currentHeight <= 640 ? 'Expand Viewport to 820px' : 'Reset Viewport to 640px'}
+          title={currentHeight <= 440 ? 'Expand Viewport to 600px' : currentHeight <= 640 ? 'Expand Viewport to 820px' : 'Reset Viewport Height'}
           aria-label="Toggle Viewport Size"
-          className="px-2 py-1 rounded-lg hover:bg-muted text-foreground transition flex items-center gap-1 text-[11px] font-mono cursor-pointer border border-border/50"
+          className="px-1.5 sm:px-2 py-1 rounded-lg hover:bg-muted text-foreground transition flex items-center gap-1 text-[10px] sm:text-[11px] font-mono cursor-pointer border border-border/50 active:scale-95"
         >
           <ChevronsUpDown className="w-3.5 h-3.5 text-primary" />
-          <span>{currentHeight}px</span>
+          <span className="hidden sm:inline">{currentHeight}px</span>
         </button>
         <div className="h-4 w-px bg-border mx-0.5" />
         <button
@@ -295,9 +304,9 @@ export function MachineViewer({
           onClick={toggleFullscreen}
           title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
           aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-          className="p-1.5 rounded-lg hover:bg-muted text-foreground transition flex items-center justify-center cursor-pointer"
+          className="p-1.5 rounded-lg hover:bg-muted text-foreground transition flex items-center justify-center cursor-pointer active:scale-95"
         >
-          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
         </button>
       </div>
 

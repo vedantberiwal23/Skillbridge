@@ -421,23 +421,23 @@ export function TwinUploader() {
       </div>
 
       {asset && (
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-lg">
-          <div className="flex items-center justify-between pb-3 mb-4 border-b border-border">
+        <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 mb-4 border-b border-border">
             <div>
               <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
                 <span>3D Machine Twin Assembly</span>
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                360° interactive view &bull; use controls or scroll wheel to zoom into components
+                360° interactive view &bull; use controls or gestures to zoom into components
               </p>
             </div>
-            <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-muted text-primary border border-border">
+            <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-muted text-primary border border-border self-start sm:self-auto">
               {asset.name}
             </span>
           </div>
 
-          <div className="w-full rounded-xl overflow-hidden shadow-inner min-h-[640px]">
+          <div className="w-full rounded-xl overflow-hidden shadow-inner min-h-[420px] sm:min-h-[640px]">
             <MachineViewer asset={asset} onPartSelected={() => undefined} />
           </div>
 

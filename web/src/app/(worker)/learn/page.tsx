@@ -101,7 +101,7 @@ export default function LearnPage() {
     </main>
 
     {/* Full-bleed statement section — deliberately breaks out of the app's
-        max-w-2xl mobile column, same component used on /welcome. The globe
+        max-w-2xl mobile column, same component used on the landing page. The globe
         animation itself only mounts at >=768px (see GlobeSection); on a
         phone this renders as a static dark banner with the heading. */}
     <GlobeSection

@@ -104,7 +104,7 @@ export default function LoginPage() {
 
       <div className="flex w-full flex-col px-6 py-6 sm:px-10 lg:w-1/2 lg:px-16">
         <div className="flex items-center justify-between">
-          <Link href="/welcome" className="inline-flex items-center gap-2.5">
+          <Link href="/lander" className="inline-flex items-center gap-2.5">
             <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
               S
             </span>

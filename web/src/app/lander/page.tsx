@@ -4,7 +4,22 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Instrument_Serif, Azeret_Mono } from 'next/font/google';
 
-import { ExplodedPump3D } from '@/components/viewer/exploded-pump-3d';
+import dynamic from 'next/dynamic';
+
+/**
+ * three.js is ~600 KB and this is the first page a visitor loads.
+ *
+ * A static import here would put the whole renderer in the landing bundle for
+ * everyone, including visitors who never scroll to the machine — which is the
+ * cost `interactive-simulation.tsx` already avoids the same way. `ssr: false`
+ * because it touches WebGL on mount.
+ */
+const ExplodedPump3D = dynamic(
+  () => import('@/components/viewer/exploded-pump-3d').then((m) => m.ExplodedPump3D),
+  // The wrapping `.subject` element already reserves the space, so the
+  // placeholder renders nothing and the hero does not reflow on arrival.
+  { ssr: false, loading: () => null }
+);
 import { TRADES_CATALOG } from '@/data/curriculum';
 import s from './lander.module.css';
 

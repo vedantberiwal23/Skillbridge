@@ -693,3 +693,66 @@
     transition: none;
   }
 }
+
+/* Work rows on a phone.
+   Last in the file on purpose: the generic `.table td { display: block }`
+   collapse further up would otherwise win and paste each field label straight
+   onto its value — "INDUSTRYHEAVY MANUFACTURING". */
+@media (max-width: 760px) {
+  .table td {
+    display: grid;
+    grid-template-columns: 8ch 1fr;
+    column-gap: 14px;
+    row-gap: 2px;
+    align-items: baseline;
+    padding: 2px 0;
+    letter-spacing: 0.08em;
+  }
+
+  .table td::before {
+    content: attr(data-label);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .table td:first-child {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .table td:first-child::before {
+    content: none;
+  }
+}
+
+/* Section headings on a phone follow the hero: one centred column down the
+   middle of the screen. The ruled rows keep their label-left, value-right
+   structure — centring a spec sheet would make it unreadable. */
+@media (max-width: 760px) {
+  .section > .wrap,
+  .section .two > div:first-child,
+  .studyStage > div:first-child {
+    text-align: center;
+  }
+
+  .section .two > div:first-child .body,
+  .studyStage > div:first-child .body {
+    margin-inline: auto;
+  }
+
+  .h2 {
+    margin-inline: auto;
+    max-width: 18ch;
+  }
+
+  .table td:first-child {
+    text-align: center;
+  }
+
+  .legend,
+  .readouts {
+    justify-content: center;
+  }
+}

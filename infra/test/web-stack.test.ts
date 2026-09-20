@@ -67,7 +67,7 @@ test('the compute role can reach the table, its indexes and the CMK', () => {
   expect(actions).toEqual(expect.arrayContaining(['kms:Decrypt', 'kms:GenerateDataKey*']));
 });
 
-test('the compute role gets exactly the four Cognito admin actions redemption uses', () => {
+test('the compute role gets exactly the Cognito admin actions the app uses', () => {
   const policies = synth().findResources('AWS::IAM::Policy');
   const cognito = Object.values(policies)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -75,11 +75,14 @@ test('the compute role gets exactly the four Cognito admin actions redemption us
     .flatMap((s: { Action: string | string[] }) => ([] as string[]).concat(s.Action))
     .filter((a: string) => a.startsWith('cognito-idp:'));
 
+  // Four for invite redemption, plus AdminUpdateUserAttributes, which keeps
+  // custom:deptId in step when the console moves someone between departments.
   expect(cognito.sort()).toEqual([
     'cognito-idp:AdminAddUserToGroup',
     'cognito-idp:AdminCreateUser',
     'cognito-idp:AdminDeleteUser',
     'cognito-idp:AdminSetUserPassword',
+    'cognito-idp:AdminUpdateUserAttributes',
   ]);
 });
 

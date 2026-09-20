@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { BatchGetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { BatchGetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { ddb, TABLE_NAME } from '@/lib/ddb';
-import { keys } from '@/lib/keys';
+import { keys, prefixes, userPk } from '@/lib/keys';
+import { requestPlanGeneration } from '@/lib/agents';
 import { requireSession, handleApiError, AuthError } from '@/lib/auth';
 import { parseBody, updateMeSchema } from '@/lib/validation';
 import { UserProfile, UserSettings } from '@/lib/types';
@@ -141,8 +142,62 @@ export async function PATCH(req: NextRequest) {
       throw err;
     }
 
-    return NextResponse.json({ success: true });
+    // Finishing onboarding is what a learning plan is generated from. The
+    // generator is an async-tier agent, so this writes the pending header,
+    // enqueues and returns — the plan screen re-fetches once it lands.
+    let planQueued = false;
+    if (body.profession !== undefined && body.profession !== null) {
+      planQueued = await ensurePlan(session.userId, session.orgId, body.profession, body.skillLevel ?? null);
+    }
+
+    return NextResponse.json({ success: true, planQueued });
   } catch (error) {
     return handleApiError(error);
   }
+}
+
+/**
+ * Give a worker their first plan, once.
+ *
+ * Returns false when they already have one: re-running onboarding must not
+ * queue a second generation or overwrite the plan they are partway through.
+ */
+async function ensurePlan(
+  userId: string,
+  orgId: string,
+  profession: string,
+  skillLevel: string | null
+): Promise<boolean> {
+  const existing = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE_NAME,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+      ExpressionAttributeValues: { ':pk': userPk(userId), ':sk': prefixes.plan },
+      Limit: 1,
+    })
+  );
+  if ((existing.Items ?? []).length > 0) return false;
+
+  const planId = 'plan-core';
+  await ddb.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        ...keys.plan(userId, planId),
+        userId,
+        orgId,
+        planId,
+        profession,
+        skillLevel,
+        // The first 90 days are where attrition concentrates, so a new
+        // worker's first plan is the front-loaded one.
+        isFastTrack: true,
+        status: 'pending',
+        requestedAt: new Date().toISOString(),
+      },
+      ConditionExpression: 'attribute_not_exists(PK)',
+    })
+  );
+
+  return requestPlanGeneration({ userId, orgId, planId, profession, skillLevel: skillLevel ?? undefined, isFastTrack: true });
 }

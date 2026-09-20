@@ -163,6 +163,26 @@ export async function PATCH(req: NextRequest) {
     }
 
     const invite = matches[0];
+
+    /**
+     * The code was issued to one phone or one email. Without this check, anyone
+     * who sees the link — forwarded, screenshotted, read off a shoulder — can
+     * claim it with their own number and join the organization.
+     */
+    const issuedPhone = (invite.phone as string | null) ?? null;
+    const issuedEmail = (invite.email as string | null) ?? null;
+    const claimedPhone = phone ?? null;
+    const claimedEmail = email ? email.toLowerCase() : null;
+    const mismatch =
+      (issuedPhone && issuedPhone !== claimedPhone) ||
+      (issuedEmail && issuedEmail.toLowerCase() !== claimedEmail);
+    if (mismatch) {
+      return NextResponse.json(
+        { error: 'This invite was sent to a different phone number or email' },
+        { status: 403 }
+      );
+    }
+
     const orgId = invite.orgId as string;
     const inviteRole = invite.role as Role;
     const inviteDeptId = (invite.deptId as string | null) ?? null;

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { ddb, TABLE_NAME } from '@/lib/ddb';
-import { userPk, keys, prefixes, isPlanHeader } from '@/lib/keys';
+import { orgPk, userPk, keys, prefixes, isPlanHeader } from '@/lib/keys';
 import { requireSession, handleApiError, AuthError } from '@/lib/auth';
 import { parseBody, updatePlanSchema } from '@/lib/validation';
 import { LearningPlan, PlanModule } from '@/lib/types';
@@ -97,6 +97,52 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     return handleApiError(error);
   }
+}
+
+/** A scored attempt at or above this counts as a pass. */
+const PASS_SCORE = 70;
+
+/**
+ * Has this worker passed the assessment that guards `lessonId`?
+ *
+ * Returns true when no assessment covers the lesson: a reading-only module is
+ * complete when the worker says it is. When one does exist, a passing scored
+ * attempt is required — the client cannot mark itself complete, for the same
+ * reason it cannot report its own score.
+ */
+async function assessmentPassed(
+  orgId: string,
+  userId: string,
+  lessonId: string | null
+): Promise<{ ok: boolean; title?: string }> {
+  if (!lessonId) return { ok: true };
+
+  // Assessment definitions are org config, a handful of items, and there is no
+  // index by lessonId — one Query over the prefix is the cheapest correct read.
+  const defs = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE_NAME,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+      ExpressionAttributeValues: { ':pk': orgPk(orgId), ':sk': prefixes.assessment },
+    })
+  );
+  const gate = (defs.Items ?? []).find((a) => a.lessonId === lessonId);
+  if (!gate) return { ok: true };
+
+  const attempts = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE_NAME,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+      ExpressionAttributeValues: {
+        ':pk': userPk(userId),
+        ':sk': prefixes.attemptsFor(gate.assessmentId as string),
+      },
+    })
+  );
+  const passed = (attempts.Items ?? []).some(
+    (a) => a.status === 'scored' && typeof a.score === 'number' && a.score >= PASS_SCORE
+  );
+  return { ok: passed, title: gate.title as string };
 }
 
 /**

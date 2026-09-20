@@ -163,7 +163,9 @@
 
 .heroCopy {
   position: relative;
-  z-index: 3;
+  /* Above both wordmark lines: centred type crosses the copy column at middle
+     widths, and the sentence has to stay readable. */
+  z-index: 5;
   max-width: 44vw;
   min-width: 300px;
   display: flex;
@@ -203,7 +205,12 @@
 /* The signature: two stacked wordmark lines, the subject standing in the gap. */
 .wordLine {
   position: absolute;
+  /* Both lines share one centred axis, so SKILL and BRIDGE stack dead on top
+     of each other whatever the viewport — right-aligning them let the shorter
+     word drift off the longer one as the type scaled. */
+  left: clamp(8px, 2vw, 36px);
   right: clamp(8px, 2vw, 36px);
+  text-align: center;
   composes: serif;
   font-size: clamp(74px, 17.5vw, 258px);
   line-height: 0.82;
@@ -228,15 +235,16 @@
 .subject {
   position: absolute;
   z-index: 2;
-  /* Centred on the gap between the two lines and pulled left of the line
-     ends, so it overlaps the bottom of SKILL and the top of BRIDGE instead of
-     burying one of them. */
-  right: clamp(60px, 26vw, 430px);
-  bottom: 26%;
+  /* On the same centred axis as the wordmark, so the machine stands in the
+     middle of the gap rather than off to one side of it. The extra 6% pushes
+     the canvas right because the machine renders left of its own centre. */
+  right: 50%;
+  transform: translateX(56%);
+  bottom: 24%;
   /* Sized by HEIGHT with width auto: a width-driven box grows taller than the
      hero on a short viewport, crops the machine and buries the copy. */
-  height: clamp(200px, 40vh, 380px);
-  width: min(620px, 60vw);
+  height: clamp(200px, 38vh, 360px);
+  width: min(720px, 66vw);
   pointer-events: none;
   filter: drop-shadow(0 18px 40px rgba(26, 25, 23, 0.22));
   will-change: transform;

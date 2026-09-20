@@ -20,11 +20,12 @@ import { createTurn, type Turn, type TurnOptions } from './turn.js';
  *
  * Wire protocol — client → server:
  *   { t: 'start',  token }              panel open; authenticates the channel
- *   { t: 'begin',  language, history }  button down  (+ optional explicit, part)
+ *   { t: 'begin',  language, history }  button down  (+ optional explicit,
+ *                                       part, machine)
  *   { t: 'audio',  b64 }                50ms linear16 @16k frames
  *   { t: 'stop' }                       button up
  *   { t: 'cancel' }                     turn abandoned
- *   { t: 'ask', text, language, history }  a TYPED question (+ optional part):
+ *   { t: 'ask', text, language, history }  a TYPED question (+ part, machine):
  *                                       no audio, answered and spoken exactly
  *                                       like a spoken one, then `done`
  *
@@ -235,6 +236,9 @@ export function handleConnection(
       },
       ground,
       part: typeof msg.part === 'string' ? msg.part : null,
+      // What the worker is looking at. Clamped and stripped like `part`: it is
+      // client-supplied context, never an instruction.
+      machine: typeof msg.machine === 'string' ? msg.machine : null,
       text,
       streamText: deps.streamText,
       /**

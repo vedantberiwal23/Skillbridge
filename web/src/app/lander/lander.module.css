@@ -239,9 +239,9 @@
      hero's midline, so it clears the descender of SKILL and the cap-height of
      BRIDGE instead of lying across them. Offsets, not a transform — the scroll
      handler owns the transform. */
-  right: clamp(24px, 6vw, 150px);
+  right: clamp(56px, 10vw, 210px);
   top: 50%;
-  margin-top: -17vh;
+  margin-top: -18vh;
   bottom: auto;
   /* Sized by HEIGHT with width auto: a width-driven box grows taller than the
      hero on a short viewport, crops the machine and buries the copy. */
@@ -257,14 +257,16 @@
   display: none !important;
 }
 
-/* On a phone the bracket leads: SKILL, the machine centred in the gap, then
-   BRIDGE — with the copy below the whole figure instead of inside it. */
+/* On a phone the copy leads and the figure follows it: eyebrow, headline,
+   paragraph, buttons — then SKILL, the machine and BRIDGE as one block at the
+   foot of the hero. */
 @media (max-width: 760px) {
   .hero {
     align-items: flex-start;
     min-height: auto;
-    padding-top: 26px;
-    padding-bottom: 56px;
+    padding-top: 28px;
+    /* Reserves the band the figure is pinned into. */
+    padding-bottom: 46vh;
   }
 
   .wordLine {
@@ -275,32 +277,30 @@
   }
 
   .wordLineTop {
-    top: 4vh;
+    top: auto;
+    bottom: 34vh;
   }
 
   .wordLineBottom {
-    top: 30vh;
-    bottom: auto;
+    top: auto;
+    bottom: 3vh;
   }
 
   .subject {
-    /* Centred in the gap between the two lines, on the page's own axis. */
-    top: 13vh;
-    bottom: auto;
-    /* Positioned with offsets, not a transform: the scroll handler writes an
-       inline transform every frame and would overwrite one set here. The
-       machine renders left of its canvas centre, so the canvas hangs past the
-       right edge to bring the machine onto the page's midline. */
+    /* Centred in the band between the two lines. Offsets rather than a
+       transform: the scroll handler writes the transform every frame. */
+    top: auto;
+    bottom: 15vh;
     right: auto;
     left: 50%;
-    margin-left: -76vw;
+    margin-left: -80vw;
     margin-top: 0;
     width: 128vw;
     height: 17vh;
   }
 
   .heroCopy {
-    margin-top: 42vh;
+    margin-top: 0;
     gap: 14px;
   }
 

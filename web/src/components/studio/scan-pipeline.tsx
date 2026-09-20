@@ -522,21 +522,23 @@ export function ScanPipelinePanel({ onLoadModel }: { onLoadModel: (asset: Machin
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Engine status — from the engine's own capability report */}
-      <div className="bg-card border border-border rounded-2xl p-6 shadow-xl flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-success-muted animate-pulse" />
-            <h2 className="text-base font-bold text-foreground tracking-tight">Machine Twin Photogrammetry Engine</h2>
+      <div className="bg-card border border-border rounded-2xl p-3.5 sm:p-5 md:p-6 shadow-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="min-w-0 w-full sm:w-auto">
+          <div className="flex flex-col xs:flex-row xs:items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="w-2.5 h-2.5 rounded-full bg-success-muted animate-pulse shrink-0" />
+              <h2 className="text-sm sm:text-base font-bold text-foreground tracking-tight">Machine Twin Photogrammetry Engine</h2>
+            </div>
             <span
               data-testid="engine-status"
-              className="text-[10px] font-mono bg-muted text-foreground border border-border px-2 py-0.5 rounded"
+              className="text-[10px] font-mono bg-muted text-foreground border border-border px-2 py-0.5 rounded self-start xs:self-auto shrink-0"
             >
               {engineReady
-                ? `Local Engine Active · mesh: ${caps?.mesh_provider}`
+                ? `Local Engine · ${caps?.mesh_provider}`
                 : 'Cloud Photogrammetry Pipeline · Active'}
             </span>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
             Photos → camera poses + coverage check → neural surface mesh → browser-ready GLB with levels of detail.
           </p>
         </div>
@@ -544,20 +546,20 @@ export function ScanPipelinePanel({ onLoadModel }: { onLoadModel: (asset: Machin
           type="button"
           onClick={loadBuilt}
           disabled={!built}
-          className="bg-primary enabled:hover:bg-primary disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg transition flex items-center gap-2"
+          className="w-full sm:w-auto shrink-0 bg-primary enabled:hover:bg-primary disabled:bg-muted disabled:text-muted-foreground text-primary-foreground font-bold text-xs px-4 py-2.5 rounded-xl shadow-lg transition flex items-center justify-center gap-2 active:scale-95"
         >
-          <Layers className="w-4 h-4" />
+          <Layers className="w-4 h-4 shrink-0" />
           <span>Load scanned model in 3D viewer</span>
         </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Setup & pipeline */}
-        <div className="lg:col-span-7 bg-card border border-border rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+        <div className="lg:col-span-7 bg-card border border-border rounded-2xl p-3.5 sm:p-5 md:p-6 shadow-xl flex flex-col justify-between">
           <div>
-            <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
-              <Camera className="w-4 h-4 text-primary" />
-              New equipment scan
+            <h3 className="text-sm font-bold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
+              <Camera className="w-4 h-4 text-primary shrink-0" />
+              <span>New equipment scan</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
@@ -632,25 +634,25 @@ export function ScanPipelinePanel({ onLoadModel }: { onLoadModel: (asset: Machin
                             : 'bg-muted border-border text-muted-foreground'
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
                         {st.state === 'done' || st.state === 'skipped' ? (
-                          <Check className="w-4 h-4 text-success" />
+                          <Check className="w-4 h-4 text-success shrink-0" />
                         ) : st.state === 'running' ? (
-                          <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                          <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />
                         ) : st.state === 'failed' ? (
-                          <AlertTriangle className="w-4 h-4 text-danger" />
+                          <AlertTriangle className="w-4 h-4 text-danger shrink-0" />
                         ) : (
-                          <span className="w-4 h-4 rounded-full border border-border flex items-center justify-center text-[9px] font-mono">
+                          <span className="w-4 h-4 rounded-full border border-border flex items-center justify-center text-[9px] font-mono shrink-0">
                             {idx + 1}
                           </span>
                         )}
-                        <div>
-                          <span className="font-semibold block">{stg.title}</span>
-                          <span className="text-[10px] opacity-75">{st.note ?? stg.detail}</span>
+                        <div className="min-w-0">
+                          <span className="font-semibold block truncate">{stg.title}</span>
+                          <span className="text-[10px] opacity-75 truncate block">{st.note ?? stg.detail}</span>
                         </div>
                       </div>
-                      <span className="text-[10px] font-mono font-bold text-right shrink-0">
+                      <span className="text-[10px] font-mono font-bold text-left sm:text-right shrink-0 pl-6 sm:pl-0">
                         {st.state === 'running'
                           ? stg.key === 'upload' && uploadPct !== null
                             ? `UPLOADING ${uploadPct}%`
@@ -698,22 +700,22 @@ export function ScanPipelinePanel({ onLoadModel }: { onLoadModel: (asset: Machin
               </div>
             )}
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3">
               <button
                 type="button"
                 disabled={running || !files.length || !name.trim()}
                 onClick={runScan}
                 data-testid="run-scan"
-                className="flex-1 py-3 rounded-xl font-bold text-xs transition shadow-lg flex items-center justify-center gap-2 bg-primary enabled:hover:bg-primary text-primary-foreground disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
+                className="w-full sm:flex-1 py-3 rounded-xl font-bold text-xs transition shadow-lg flex items-center justify-center gap-2 bg-primary enabled:hover:bg-primary text-primary-foreground disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed active:scale-95"
               >
                 {running ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
                     <span>Running…</span>
                   </>
                 ) : (
                   <>
-                    <Camera className="w-4 h-4" />
+                    <Camera className="w-4 h-4 shrink-0" />
                     <span>{!name.trim() ? 'Name the equipment to start' : !files.length ? 'Choose photos to start' : 'Run 3D reconstruction'}</span>
                   </>
                 )}
@@ -722,10 +724,10 @@ export function ScanPipelinePanel({ onLoadModel }: { onLoadModel: (asset: Machin
                 type="button"
                 onClick={loadBuilt}
                 disabled={!built}
-                className="bg-success-muted enabled:hover:bg-success-muted disabled:bg-muted disabled:text-muted-foreground text-foreground font-bold text-xs px-5 py-3 rounded-xl transition shadow-lg flex items-center gap-2"
+                className="w-full sm:w-auto bg-success-muted enabled:hover:bg-success-muted disabled:bg-muted disabled:text-muted-foreground text-foreground font-bold text-xs px-5 py-3 rounded-xl transition shadow-lg flex items-center justify-center gap-2 active:scale-95"
               >
                 <span>Load into 3D viewer</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-4 h-4 shrink-0" />
               </button>
             </div>
             {loadError ? (
@@ -737,7 +739,7 @@ export function ScanPipelinePanel({ onLoadModel }: { onLoadModel: (asset: Machin
         {/* Results — only what this run actually produced */}
         <div
           data-testid="scan-results"
-          className="lg:col-span-5 bg-card border border-border rounded-2xl p-6 shadow-xl flex flex-col gap-5"
+          className="lg:col-span-5 bg-card border border-border rounded-2xl p-3.5 sm:p-5 md:p-6 shadow-xl flex flex-col gap-4 sm:gap-5"
         >
           {!projectId ? (
             <div className="my-auto text-center text-xs text-muted-foreground py-10">

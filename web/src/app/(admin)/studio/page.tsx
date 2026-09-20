@@ -545,31 +545,31 @@ export default function SimulationStudioPage() {
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary selection:text-primary-foreground">
       {/* ── Top Enterprise Header ────────────────────────────────────────── */}
       <header className="border-b border-border bg-background/95 sticky top-0 z-50 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-2">
           {/* Brand & Plant Metadata */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary via-primary to-primary p-0.5 shadow-lg shadow-primary/25">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-primary via-primary to-primary p-0.5 shadow-lg shadow-primary/25 shrink-0">
               <div className="w-full h-full bg-background rounded-[10px] flex items-center justify-center">
-                <Layers className="w-5 h-5 text-primary" />
+                <Layers className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
               </div>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-base tracking-tight text-foreground">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="font-extrabold text-sm sm:text-base tracking-tight text-foreground truncate">
                   SkillBridge
                 </span>
-                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-accent text-primary border border-primary/40 font-semibold">
+                <span className="text-[9px] sm:text-[10px] font-mono uppercase px-1.5 py-0.5 rounded-full bg-accent text-primary border border-primary/40 font-semibold shrink-0">
                   Twin Studio
                 </span>
               </div>
-              <p className="text-[11px] text-muted-foreground truncate hidden sm:block">
+              <p className="text-[11px] text-muted-foreground truncate hidden md:block">
                 Tata Motors Ltd · Plant 1 (Fluid Power Division, Bay 4B)
               </p>
             </div>
           </div>
 
           {/* Quick Role & Language Switches */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             {/* Operator Badge */}
             <div className="hidden md:flex items-center gap-2 bg-card border border-border px-3 py-1.5 rounded-lg text-xs">
               <div className="w-2 h-2 rounded-full bg-success-muted animate-pulse" />
@@ -585,7 +585,7 @@ export default function SimulationStudioPage() {
               <button
                 type="button"
                 onClick={() => setLanguage('en')}
-                className={`px-2.5 py-1 rounded-md font-medium transition ${
+                className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md font-medium transition text-xs ${
                   language === 'en'
                     ? 'bg-primary text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
@@ -596,7 +596,7 @@ export default function SimulationStudioPage() {
               <button
                 type="button"
                 onClick={() => setLanguage('hi')}
-                className={`px-2.5 py-1 rounded-md font-medium transition ${
+                className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md font-medium transition text-xs ${
                   language === 'hi'
                     ? 'bg-primary text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
@@ -611,7 +611,7 @@ export default function SimulationStudioPage() {
               type="button"
               onClick={() => setA11yEnabled(!a11yEnabled)}
               title="Toggle between 3D GLB Model and 2D Low-Bandwidth Schematic"
-              className="text-xs bg-card hover:bg-muted border border-border text-foreground px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition"
+              className="text-xs bg-card hover:bg-muted border border-border text-foreground px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg flex items-center gap-1.5 transition shrink-0"
             >
               {prefer2D ? <FileText className="w-3.5 h-3.5 text-warning" /> : <Layers className="w-3.5 h-3.5 text-primary" />}
               <span className="hidden sm:inline">{prefer2D ? '2D Schematic' : '3D Twin'}</span>
@@ -620,18 +620,18 @@ export default function SimulationStudioPage() {
         </div>
 
         {/* Navigation Tabs Bar */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between border-t border-border overflow-x-auto">
-          <nav className="flex space-x-1 sm:space-x-2 py-1.5">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 flex items-center justify-between border-t border-border overflow-x-auto">
+          <nav className="flex space-x-1 sm:space-x-2 py-1.5 min-w-max">
             <button
               type="button"
               onClick={() => setActiveTab('twin')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
+              className={`shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
                 activeTab === 'twin'
                   ? 'bg-accent text-primary border border-primary/40'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
-              <Cpu className="w-4 h-4" />
+              <Cpu className="w-4 h-4 shrink-0" />
               <span>Digital Twin & Voice Copilot</span>
             </button>
 
@@ -639,46 +639,45 @@ export default function SimulationStudioPage() {
             <button
               type="button"
               onClick={() => setActiveTab('scanner')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
+              className={`shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
                 activeTab === 'scanner'
                   ? 'bg-accent text-primary border border-primary/40'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
-              <Camera className="w-4 h-4 text-primary" />
+              <Camera className="w-4 h-4 text-primary shrink-0" />
               <span>3D Photogrammetry Scanner</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('sop')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
+              className={`shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
                 activeTab === 'sop'
                   ? 'bg-accent text-primary border border-primary/40'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
-              <FileText className="w-4 h-4" />
+              <FileText className="w-4 h-4 shrink-0" />
               <span>SOP & Guided Work Order</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveTab('analytics')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
+              className={`shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs font-semibold transition whitespace-nowrap ${
                 activeTab === 'analytics'
                   ? 'bg-accent text-primary border border-primary/40'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
-              <BarChart3 className="w-4 h-4" />
+              <BarChart3 className="w-4 h-4 shrink-0" />
               <span>Department Skill Radar</span>
             </button>
-
           </nav>
 
           {/* Engine status, from a real probe rather than an assertion. */}
-          <div className="hidden lg:flex items-center gap-2 text-[11px] font-mono text-muted-foreground pl-4">
+          <div className="hidden lg:flex items-center gap-2 text-[11px] font-mono text-muted-foreground pl-4 shrink-0">
             <span
               className={
                 engineUp === null
@@ -698,34 +697,34 @@ export default function SimulationStudioPage() {
       </header>
 
       {/* ── Industrial Machinery Telemetry Strip ───────────────────────── */}
-      <section className="bg-background border-b border-border px-4 sm:px-6 py-2 text-xs">
+      <section className="bg-background border-b border-border px-3 sm:px-6 py-2 text-xs">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-y-2">
-          <div className="flex items-center gap-2 text-foreground font-medium">
-            <span className="text-primary font-mono font-bold">EQUIPMENT:</span>
+          <div className="flex items-center gap-2 text-foreground font-medium min-w-0">
+            <span className="text-primary font-mono font-bold shrink-0">EQUIPMENT:</span>
             <span className="truncate">{activeAsset.name}</span>
-            <span className="text-[10px] bg-muted text-muted-foreground font-mono px-1.5 py-0.5 rounded">
+            <span className="text-[10px] bg-muted text-muted-foreground font-mono px-1.5 py-0.5 rounded shrink-0">
               SN: RX-9942-A10
             </span>
           </div>
 
-          <div className="flex items-center gap-4 sm:gap-6 text-[11px] font-mono">
-            <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-3 sm:gap-6 text-[11px] font-mono overflow-x-auto w-full sm:w-auto py-0.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               <span className="text-muted-foreground">PRESSURE:</span>
               <span className="font-bold text-success">210.4 Bar</span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               <span className="text-muted-foreground">CASE DRAIN:</span>
               <span className="font-bold text-primary">1.2 L/min</span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               <span className="text-muted-foreground">OIL TEMP:</span>
               <span className="font-bold text-warning">58.2°C</span>
             </div>
-            <div className="hidden md:flex items-center gap-1.5">
+            <div className="hidden md:flex items-center gap-1.5 shrink-0">
               <span className="text-muted-foreground">RPM:</span>
               <span className="font-bold text-foreground">1,450</span>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 shrink-0">
               <span className="w-2 h-2 rounded-full bg-success-muted" />
               <span className="text-success font-semibold uppercase text-[10px]">Active</span>
             </div>
@@ -734,44 +733,44 @@ export default function SimulationStudioPage() {
       </section>
 
       {/* ── Main Work Area ──────────────────────────────────────────────── */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 md:p-6">
         {/* TAB 1: 3D DIGITAL TWIN & AI VOICE DIAGNOSTICS */}
         {activeTab === 'twin' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
             {/* Left 7 Columns: 3D Twin Viewport & Part Selector */}
             <div className="lg:col-span-7 flex flex-col gap-4">
-              <div className="bg-card border border-border rounded-2xl p-4 relative shadow-xl backdrop-blur-sm">
+              <div className="bg-card border border-border rounded-2xl p-3.5 sm:p-5 relative shadow-xl backdrop-blur-sm">
                 {/* 3D Viewport Controls HUD */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-3 mb-3 border-b border-border text-xs">
-                  <div className="flex items-center justify-between sm:justify-start gap-2 flex-wrap min-w-0">
-                    <span className="font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-3 mb-3 border-b border-border">
+                  <div className="flex items-center justify-between sm:justify-start gap-2 min-w-0">
+                    <span className="font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5 text-xs sm:text-sm shrink-0">
                       <Radio className="w-3.5 h-3.5 text-primary shrink-0 animate-pulse" />
                       <span>Digital Twin Model</span>
                     </span>
-                    <span className="text-[10px] text-primary font-mono bg-accent px-2 py-0.5 rounded border border-primary/40 whitespace-nowrap">
+                    <span className="text-[10px] text-primary font-mono bg-accent px-2 py-0.5 rounded border border-primary/40 truncate shrink-0 max-w-[150px] sm:max-w-none">
                       Live GLB: {activeAsset.assetId}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 w-full sm:w-auto justify-end">
+                  <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:items-center">
                     <button
                       type="button"
                       onClick={() => setAutoRotate(!autoRotate)}
-                      className={`px-2.5 py-1.5 sm:py-1 rounded-md text-[11px] font-medium border transition flex items-center gap-1.5 whitespace-nowrap ${
+                      className={`h-9 px-3 rounded-lg text-xs font-semibold border transition flex items-center justify-center gap-1.5 active:scale-95 whitespace-nowrap ${
                         autoRotate
                           ? 'bg-primary text-foreground border-primary/40'
                           : 'bg-muted text-foreground border-border hover:bg-muted-foreground/20'
                       }`}
                     >
-                      <RefreshCw className={`w-3.5 h-3.5 ${autoRotate ? 'animate-spin' : ''}`} />
+                      <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${autoRotate ? 'animate-spin' : ''}`} />
                       <span>Auto-Rotate</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveTab('scanner')}
-                      className="px-2.5 py-1.5 sm:py-1 rounded-md text-[11px] font-medium bg-muted hover:bg-muted-foreground/20 text-foreground border border-border transition flex items-center gap-1.5 whitespace-nowrap"
+                      className="h-9 px-3 rounded-lg text-xs font-semibold bg-muted hover:bg-muted-foreground/20 text-foreground border border-border transition flex items-center justify-center gap-1.5 active:scale-95 whitespace-nowrap"
                     >
-                      <Camera className="w-3.5 h-3.5 text-primary" />
+                      <Camera className="w-3.5 h-3.5 text-primary shrink-0" />
                       <span>Scan New</span>
                     </button>
                   </div>
@@ -787,7 +786,7 @@ export default function SimulationStudioPage() {
                   />
 
                   {/* Hotspot Instructions Overlay */}
-                  <div className="absolute bottom-3 left-3 max-w-[85%] sm:max-w-none bg-muted/95 backdrop-blur-md px-3 py-1.5 rounded-lg border border-border text-[10px] sm:text-[11px] text-foreground flex items-center gap-2 shadow-sm">
+                  <div className="absolute bottom-2.5 left-2.5 max-w-[85%] sm:max-w-none bg-muted/95 backdrop-blur-md px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg border border-border text-[10px] sm:text-[11px] text-foreground flex items-center gap-2 shadow-sm">
                     <span className="w-2 h-2 rounded-full bg-primary shrink-0 animate-ping" />
                     <span className="leading-tight">Tap numbered pins 1-4 to inspect part diagnostics</span>
                   </div>
@@ -847,12 +846,12 @@ export default function SimulationStudioPage() {
               <TwinUploader />
 
               {/* Active Component Specifications & Hazard Card */}
-              <div className="bg-card border border-border rounded-2xl p-4 shadow-lg">
+              <div className="bg-card border border-border rounded-2xl p-3.5 sm:p-5 shadow-lg">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2 border-b border-border">
                   <div>
                     <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                      <Wrench className="w-4 h-4 text-primary" />
-                      {currentPart.name}
+                      <Wrench className="w-4 h-4 text-primary shrink-0" />
+                      <span>{currentPart.name}</span>
                     </h3>
                     <p className="text-xs text-muted-foreground font-mono mt-0.5">
                       {currentPart.subsystem}
@@ -901,7 +900,7 @@ export default function SimulationStudioPage() {
                   href={trainingSimHref(selectedPartId)}
                   className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-primary/40 bg-accent px-4 py-3 transition hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                 >
-                  <span>
+                  <span className="min-w-0">
                     <span className="block text-xs font-bold uppercase tracking-wide text-primary">
                       Open Training Simulation
                     </span>
@@ -916,7 +915,7 @@ export default function SimulationStudioPage() {
 
             {/* Right 5 Columns: AI Voice Diagnostic Copilot */}
             <div className="lg:col-span-5 flex flex-col gap-4">
-              <div className="bg-card border border-border rounded-2xl p-4 shadow-xl flex flex-col min-h-[580px]">
+              <div className="bg-card border border-border rounded-2xl p-3.5 sm:p-5 shadow-xl flex flex-col min-h-[520px] sm:min-h-[580px]">
                 {/* Copilot Header */}
                 <div className="flex items-center justify-between pb-3 mb-3 border-b border-border">
                   <div>

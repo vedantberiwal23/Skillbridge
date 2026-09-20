@@ -31,7 +31,7 @@ export default function CourseDetailPage({ params }: PageProps<'/learn/[tradeId]
     .filter((point): point is string => Boolean(point));
 
   return (
-    <main className="mx-auto max-w-lg pb-8">
+    <main className="mx-auto w-full max-w-2xl pb-8">
       <div className="flex items-center gap-3 px-4 pt-6">
         <Link
           href="/learn"

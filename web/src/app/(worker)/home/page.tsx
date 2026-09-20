@@ -85,7 +85,7 @@ export default function HomePage() {
   );
 
   return (
-    <main className="mx-auto flex max-w-lg flex-col px-5 pt-8">
+    <main className="mx-auto flex w-full max-w-2xl flex-col px-5 pt-8 sm:px-8">
       {/* ---- Greeting — a real date instead of a wave emoji does more work
            to feel like a considered product than decoration would. ---- */}
       <div className="flex items-start justify-between gap-3">

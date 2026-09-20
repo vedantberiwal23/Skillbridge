@@ -35,10 +35,10 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Primary"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 lg:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
-      <div className="mx-auto flex max-w-lg items-stretch justify-between px-2">
+      <div className="mx-auto flex w-full max-w-2xl items-stretch justify-between px-2">
         {NAV_ITEMS.map(({ href, label, icon: Icon, tour }) => {
           // A worker on /learn/hydraulics is still "on" Learn — match the
           // section, not just the exact URL.

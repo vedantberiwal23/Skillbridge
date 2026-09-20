@@ -48,7 +48,7 @@ export default function LearnPage() {
 
   return (
     <>
-    <main className="mx-auto flex max-w-lg flex-col gap-6 px-4 pt-8 pb-4">
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pt-8 pb-4">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">What do you want to learn?</h1>
       </div>
@@ -101,7 +101,7 @@ export default function LearnPage() {
     </main>
 
     {/* Full-bleed statement section — deliberately breaks out of the app's
-        max-w-lg mobile column, same component used on /welcome. The globe
+        max-w-2xl mobile column, same component used on /welcome. The globe
         animation itself only mounts at >=768px (see GlobeSection); on a
         phone this renders as a static dark banner with the heading. */}
     <GlobeSection

@@ -17,7 +17,7 @@ export default function OpportunitiesPage() {
   const verifiedSkills = [...fixtureSkillProfile.strengths, ...fixtureBadges.map((b) => b.title)];
 
   return (
-    <main className="mx-auto flex max-w-lg flex-col gap-6 px-4 pt-8 pb-4">
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pt-8 pb-4">
       <div>
         <h1 className="text-2xl font-semibold text-foreground">Opportunities</h1>
         <p className="mt-1 text-base text-muted-foreground">

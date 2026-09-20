@@ -35,7 +35,7 @@ export default function ProfilePage() {
   ];
 
   return (
-    <main className="mx-auto flex max-w-lg flex-col gap-6 px-4 pt-8 pb-4">
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 pt-8 pb-4">
       <div className="flex items-center gap-4">
         <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-secondary text-xl font-semibold text-primary">
           {(profile?.name ?? '')

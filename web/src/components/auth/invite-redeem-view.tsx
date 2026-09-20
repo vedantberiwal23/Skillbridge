@@ -89,7 +89,7 @@ export function InviteRedeemView({ code }: InviteRedeemViewProps) {
 
       <div className="flex w-full flex-col justify-center bg-background px-6 py-12 lg:w-1/2">
       <div className="mx-auto w-full max-w-sm">
-        <Link href="/welcome" className="inline-flex items-center gap-2 mb-8">
+        <Link href="/lander" className="inline-flex items-center gap-2 mb-8">
           <span className="size-2 rounded-full bg-primary" />
           <span className="text-base font-semibold tracking-tight text-foreground">
             SkillBridge

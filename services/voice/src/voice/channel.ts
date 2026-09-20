@@ -8,6 +8,7 @@ import { ModelError } from '../bedrock/stream.js';
 import { isLanguage } from '../sarvam/client.js';
 import { recordTurn, recordSession } from '../lib/telemetry.js';
 import { grounderFor } from './grounding.js';
+import { sanitizeContext } from './context.js';
 import { createTurn, type Turn, type TurnOptions } from './turn.js';
 
 /**
@@ -20,11 +21,13 @@ import { createTurn, type Turn, type TurnOptions } from './turn.js';
  *
  * Wire protocol — client → server:
  *   { t: 'start',  token }              panel open; authenticates the channel
- *   { t: 'begin',  language, history }  button down  (+ optional explicit, part)
+ *   { t: 'begin',  language, history }  button down  (+ optional explicit,
+ *                                       part, machine, context — what the screen is showing)
  *   { t: 'audio',  b64 }                50ms linear16 @16k frames
  *   { t: 'stop' }                       button up
  *   { t: 'cancel' }                     turn abandoned
- *   { t: 'ask', text, language, history }  a TYPED question (+ optional part):
+ *   { t: 'ask', text, language, history }  a TYPED question (+ optional part,
+ *                                       machine, context):
  *                                       no audio, answered and spoken exactly
  *                                       like a spoken one, then `done`
  *
@@ -60,8 +63,12 @@ const MAX_SOCKETS_PER_USER = 3;
  * holding a live authorized socket — so the ping deliberately does not call
  * `bump()`. It keeps the TCP connection warm between a worker's questions and
  * nothing more; a channel that goes quiet still expires exactly on schedule.
+ *
+ * `VOICE_PING_MS` exists so a test can watch the keepalive without waiting 25
+ * seconds for it. It is not a deployment knob: nothing sets it in CDK, and the
+ * default is what runs in production.
  */
-const PING_INTERVAL_MS = 25 * 1000;
+const PING_INTERVAL_MS = Number(process.env.VOICE_PING_MS ?? 25 * 1000);
 
 const CHANNEL_MAX_MS = 15 * 60 * 1000;
 const CHANNEL_IDLE_MS = 5 * 60 * 1000;
@@ -219,7 +226,19 @@ export function handleConnection(
     // makes that independent of anything the turn does.
     const { userId, orgId } = user!;
     const currentSession = sessionId;
-    const language = typeof msg.language === 'string' && isLanguage(msg.language) ? msg.language : 'hi-IN';
+    /**
+     * An unknown code falls back to Hindi rather than refusing the turn — but it
+     * is logged, because the worker asked for one language and is answered in
+     * another with nothing on screen to say so. That is how `or-IN` (the ISO
+     * code for Odia; Sarvam wants `od-IN`) answered every Odia speaker in Hindi
+     * without a single error anywhere.
+     */
+    const askedLanguage = typeof msg.language === 'string' ? msg.language : '';
+    const supported = isLanguage(askedLanguage);
+    if (askedLanguage && !supported) {
+      console.warn(`[voice/channel] unsupported language ${askedLanguage} — answering in hi-IN`);
+    }
+    const language = supported ? askedLanguage : 'hi-IN';
     // An explicit pick beats inference; otherwise what was heard last. A typed
     // question has no recogniser to detect its language, so the language the
     // worker is using the app in is taken as known.
@@ -235,6 +254,10 @@ export function handleConnection(
       },
       ground,
       part: typeof msg.part === 'string' ? msg.part : null,
+      machine: typeof msg.machine === 'string' ? msg.machine : null,
+      // Client-supplied description of the screen the question was asked from.
+      // Sanitised and clamped here so nothing downstream handles it raw.
+      context: sanitizeContext(msg.context),
       text,
       streamText: deps.streamText,
       /**

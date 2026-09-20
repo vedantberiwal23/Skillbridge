@@ -281,8 +281,8 @@ function TourOverlay({
   onSkip: () => void;
 }) {
   const { locale } = useI18n();
-  const ui = UI[locale];
-  const { title, body } = tourCopy(copy, locale);
+  const ui = UI[locale as keyof typeof UI] ?? UI.en;
+  const { title, body } = tourCopy(copy, (locale as keyof typeof UI) in UI ? (locale as Locale) : "en");
   const cardRef = useRef<HTMLDivElement>(null);
   const [cardHeight, setCardHeight] = useState(220);
   const [viewport, setViewport] = useState(() => ({
@@ -473,7 +473,7 @@ export function TourLauncher({
 }) {
   const { start } = useTour();
   const { locale } = useI18n();
-  const label = UI[locale].replay;
+  const label = (UI[locale as keyof typeof UI] ?? UI.en).replay;
 
   if (variant === 'icon') {
     return (

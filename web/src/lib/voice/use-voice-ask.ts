@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { VOICE_LANGUAGE, type Locale } from '@/i18n/config';
+import { VOICE_LANGUAGE, INDIAN_LANGUAGES, type Locale } from '@/i18n/config';
+import type { ScreenContext } from './context';
 import { openVoiceChannel, type ChannelState, type VoiceChannel, type VoiceTurn } from './channel';
 
 export interface VoiceAskState {
@@ -23,6 +24,8 @@ export interface VoiceAskState {
    * exists.
    */
   grounded: boolean;
+  /** The answer arrived as text only — no voice can read this language aloud. */
+  spoken: boolean;
 }
 
 const EMPTY: VoiceAskState = {
@@ -33,6 +36,7 @@ const EMPTY: VoiceAskState = {
   error: null,
   empty: false,
   grounded: false,
+  spoken: true,
 };
 
 /**
@@ -55,7 +59,20 @@ const EMPTY: VoiceAskState = {
  * a token fetch, a state update, a dynamic import — and the gesture is over,
  * playback stays locked, and the tutor answers to a silent phone.
  */
-export function useVoiceAsk(locale: Locale, part?: string | null) {
+export function useVoiceAsk(
+  locale: string,
+  part?: string | null,
+  contextOrMachine?: ScreenContext | string | null
+) {
+  const context: ScreenContext | null =
+    typeof contextOrMachine === 'object' && contextOrMachine !== null
+      ? contextOrMachine
+      : null;
+  const machine: string | null =
+    typeof contextOrMachine === 'string'
+      ? contextOrMachine
+      : context?.machine ?? null;
+
   const [state, setState] = useState<VoiceAskState>(EMPTY);
   const channelRef = useRef<VoiceChannel | null>(null);
   const turnRef = useRef<VoiceTurn | null>(null);
@@ -65,12 +82,20 @@ export function useVoiceAsk(locale: Locale, part?: string | null) {
   // render — a ref mutated mid-render is not safe under concurrent rendering,
   // where a render can be discarded after the write has already landed.
   const partRef = useRef<string | null | undefined>(part);
-  const localeRef = useRef<Locale>(locale);
+  const machineRef = useRef<string | null | undefined>(machine);
+  const localeRef = useRef<string>(locale);
+  // Same reasoning as `part`: the worker can move to a different step or tap a
+  // different component between turns, and the description the tutor reads must
+  // be the one on screen at the moment of the press — not the one the channel
+  // happened to be opened with.
+  const contextRef = useRef<ScreenContext | null | undefined>(context);
 
   useEffect(() => {
     partRef.current = part;
+    machineRef.current = machine;
     localeRef.current = locale;
-  }, [part, locale]);
+    contextRef.current = context;
+  }, [part, machine, locale, context]);
 
   useEffect(() => {
     const channel = openVoiceChannel({
@@ -101,13 +126,23 @@ export function useVoiceAsk(locale: Locale, part?: string | null) {
       error: null,
       empty: false,
       grounded: false,
+      // Assume spoken until the reply says otherwise, so a previous text-only
+      // language does not mark this answer as silent.
+      spoken: true,
     }));
+
+    const voiceLang =
+      INDIAN_LANGUAGES.find((l) => l.code === localeRef.current)?.voiceCode ||
+      VOICE_LANGUAGE[localeRef.current as Locale] ||
+      'hi-IN';
 
     turnRef.current = channel.startTurn(
       {
-        language: VOICE_LANGUAGE[localeRef.current],
+        language: voiceLang,
         explicit: true,
         part: partRef.current ?? null,
+        machine: machineRef.current ?? null,
+        context: contextRef.current ?? null,
       },
       {
         // A partial must never shorten what is already held: the recogniser
@@ -127,6 +162,7 @@ export function useVoiceAsk(locale: Locale, part?: string | null) {
             reply: reply.text,
             transcript: reply.transcript,
             grounded: reply.grounded,
+            spoken: reply.spoken !== false,
           })),
         onEmpty: () => setState((prev) => ({ ...prev, empty: true, partial: '' })),
         onError: (_code, message) => setState((prev) => ({ ...prev, error: message })),

@@ -65,7 +65,10 @@ export default function LanderPage() {
    */
   const [lang, setLang] = useState<string>(locale);
   const hero = HERO_BY_LANGUAGE[lang] ?? HERO_BY_LANGUAGE.en;
-  const t = LANDER_COPY[isLocale(lang) ? lang : locale];
+  /* The sections speak the three the catalogue ships; anything else reads
+     them in English while the hero stays in the reader's own language. */
+  const core = (['en', 'hi', 'mr'] as const).find((c) => c === lang || c === locale) ?? 'en';
+  const t = LANDER_COPY[core];
 
   const chooseLanguage = (next: string) => {
     setLang(next);

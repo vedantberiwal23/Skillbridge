@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -8,8 +8,9 @@ import { InteractiveSimulation } from '@/components/viewer/interactive-simulatio
 import { AskPanel } from '@/components/worker/ask-panel';
 import { useVoiceAsk } from '@/lib/voice/use-voice-ask';
 import { useI18n } from '@/i18n/provider';
-import { LOCALES, LOCALE_LABELS, type Locale } from '@/i18n/config';
-import type { LessonContent } from '@/data/curriculum';
+import { LanguageDropdown } from '@/components/ui/language-dropdown';
+import { TRADES_CATALOG, type LessonContent } from '@/data/curriculum';
+import { lessonContext } from '@/lib/voice/context';
 
 export function LessonView({ lesson }: { lesson: LessonContent }) {
   const router = useRouter();
@@ -42,7 +43,18 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
       label: chosen?.label || 'Hydraulic Pump',
     };
   });
-  const ask = useVoiceAsk(locale, selectedPart.label);
+  /**
+   * Everything the tutor needs to answer about THIS machine rather than about
+   * machinery in general: the lesson, the twin it belongs to, the part in
+   * focus with its own description and safety rule, the objectives and the SOP
+   * steps rendered below. Built from the lesson data the page already has, so
+   * every lesson in the catalogue is covered without per-machine wiring.
+   */
+  const context = useMemo(
+    () => lessonContext(lesson, selectedPart.id, TRADES_CATALOG[lesson.tradeId] ?? null),
+    [lesson, selectedPart.id]
+  );
+  const ask = useVoiceAsk(locale, selectedPart.label, context);
 
   // Checklist of SOP steps completed by worker
   const [checkedSteps, setCheckedSteps] = useState<Record<number, boolean>>({});
@@ -93,22 +105,7 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
 
           <div className="flex items-center gap-3">
             {/* Quick Locale Selector */}
-            <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white p-1 text-xs shadow-2xs">
-              {LOCALES.map((code) => (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => setLocale(code as Locale)}
-                  className={`min-h-11 rounded-lg px-3 py-2 font-semibold transition-all ${
-                    locale === code
-                      ? 'bg-primary text-white'
-                      : 'text-slate-500 hover:text-slate-900'
-                  }`}
-                >
-                  {LOCALE_LABELS[code]}
-                </button>
-              ))}
-            </div>
+            <LanguageDropdown value={locale} onChange={setLocale} />
 
             <span className="hidden sm:inline-block rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-primary">
               Active SOP Session
@@ -292,6 +289,7 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
             error={ask.error}
             empty={ask.empty}
             grounded={ask.grounded}
+            spoken={ask.spoken}
           />
         </div>
 

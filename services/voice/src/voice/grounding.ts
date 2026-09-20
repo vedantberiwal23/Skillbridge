@@ -19,8 +19,26 @@ import { keys } from '../lib/keys.js';
  */
 
 const RETRIEVE_TIMEOUT_MS = 1500;
-const RESULTS = 4;
+/** Ask for more than we keep: the weak ones are filtered out below. */
+const RESULTS = 6;
 const MAX_SOURCE_CHARS = 3500;
+
+/**
+ * How similar a chunk must be to the question before it is treated as the
+ * procedure for it.
+ *
+ * A vector search ALWAYS returns its nearest neighbours — there is no such
+ * thing as "no match". An org whose knowledge base holds one document about
+ * wiring PLC I/O modules gets that document back for "what is this pump?", and
+ * the prompt then presents it as "the only authority for steps and values", so
+ * the tutor dutifully answers about start/stop buttons. Measured from the
+ * outside that reads as a hardcoded answer.
+ *
+ * Below this score the chunks are dropped and the turn answers ungrounded,
+ * which the prompt already handles honestly ("no company procedures were
+ * found… say that it is general").
+ */
+const MIN_SCORE = Number(process.env.VOICE_KB_MIN_SCORE ?? 0.4);
 const KB_ID_TTL_MS = 5 * 60 * 1000;
 
 const agent = new BedrockAgentRuntimeClient({ region: config.region });
@@ -88,8 +106,18 @@ async function retrieve(orgId: string, question: string): Promise<string | null>
       }),
       { abortSignal: ctrl.signal }
     );
+    const all = out.retrievalResults ?? [];
+    const relevant = all.filter((r) => (r.score ?? 0) >= MIN_SCORE);
+    if (all.length && !relevant.length) {
+      // Worth saying out loud: the KB answered, and nothing in it was about
+      // this. Silence here is what made an unrelated SOP look authoritative.
+      const best = Math.max(...all.map((r) => r.score ?? 0));
+      console.warn(
+        `[voice/grounding] ${all.length} chunk(s) for org ${orgId}, best score ${best.toFixed(2)} < ${MIN_SCORE} — answering ungrounded`
+      );
+    }
     let text = '';
-    for (const r of out.retrievalResults ?? []) {
+    for (const r of relevant) {
       const chunk = r.content?.text?.trim();
       if (!chunk) continue;
       const next = `${text}${text ? '\n---\n' : ''}${chunk}`;

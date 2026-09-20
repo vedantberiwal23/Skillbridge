@@ -7,7 +7,6 @@
  * therefore untrusted.
  */
 import { z } from 'zod';
-import { LOCALES } from '@/i18n/config';
 import { ROLES } from './types';
 
 /**
@@ -40,7 +39,7 @@ const phoneSchema = z.string().regex(E164, 'Phone must be in E.164 format, e.g. 
 const emailSchema = z.email('Email is not a valid address');
 
 export const roleSchema = z.enum(ROLES);
-export const localeSchema = z.enum(LOCALES);
+export const localeSchema = z.string().min(2).max(10);
 export const learningModeSchema = z.enum(['speech', 'text']);
 
 /** POST /api/invites — an admin issues an invite. */

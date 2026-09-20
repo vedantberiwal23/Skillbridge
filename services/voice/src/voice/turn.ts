@@ -4,6 +4,7 @@ import { openRealtimeStt } from '../sarvam/stt.js';
 import { openStreamingTts, SAMPLE_RATE, speakable } from '../sarvam/tts.js';
 import { config } from '../config.js';
 import type { Grounder } from './grounding.js';
+import { retrievalQuery, type ScreenContext } from './context.js';
 import * as coach from './coach.js';
 
 /**
@@ -38,6 +39,19 @@ export interface TurnOptions {
   readonly ground?: Grounder;
   /** Label of the machine part the worker tapped before asking, if any. */
   readonly part?: string | null;
+  /**
+   * The machine on screen — the one the worker just uploaded, scanned or opened.
+   * Without it "what is this?" has no subject at all, and the model answers
+   * about whatever the history last mentioned.
+   */
+  readonly machine?: string | null;
+  /**
+   * What the worker's screen is showing — lesson, machine, selected part, the
+   * steps in front of them. Sanitised by channel.ts before it gets here. This
+   * is what lets "what does this do?" be answered about the thing on screen
+   * rather than about machinery in general.
+   */
+  readonly context?: ScreenContext | null;
   /** Injected in tests; Bedrock otherwise. */
   readonly streamText?: StreamFn;
   /**
@@ -149,6 +163,8 @@ function startGeneration(opts: {
   spoken: string | null;
   history: TurnOptions['history'];
   part: string | null;
+  machine: string | null;
+  context: ScreenContext | null;
   ground?: Grounder;
   stream: StreamFn;
 }): Generation {
@@ -185,16 +201,25 @@ function startGeneration(opts: {
 
   void (async () => {
     try {
-      const query = opts.part ? `${opts.part}: ${opts.input}` : opts.input;
+      // Retrieval is about this machine and this part, not the bare words: an
+      // org's SOPs are per machine, and "what is this?" alone retrieves nothing.
+      const subject = [opts.machine || opts.context?.machine, opts.part || opts.context?.part?.label].filter(Boolean).join(' ');
+      const query = retrievalQuery(subject ? `${subject}: ${opts.input}` : opts.input, opts.context);
       const sources = opts.ground ? await opts.ground(query) : null;
       if (aborted) return;
       gen.grounded = Boolean(sources);
       // Verbatim, in whatever language and script it arrived in — never
       // pre-translated. The part the worker tapped rides along as context.
-      const asked = opts.part ? `[The worker tapped this part on the machine model: ${opts.part}]\n${opts.input}` : opts.input;
+      const machineName = opts.machine || opts.context?.machine;
+      const partName = opts.part || opts.context?.part?.label;
+      const context = [
+        machineName ? `Machine on screen: ${machineName}` : null,
+        partName ? `Part the worker tapped: ${partName}` : null,
+      ].filter(Boolean);
+      const asked = context.length ? `[${context.join('. ')}]\n${opts.input}` : opts.input;
       const stream = opts.stream(
         {
-          system: coach.systemFor({ spoken: opts.spoken, sources }),
+          system: coach.systemFor({ spoken: opts.spoken, sources, context: opts.context }),
           messages: coach.messagesFrom(opts.history, asked),
           maxTokens: coach.MAX_TOKENS,
         },
@@ -247,6 +272,11 @@ export function createTurn(options: TurnOptions): Turn {
   const { send, fail, history, known = null, onHeard, ground, record } = options;
   const stream = options.streamText ?? bedrockStream;
   const part = cleanPart(options.part);
+  const machine = cleanPart(options.machine);
+  // The selected part travels in both places on purpose: as the short label the
+  // question is prefixed with, and inside the screen description with its own
+  // explanation and safety rule.
+  const context = options.context ?? null;
   const fallbackLanguage = isLanguage(options.language) ? options.language : 'hi-IN';
 
   const tBegin = Date.now();
@@ -264,7 +294,7 @@ export function createTurn(options: TurnOptions): Turn {
   let cancelled = false;
 
   const generate = (input: string, spoken: string | null) =>
-    startGeneration({ input, spoken, history, part, ground, stream });
+    startGeneration({ input, spoken, history, part, machine, context, ground, stream });
 
   /* ── speculation, while the button is still held ── */
   const considerSpeculating = () => {
@@ -474,7 +504,10 @@ export function createTurn(options: TurnOptions): Turn {
           (async () => {
             let audio: string | null = null;
             try {
-              audio = await textToSpeech(sentence, { language: coach.languageOfText(sentence, replyLanguage) });
+              const clipVoice = coach.voiceFor(sentence, replyLanguage);
+              // Nothing can read it; the sentence is still shown, just not spoken.
+              if (clipVoice === null) return;
+              audio = await textToSpeech(sentence, { language: clipVoice });
             } catch (e) {
               console.warn('[voice/turn] clip synthesis failed:', (e as Error).message);
             }
@@ -518,15 +551,32 @@ export function createTurn(options: TurnOptions): Turn {
       // the speech engine needs to start.
       let held = '';
       let written = '';
-      let spokenLanguage = replyLanguage;
+      /** The voice reading the answer, or null once we know none can. */
+      let spokenLanguage: string | null = replyLanguage;
+      /** Set when the answer's script has no bulbul voice: text, no audio. */
+      let unvoiced = false;
       const toVoice = (text: string) => {
+        if (unvoiced) return;
         if (restMode) return toRest(text);
         fed += text;
         tts.sendText(text);
       };
       const setVoice = (text: string) => {
-        spokenLanguage = coach.languageOfText(text, replyLanguage);
-        if (!restMode) tts.configure(spokenLanguage);
+        // The script the model actually wrote decides the voice — Assamese is
+        // Bengali script, so the Bengali voice reads it. Null means no voice
+        // shares this script (Perso-Arabic, Ol Chiki, Meetei Mayek), and the
+        // answer is shown rather than read aloud in a voice that would mangle it.
+        const voice = coach.voiceFor(text, replyLanguage);
+        spokenLanguage = voice;
+        if (voice === null) {
+          unvoiced = true;
+          if (!restMode) {
+            restMode = true;
+            tts.close();
+          }
+          return;
+        }
+        if (!restMode) tts.configure(voice);
       };
       const toSpeech = (text: string) => {
         if (restMode || tts.language()) return toVoice(text);
@@ -611,7 +661,13 @@ export function createTurn(options: TurnOptions): Turn {
         transcript,
         heard_language: replyLanguage,
         text: replyText,
-        language: spokenLanguage,
+        language: spokenLanguage ?? replyLanguage,
+        /**
+         * False when the answer is written in a language bulbul:v3 has no voice
+         * for. The client shows the text and says it cannot be read aloud,
+         * rather than the worker waiting for audio that never comes.
+         */
+        spoken: !unvoiced,
         grounded: answer.grounded,
         engines: {
           stt: `sarvam:${config.sarvam.sttModel}`,

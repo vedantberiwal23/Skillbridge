@@ -13,6 +13,7 @@
  */
 
 import { fetchAuthSession } from 'aws-amplify/auth';
+import type { ScreenContext } from './context';
 import { startMic, type Mic } from './mic';
 import * as player from './player';
 
@@ -62,7 +63,18 @@ export interface TurnHandlers {
   onFinal?: (text: string, language: string | null) => void;
   onThinking?: () => void;
   onDelta?: (text: string) => void;
-  onReply?: (reply: { transcript: string; text: string; language: string; grounded: boolean }) => void;
+  onReply?: (reply: {
+    transcript: string;
+    text: string;
+    language: string;
+    grounded: boolean;
+    /**
+     * False when the answer is in a language bulbul:v3 has no voice for. The
+     * text is complete; no audio is coming, and the panel should say so rather
+     * than leave the worker waiting for a voice.
+     */
+    spoken: boolean;
+  }) => void;
   /** Nothing with letters was heard — silence is not a question. */
   onEmpty?: () => void;
   onError?: (code: string | null, message: string) => void;
@@ -78,6 +90,17 @@ export interface TurnOptions {
   history?: { role: 'user' | 'assistant'; content: string }[];
   /** Label of the tapped hotspot, from MachineViewer's onPartSelected. */
   part?: string | null;
+  /**
+   * The machine the worker is looking at — the one they uploaded, scanned or
+   * opened. "What is this?" has no subject without it.
+   */
+  machine?: string | null;
+  /**
+   * What the screen is showing — lesson, machine, the selected part and its
+   * description, the steps in view. Without it the tutor has nothing to bind
+   * "this" to and answers the question generically.
+   */
+  context?: ScreenContext | null;
 }
 
 export interface VoiceTurn {
@@ -251,6 +274,8 @@ export function openVoiceChannel(opts: {
           explicit: options.explicit === true,
           history: options.history ?? [],
           part: options.part ?? null,
+          machine: options.machine ?? options.context?.machine ?? null,
+          context: options.context ?? null,
         })
       );
 
@@ -314,6 +339,8 @@ export function openVoiceChannel(opts: {
           language: options.language,
           history: options.history ?? [],
           part: options.part ?? null,
+          machine: options.machine ?? options.context?.machine ?? null,
+          context: options.context ?? null,
         })
       );
       return true;

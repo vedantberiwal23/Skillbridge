@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 
 import { useI18n } from '@/i18n/provider';
-import { LOCALES, LOCALE_LABELS, type Locale } from '@/i18n/config';
+import { LanguageDropdown } from '@/components/ui/language-dropdown';
 import { useProfile } from '@/components/providers/profile-provider';
 import { TRADES_CATALOG, type TradeTrack } from '@/data/curriculum';
 import { TourLauncher } from '@/components/tour/tour-provider';
@@ -91,7 +91,7 @@ export default function PlanPage() {
       <div className="flex w-full flex-col justify-between bg-primary px-8 py-10 lg:w-[36%] lg:min-h-screen lg:px-14 lg:py-16 text-white shrink-0">
         {/* Top: Logo & Plant Badge */}
         <div>
-          <Link href="/welcome" className="inline-flex items-center gap-3 group">
+          <Link href="/lander" className="inline-flex items-center gap-3 group">
             <div className="flex size-10 items-center justify-center rounded-xl bg-white text-primary font-black text-xl shadow-xs transition-transform group-hover:scale-105">
               S
             </div>
@@ -168,22 +168,7 @@ export default function PlanPage() {
 
           <div className="flex items-center gap-4">
             {/* Language Switcher */}
-            <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white p-1 text-xs shadow-xs">
-              {LOCALES.map((code) => (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => setLocale(code as Locale)}
-                  className={`min-h-11 rounded-lg px-3 py-2 font-medium transition-all ${
-                    locale === code
-                      ? 'bg-primary text-white font-semibold'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  {LOCALE_LABELS[code]}
-                </button>
-              ))}
-            </div>
+            <LanguageDropdown value={locale} onChange={setLocale} />
 
             <div className="flex items-center gap-2.5">
               <Link
@@ -202,7 +187,7 @@ export default function PlanPage() {
                 Sim Library (976)
               </Link>
               {/*
-                Was a Link to /welcome — the public marketing page. A signed-in
+                Was a Link to the public marketing page. A signed-in
                 worker who wanted help landed on the sales site, which then
                 offers a Login button and makes them think they were signed out.
                 The guided tour is what "Help" should actually do, and it is

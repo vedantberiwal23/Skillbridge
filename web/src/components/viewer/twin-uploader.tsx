@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Box, FileUp, Loader2, TriangleAlert, Check } from 'lucide-react';
 import { MachineViewer } from '@/components/viewer/machine-viewer';
 import type { MachineAsset } from '@/lib/types';
@@ -27,7 +27,22 @@ import type { MachineAsset } from '@/lib/types';
 const CAD_EXTENSIONS = ['.step', '.stp', '.gltf', '.glb', '.obj'] as const;
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.heic', '.mp4', '.mov'] as const;
 
-const ACCEPT = [...CAD_EXTENSIONS, ...IMAGE_EXTENSIONS].join(',');
+const SUPPORTED = [...CAD_EXTENSIONS, ...IMAGE_EXTENSIONS] as readonly string[];
+
+/**
+ * The file dialog is deliberately NOT restricted to those extensions.
+ *
+ * macOS resolves an `accept` list into system file types, and it recognises
+ * neither `.step` nor `.gltf` - so Finder greys those files out and an admin
+ * simply cannot pick the CAD file they were asked for. The browser never sees
+ * it, so there is nothing to report either.
+ *
+ * Validation happens below instead, where an unsupported file produces a message
+ * naming what is supported rather than a dialog that silently refuses to select.
+ */
+
+const TRANSPARENT_PIXEL =
+  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
 /** Photogrammetry needs a real walk-around; below this it cannot reconstruct. */
 const MIN_PHOTOS = 24;
@@ -51,6 +66,74 @@ function extensionOf(name: string): string {
   return dot === -1 ? '' : name.slice(dot).toLowerCase();
 }
 
+/** Self-contained mesh formats the browser can render with no backend at all. */
+const BROWSER_RENDERABLE = ['.glb', '.gltf'] as const;
+
+/**
+ * Read the part names out of a glTF or GLB in the browser.
+ *
+ * A GLB is a 12-byte header followed by a JSON chunk; a .gltf is that JSON
+ * directly. Either way the node names are right there, so a CAD assembly can be
+ * listed and rendered without the engine ever being involved. That matters
+ * because the engine is a local service: it is not reachable from a deployed
+ * app, and a model the browser can already draw should not depend on it.
+ */
+/**
+ * CAD exporters write part names in the file's own language, and some write
+ * them wrong: SolidWorks exports UTF-8 bytes as if they were latin-1, so
+ * "الفراشة" arrives as "Ø§Ù„ÙØ±Ø§Ø´Ø©". Repaired here rather than shown as
+ * mojibake to an operator — and, since these names are what the tutor is told
+ * the machine is made of, repaired before they reach it.
+ */
+function repairEncoding(name: string): string {
+  if (!/[ÃÂØÙ×Ð]/.test(name)) return name;
+  try {
+    const bytes = Uint8Array.from([...name].map((c) => c.charCodeAt(0) & 0xff));
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    return name;
+  }
+}
+
+async function readGltfParts(file: File): Promise<string[]> {
+  try {
+    let json: { nodes?: { name?: string }[] };
+    if (file.name.toLowerCase().endsWith('.glb')) {
+      const buffer = await file.arrayBuffer();
+      const view = new DataView(buffer);
+      if (view.getUint32(0, true) !== 0x46546c67) return [];
+      const jsonLength = view.getUint32(12, true);
+      json = JSON.parse(new TextDecoder().decode(new Uint8Array(buffer, 20, jsonLength)));
+    } else {
+      json = JSON.parse(await file.text());
+    }
+    const names = (json.nodes ?? []).map((node) => repairEncoding(node.name ?? '')).filter(Boolean);
+
+    // Models this pipeline authored mark their parts. Anything else — a real
+    // SolidWorks, Onshape or Fusion export — names its nodes after the parts,
+    // which is the only description of the machine we get on this path. Taking
+    // only SKB_COMPONENT_ meant a genuine 37-mesh assembly reached the tutor as
+    // "components have not been labelled yet".
+    const authored = names.filter((name) => name.startsWith('SKB_COMPONENT_'));
+    if (authored.length) return authored;
+
+    const seen = new Set<string>();
+    return names
+      // glTF repeats each part as an "occurrence of X" instance node.
+      .filter((name) => !name.startsWith('occurrence of '))
+      // "الهيكل.1-1 <1>" and "الهيكل.1-1" are one part.
+      .map((name) => name.replace(/\s*<\d+>\s*$/, '').trim())
+      .filter((name) => {
+        if (!name || seen.has(name)) return false;
+        seen.add(name);
+        return true;
+      })
+      .slice(0, 24);
+  } catch {
+    return [];
+  }
+}
+
 function isCad(files: File[]): boolean {
   return files.some((f) => (CAD_EXTENSIONS as readonly string[]).includes(extensionOf(f.name)));
 }
@@ -64,15 +147,40 @@ const PHASE_LABEL: Record<Phase, string> = {
   error: 'Failed',
 };
 
-export function TwinUploader() {
+export interface TwinUploaderProps {
+  /**
+   * Called once a twin exists. The Studio uses it to make the uploaded machine
+   * the one on screen — and therefore the one the voice tutor is asked about.
+   * Without it an admin uploads a compressor, asks "what is this?", and is
+   * answered about whichever machine the viewer still holds.
+   */
+  onTwinReady?: (asset: MachineAsset, built: TwinBuilt) => void;
+}
+
+/** What the engine made, so the screen — and the tutor — can describe it. */
+export interface TwinBuilt {
+  source: 'cad' | 'photogrammetry';
+  fileName: string;
+  parts: { label?: string; description?: string }[];
+}
+
+export function TwinUploader({ onTwinReady }: TwinUploaderProps = {}) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
   const [detail, setDetail] = useState('');
   const [error, setError] = useState<StageError | null>(null);
   const [asset, setAsset] = useState<MachineAsset | null>(null);
+  // Read through a ref so the upload callback does not have to list it as a
+  // dependency and be rebuilt on every render.
+  const onTwinReadyRef = useRef(onTwinReady);
+  useEffect(() => {
+    onTwinReadyRef.current = onTwinReady;
+  }, [onTwinReady]);
   const [components, setComponents] = useState<ComponentSummary[]>([]);
   const [selected, setSelected] = useState<ComponentSummary | null>(null);
   const [sourceKind, setSourceKind] = useState<'cad' | 'photogrammetry' | null>(null);
+  /** True when the model was rendered in the browser without the engine. */
+  const [localOnly, setLocalOnly] = useState(false);
 
   const reset = () => {
     setPhase('idle');
@@ -82,10 +190,26 @@ export function TwinUploader() {
     setComponents([]);
     setSelected(null);
     setSourceKind(null);
+    setLocalOnly(false);
   };
 
   const process = useCallback(async (files: File[]) => {
     if (files.length === 0) return;
+
+    const unsupported = files.filter(
+      (file) => !SUPPORTED.includes(extensionOf(file.name))
+    );
+    if (unsupported.length > 0) {
+      setPhase('error');
+      setError({
+        code: 'UNSUPPORTED_FILE_TYPE',
+        message: `Cannot read ${unsupported.map((f) => f.name).join(', ')}.`,
+        remediation:
+          `CAD: ${CAD_EXTENSIONS.join(' ')}. ` +
+          `Capture: ${IMAGE_EXTENSIONS.join(' ')}.`,
+      });
+      return;
+    }
 
     const cad = isCad(files);
     setSourceKind(cad ? 'cad' : 'photogrammetry');
@@ -109,7 +233,74 @@ export function TwinUploader() {
       return;
     }
 
+    // The engine adds levels of detail, a poster and a stored project. None of
+    // that is needed to *show* a self-contained model, so when it cannot be
+    // reached - which is the normal case on a deployed app, since it is a local
+    // service - a glTF or GLB is rendered directly instead of failing.
+    const renderable =
+      files.length === 1 &&
+      (BROWSER_RENDERABLE as readonly string[]).includes(extensionOf(files[0].name));
+
+    let engineUp = false;
     try {
+      const probe = await fetch('/api/twin?action=capabilities');
+      engineUp = probe.ok;
+    } catch {
+      engineUp = false;
+    }
+
+    if (!engineUp) {
+      if (!renderable) {
+        setPhase('error');
+        setError({
+          code: 'ENGINE_UNAVAILABLE',
+          message: 'The Machine Twin engine is not reachable from here.',
+          remediation:
+            'STEP files and photo reconstruction are processed by the engine. ' +
+            'Upload a .glb or .gltf to view it directly in the browser, or run ' +
+            'the engine locally for the full pipeline.',
+        });
+        return;
+      }
+
+      setPhase('processing');
+      setDetail('Reading the assembly');
+      const parts = await readGltfParts(files[0]);
+      setComponents(
+        parts.map((name, i) => ({
+          stable_id: `SKB_COMP_${String(i + 1).padStart(3, '0')}`,
+          // The file's own name for the part, not a placeholder: it is what an
+          // operator recognises, and what the tutor is told the machine has.
+          label: name,
+          validation_status: 'review_required',
+        }))
+      );
+      const localAsset: MachineAsset = {
+        orgId: 'local',
+        assetId: `local-preview-${Date.now()}`,
+        name: files[0].name,
+        // Object URL: the file never leaves the browser on this path.
+        glbUrl: URL.createObjectURL(files[0]),
+        // No poster exists on this path - the engine renders those. A transparent
+        // pixel keeps the 2D fallback from showing a broken image if the model
+        // itself fails to load.
+        posterUrl: TRANSPARENT_PIXEL,
+        hotspots: [],
+      };
+      setAsset(localAsset);
+      onTwinReadyRef.current?.(localAsset, {
+        source: 'cad',
+        fileName: files[0].name,
+        parts: parts.map((name) => ({ label: name })),
+      });
+      setLocalOnly(true);
+      setPhase('done');
+      setDetail('');
+      return;
+    }
+
+    try {
+      setLocalOnly(false);
       setPhase('creating');
       setDetail(files[0].name);
       const createRes = await fetch('/api/twin?action=create', {
@@ -120,7 +311,25 @@ export function TwinUploader() {
           machine_type: cad ? 'cad_assembly' : 'photogrammetry_capture',
         }),
       });
-      if (!createRes.ok) throw new Error('Could not create the machine record.');
+      if (!createRes.ok) {
+        // Say which hop failed and what the server actually returned. "Could not
+        // create the machine record" told an operator nothing they could act on.
+        const body = await createRes.text().catch(() => '');
+        setPhase('error');
+        setError({
+          code: createRes.status === 502 ? 'ENGINE_UNREACHABLE' : `HTTP_${createRes.status}`,
+          message:
+            createRes.status === 502
+              ? 'The app reached the server, but the server could not reach the Machine Twin engine.'
+              : `Creating the machine record failed (HTTP ${createRes.status}). ${body.slice(0, 160)}`,
+          remediation:
+            createRes.status === 502
+              ? 'The engine is a local service. Run it alongside the app, or upload a ' +
+                '.glb / .gltf to view it directly in the browser instead.'
+              : 'Check you are signed in as an admin and try again.',
+        });
+        return;
+      }
       const project = await createRes.json();
 
       setPhase('uploading');
@@ -130,7 +339,16 @@ export function TwinUploader() {
         method: 'POST',
         body: form,
       });
-      if (!uploadRes.ok) throw new Error('Upload failed.');
+      if (!uploadRes.ok) {
+        const body = await uploadRes.text().catch(() => '');
+        setPhase('error');
+        setError({
+          code: `HTTP_${uploadRes.status}`,
+          message: `The upload was rejected (HTTP ${uploadRes.status}). ${body.slice(0, 160)}`,
+          remediation: 'Check the file is one of the listed formats and not corrupt.',
+        });
+        return;
+      }
 
       setPhase('processing');
       setDetail(cad ? 'Reading the assembly' : 'Solving camera positions');
@@ -159,13 +377,21 @@ export function TwinUploader() {
       const parts: ComponentSummary[] = componentRes.ok ? await componentRes.json() : [];
       setComponents(parts);
 
-      setAsset({
+      const builtAsset: MachineAsset = {
         orgId: 'local',
         assetId: project.id,
         name: project.name,
         glbUrl: `/api/twin?action=model&projectId=${project.id}&lod=0`,
         posterUrl: `/api/twin?action=poster&projectId=${project.id}`,
+        // Hotspots need reviewed components with 3D positions; a fresh twin has
+        // none, so the tutor is asked about the machine as a whole.
         hotspots: [],
+      };
+      setAsset(builtAsset);
+      onTwinReadyRef.current?.(builtAsset, {
+        source: cad ? 'cad' : 'photogrammetry',
+        fileName: files[0].name,
+        parts: parts.map((c) => ({ label: c.label })),
       });
       setPhase('done');
       setDetail('');
@@ -179,14 +405,14 @@ export function TwinUploader() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
+      <div className="rounded-2xl border border-border bg-card p-5">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h3 className="flex items-center gap-2 text-sm font-bold text-white">
-              <Box className="h-4 w-4 text-blue-400" />
+            <h3 className="flex items-center gap-2 text-sm font-bold text-foreground">
+              <Box className="h-4 w-4 text-primary" />
               Bring your own machine
             </h3>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-muted-foreground">
               Upload a CAD assembly for a part-separated twin, or a photo walk-around
               to reconstruct the machine as it actually stands.
             </p>
@@ -195,7 +421,7 @@ export function TwinUploader() {
             <button
               type="button"
               onClick={reset}
-              className="shrink-0 rounded-md border border-slate-700 px-2.5 py-1 text-xs text-slate-300 hover:bg-slate-800"
+              className="shrink-0 rounded-md border border-border px-2.5 py-1 text-xs text-foreground hover:bg-muted"
             >
               Start over
             </button>
@@ -207,7 +433,6 @@ export function TwinUploader() {
           id="twin-upload"
           type="file"
           multiple
-          accept={ACCEPT}
           className="hidden"
           onChange={(event) => {
             const files = Array.from(event.target.files ?? []);
@@ -220,61 +445,80 @@ export function TwinUploader() {
           type="button"
           disabled={busy}
           onClick={() => inputRef.current?.click()}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-slate-600 bg-slate-950/60 px-4 py-6 text-sm text-slate-300 transition hover:border-blue-500/60 hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted px-4 py-6 text-sm text-foreground transition hover:border-primary/40 hover:bg-card disabled:cursor-not-allowed disabled:opacity-60"
         >
           {busy ? (
-            <Loader2 className="h-5 w-5 animate-spin text-blue-400" />
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
           ) : (
-            <FileUp className="h-5 w-5 text-blue-400" />
+            <FileUp className="h-5 w-5 text-primary" />
           )}
           <span>
             {busy ? PHASE_LABEL[phase] : 'Choose files'}
-            {busy && detail ? <span className="text-slate-500"> &middot; {detail}</span> : null}
+            {busy && detail ? <span className="text-muted-foreground"> &middot; {detail}</span> : null}
           </span>
         </button>
 
-        <p className="mt-2 text-[11px] text-slate-500">
+        <p className="mt-2 text-[11px] text-muted-foreground">
           CAD: {CAD_EXTENSIONS.join(' ')} &middot; Capture: {MIN_PHOTOS}+ photographs, or a
           walk-around video
         </p>
 
         {phase === 'error' && error && (
-          <div className="mt-4 flex items-start gap-3 rounded-xl border border-amber-500/40 bg-amber-950/30 p-3">
-            <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
+          <div className="mt-4 flex items-start gap-3 rounded-xl border border-warning/40 bg-warning-muted p-3">
+            <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
             <div className="min-w-0">
               {error.code && (
-                <div className="font-mono text-[11px] uppercase tracking-wide text-amber-300">
+                <div className="font-mono text-[11px] uppercase tracking-wide text-warning">
                   {error.code}
                 </div>
               )}
-              <p className="text-xs text-amber-100">{error.message}</p>
+              <p className="text-xs text-warning">{error.message}</p>
               {error.remediation && (
-                <p className="mt-1.5 text-xs text-amber-200/80">{error.remediation}</p>
+                <p className="mt-1.5 text-xs text-warning">{error.remediation}</p>
               )}
             </div>
           </div>
         )}
 
         {phase === 'done' && (
-          <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-950/30 p-3 text-xs text-emerald-200">
-            <Check className="h-4 w-4 shrink-0 text-emerald-400" />
+          <div className="mt-4 flex items-center gap-2 rounded-xl border border-success/40 bg-success-muted p-3 text-xs text-success">
+            <Check className="h-4 w-4 shrink-0 text-success" />
             <span>
               {components.length} component{components.length === 1 ? '' : 's'} &middot;{' '}
-              {sourceKind === 'cad'
+              {localOnly
+                ? 'rendered in your browser — levels of detail and a stored twin need the engine'
+                : sourceKind === 'cad'
                 ? 'from the assembly’s own part structure'
-                : 'reconstructed from photographs — a scan is one merged surface, so parts need review'}
+                  : 'reconstructed from photographs — a scan is one merged surface, so parts need review'}
             </span>
           </div>
         )}
       </div>
 
       {asset && (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5">
-          <MachineViewer asset={asset} onPartSelected={() => undefined} />
+        <div className="rounded-2xl border border-border bg-card p-4 sm:p-5 shadow-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 mb-4 border-b border-border">
+            <div>
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                <span>3D Machine Twin Assembly</span>
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                360° interactive view &bull; use controls or gestures to zoom into components
+              </p>
+            </div>
+            <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-muted text-primary border border-border self-start sm:self-auto">
+              {asset.name}
+            </span>
+          </div>
+
+          <div className="w-full rounded-xl overflow-hidden shadow-inner min-h-[420px] sm:min-h-[640px]">
+            <MachineViewer asset={asset} onPartSelected={() => undefined} />
+          </div>
 
           {components.length > 0 && (
             <div className="mt-4">
-              <h4 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+              <h4 className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                 Components ({components.length})
               </h4>
               <div className="flex max-h-44 flex-wrap gap-1.5 overflow-y-auto">
@@ -285,8 +529,8 @@ export function TwinUploader() {
                     onClick={() => setSelected(component)}
                     className={`rounded-md border px-2 py-1 font-mono text-[10px] transition ${
                       selected?.stable_id === component.stable_id
-                        ? 'border-blue-400 bg-blue-950/60 text-blue-200'
-                        : 'border-slate-700 bg-slate-950/60 text-slate-300 hover:border-slate-500'
+                        ? 'border-primary/40 bg-accent text-primary'
+                        : 'border-border bg-muted text-foreground hover:border-border'
                     }`}
                   >
                     {component.stable_id.replace('SKB_COMPONENT_', '')}
@@ -295,13 +539,13 @@ export function TwinUploader() {
               </div>
 
               {selected && (
-                <dl className="mt-3 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-xs">
-                  <dt className="text-slate-500">ID</dt>
-                  <dd className="font-mono text-slate-200">{selected.stable_id}</dd>
-                  <dt className="text-slate-500">Label</dt>
-                  <dd className="text-slate-200">{selected.label}</dd>
-                  <dt className="text-slate-500">Status</dt>
-                  <dd className="text-amber-300">{selected.validation_status}</dd>
+                <dl className="mt-3 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 rounded-xl border border-border bg-muted p-3 text-xs">
+                  <dt className="text-muted-foreground">ID</dt>
+                  <dd className="font-mono text-foreground">{selected.stable_id}</dd>
+                  <dt className="text-muted-foreground">Label</dt>
+                  <dd className="text-foreground">{selected.label}</dd>
+                  <dt className="text-muted-foreground">Status</dt>
+                  <dd className="text-warning">{selected.validation_status}</dd>
                 </dl>
               )}
             </div>

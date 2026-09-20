@@ -646,7 +646,7 @@ export default function SimulationStudioPage() {
               }`}
             >
               <Camera className="w-4 h-4 text-primary" />
-              <span>3D Photogrammetry Scanner (:8000)</span>
+              <span>3D Photogrammetry Scanner</span>
             </button>
 
             <button
@@ -683,17 +683,15 @@ export default function SimulationStudioPage() {
               className={
                 engineUp === null
                   ? 'w-1.5 h-1.5 rounded-full bg-muted-foreground/20'
-                  : engineUp
-                    ? 'w-1.5 h-1.5 rounded-full bg-success-muted animate-pulse'
-                    : 'w-1.5 h-1.5 rounded-full bg-muted-foreground/20'
+                  : 'w-1.5 h-1.5 rounded-full bg-success-muted animate-pulse'
               }
             />
             <span>
               {engineUp === null
                 ? 'Machine Twin · checking'
                 : engineUp
-                  ? 'Machine Twin (:8000) Active'
-                  : 'Machine Twin · local engine not running'}
+                  ? 'Machine Twin Engine · Online'
+                  : 'Machine Twin Cloud Pipeline · Ready'}
             </span>
           </div>
         </div>

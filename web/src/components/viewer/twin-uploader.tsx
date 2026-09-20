@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Box, FileUp, Loader2, TriangleAlert, Check } from 'lucide-react';
 import { MachineViewer } from '@/components/viewer/machine-viewer';
 import type { MachineAsset } from '@/lib/types';
@@ -111,12 +111,28 @@ const PHASE_LABEL: Record<Phase, string> = {
   error: 'Failed',
 };
 
-export function TwinUploader() {
+export interface TwinUploaderProps {
+  /**
+   * Called once a twin exists. The Studio uses it to make the uploaded machine
+   * the one on screen — and therefore the one the voice tutor is asked about.
+   * Without it an admin uploads a compressor, asks "what is this?", and is
+   * answered about whichever machine the viewer still holds.
+   */
+  onTwinReady?: (asset: MachineAsset) => void;
+}
+
+export function TwinUploader({ onTwinReady }: TwinUploaderProps = {}) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
   const [detail, setDetail] = useState('');
   const [error, setError] = useState<StageError | null>(null);
   const [asset, setAsset] = useState<MachineAsset | null>(null);
+  // Read through a ref so the upload callback does not have to list it as a
+  // dependency and be rebuilt on every render.
+  const onTwinReadyRef = useRef(onTwinReady);
+  useEffect(() => {
+    onTwinReadyRef.current = onTwinReady;
+  }, [onTwinReady]);
   const [components, setComponents] = useState<ComponentSummary[]>([]);
   const [selected, setSelected] = useState<ComponentSummary | null>(null);
   const [sourceKind, setSourceKind] = useState<'cad' | 'photogrammetry' | null>(null);
@@ -214,9 +230,9 @@ export function TwinUploader() {
           validation_status: 'review_required',
         }))
       );
-      setAsset({
+      const localAsset: MachineAsset = {
         orgId: 'local',
-        assetId: 'local-preview',
+        assetId: `local-preview-${Date.now()}`,
         name: files[0].name,
         // Object URL: the file never leaves the browser on this path.
         glbUrl: URL.createObjectURL(files[0]),
@@ -225,7 +241,9 @@ export function TwinUploader() {
         // itself fails to load.
         posterUrl: TRANSPARENT_PIXEL,
         hotspots: [],
-      });
+      };
+      setAsset(localAsset);
+      onTwinReadyRef.current?.(localAsset);
       setLocalOnly(true);
       setPhase('done');
       setDetail('');
@@ -310,14 +328,18 @@ export function TwinUploader() {
       const parts: ComponentSummary[] = componentRes.ok ? await componentRes.json() : [];
       setComponents(parts);
 
-      setAsset({
+      const builtAsset: MachineAsset = {
         orgId: 'local',
         assetId: project.id,
         name: project.name,
         glbUrl: `/api/twin?action=model&projectId=${project.id}&lod=0`,
         posterUrl: `/api/twin?action=poster&projectId=${project.id}`,
+        // Hotspots need reviewed components with 3D positions; a fresh twin has
+        // none, so the tutor is asked about the machine as a whole.
         hotspots: [],
-      });
+      };
+      setAsset(builtAsset);
+      onTwinReadyRef.current?.(builtAsset);
       setPhase('done');
       setDetail('');
     } catch (err) {

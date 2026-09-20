@@ -42,7 +42,8 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
       label: chosen?.label || 'Hydraulic Pump',
     };
   });
-  const ask = useVoiceAsk(locale, selectedPart.label);
+  // The machine, then the part on it: "what is this?" needs both.
+  const ask = useVoiceAsk(locale, selectedPart.label, lesson.simulationConfig.title);
 
   // Checklist of SOP steps completed by worker
   const [checkedSteps, setCheckedSteps] = useState<Record<number, boolean>>({});

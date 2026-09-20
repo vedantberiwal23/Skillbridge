@@ -135,6 +135,14 @@ function trainingSimHref(partId: string): string {
     : `/lesson/${TRAINING_LESSON_ID}`;
 }
 
+/** A part the worker can point at, on whichever machine is loaded. */
+interface PartOption {
+  id: string;
+  name: string;
+  code?: string;
+  status?: ComponentDetail['status'];
+}
+
 const COMPONENTS: Record<string, ComponentDetail> = {
   'relief-valve': {
     id: 'relief-valve',
@@ -268,7 +276,7 @@ export default function SimulationStudioPage() {
   const [language, setLanguage] = useState<string>('hi');
   const currentVoiceCode =
     INDIAN_LANGUAGES.find((l) => l.code === language)?.voiceCode || (language === 'hi' ? 'hi-IN' : 'en-IN');
-  const [selectedPartId, setSelectedPartId] = useState<string>('relief-valve');
+  const [selectedPartId, setSelectedPartId] = useState<string | null>('relief-valve');
   const [autoRotate, setAutoRotate] = useState<boolean>(false);
   const [activeAsset, setActiveAsset] = useState<MachineAsset>(MACHINE_TWIN_ASSET);
   /**
@@ -355,19 +363,69 @@ export default function SimulationStudioPage() {
       voiceChannelRef.current = null;
     };
   }, []);
-  const currentPart = COMPONENTS[selectedPartId] || COMPONENTS['relief-valve'];
+  /**
+   * `COMPONENTS` describes ONE machine: the built-in demo pump. It is not a
+   * property of whatever model is loaded, so it only applies while that asset is
+   * on screen. A scanned or uploaded machine brings its own parts, and until
+   * those are reviewed it may have none at all.
+   */
+  const isDemoAsset = activeAsset.assetId === MACHINE_TWIN_ASSET.assetId;
+  const partOptions: PartOption[] = isDemoAsset
+    ? Object.values(COMPONENTS).map((c) => ({ id: c.id, name: c.name, code: c.code, status: c.status }))
+    : activeAsset.hotspots.map((h) => ({ id: h.id, name: h.label }));
+
+  // Loading another machine resets the subject. Without this the part stays
+  // selected and the previous machine's Q&A is still sent as history, so the
+  // tutor keeps answering about the old part.
+  const loadedAssetId = useRef(activeAsset.assetId);
+  useEffect(() => {
+    if (loadedAssetId.current === activeAsset.assetId) return;
+    loadedAssetId.current = activeAsset.assetId;
+    setSelectedPartId(activeAsset.hotspots[0]?.id ?? null);
+    setHistory([]);
+    setTranscript('');
+    setAiResponse('');
+    setAiGrounded(null);
+    setVoiceError(null);
+    setLatencyMs(null);
+    player.stopSpeech();
+  }, [activeAsset]);
+
+  const currentPart = isDemoAsset && selectedPartId ? (COMPONENTS[selectedPartId] ?? null) : null;
+  /**
+   * What the tutor is told the worker is pointing at — and NOTHING when no part
+   * is selected. A stale label makes every answer about that part: the service
+   * prepends "the worker tapped this part" to the question, so a pinned label
+   * silently turns "what is this?" into "what is the relief valve?".
+   */
+  const selectedPartLabel = partOptions.find((p) => p.id === selectedPartId)?.name ?? null;
+  /**
+   * The prompts offered under the answer. With a demo part selected they are its
+   * authored questions; otherwise they ask about whatever machine is loaded,
+   * rather than about a part that is not on screen.
+   */
+  const suggestedQuestion = currentPart
+    ? language === 'hi'
+      ? currentPart.questions.hi
+      : currentPart.questions.en
+    : selectedPartLabel
+      ? language === 'hi'
+        ? `${selectedPartLabel} क्या है और यह क्या करता है?`
+        : `What is the ${selectedPartLabel} and what does it do?`
+      : language === 'hi'
+        ? 'यह मशीन क्या है और इसका क्या उपयोग है?'
+        : 'What is this machine and what is it used for?';
+  const lotoSubject = selectedPartLabel ?? (language === 'hi' ? 'इस मशीन' : 'this machine');
 
   // Handle Part Tap on 3D viewer
   const handlePartSelected = (hotspotId: string) => {
     const cleanId = hotspotId.replace(/^hotspot-/, '');
-    if (COMPONENTS[cleanId]) {
-      setSelectedPartId(cleanId);
-      speakAudioNotification(
-        language === 'hi'
-          ? `चयनित: ${COMPONENTS[cleanId].name}`
-          : `Selected: ${COMPONENTS[cleanId].name}`
-      );
-    }
+    const part = partOptions.find((p) => p.id === cleanId);
+    if (!part) return;
+    setSelectedPartId(cleanId);
+    speakAudioNotification(
+      language === 'hi' ? `चयनित: ${part.name}` : `Selected: ${part.name}`
+    );
   };
 
   const speakAudioNotification = (text: string) => {
@@ -467,7 +525,11 @@ export default function SimulationStudioPage() {
     setTranscript(q);
     setAiThinking(true);
     sentAtRef.current = Date.now();
-    ch.ask(q, { language: currentVoiceCode, part: currentPart.name, history: historyForTurn() }, turnHandlers(q));
+    ch.ask(
+      q,
+      { language: currentVoiceCode, part: selectedPartLabel, machine: activeAsset.name, history: historyForTurn() },
+      turnHandlers(q)
+    );
   };
 
   // Push-To-Talk Handlers with AudioWorklet & WebSocket Streaming
@@ -490,7 +552,8 @@ export default function SimulationStudioPage() {
       {
         language: currentVoiceCode,
         explicit: true,
-        part: currentPart.name,
+        part: selectedPartLabel,
+        machine: activeAsset.name,
         history: historyForTurn(),
       },
       turnHandlers('')
@@ -765,7 +828,7 @@ export default function SimulationStudioPage() {
                 <div className="relative rounded-xl overflow-hidden border border-border shadow-inner min-h-[420px] sm:min-h-[640px]">
                   <MachineViewer
                     asset={activeAsset}
-                    selectedPartId={selectedPartId}
+                    selectedPartId={selectedPartId ?? undefined}
                     autoRotate={autoRotate}
                     onPartSelected={handlePartSelected}
                   />
@@ -783,7 +846,7 @@ export default function SimulationStudioPage() {
                     Machinery Components Subsystems:
                   </span>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {Object.values(COMPONENTS).map((comp, idx) => {
+                    {partOptions.map((comp, idx) => {
                       const isSelected = selectedPartId === comp.id;
                       return (
                         <button
@@ -800,6 +863,7 @@ export default function SimulationStudioPage() {
                             <span className="w-5 h-5 rounded-full bg-accent text-primary flex items-center justify-center font-mono font-bold text-[10px]">
                               {idx + 1}
                             </span>
+                            {comp.status ? (
                             <span
                               className={`text-[9px] px-1.5 py-0.5 rounded font-bold font-mono ${
                                 comp.status === 'OPTIMAL'
@@ -811,6 +875,7 @@ export default function SimulationStudioPage() {
                             >
                               {comp.status}
                             </span>
+                            ) : null}
                           </div>
                           <div className="font-semibold text-xs text-foreground truncate">
                             {comp.name}
@@ -828,74 +893,87 @@ export default function SimulationStudioPage() {
               {/* Bring-your-own-machine: the organisation-facing path. Uploads go
                   through /api/twin, which carries the session and keeps the engine's
                   address out of the browser. */}
-              <TwinUploader />
+              <TwinUploader onTwinReady={loadScannedModel} />
 
-              {/* Active Component Specifications & Hazard Card */}
-              <div className="bg-card border border-border rounded-2xl p-3.5 sm:p-5 shadow-lg">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2 border-b border-border">
-                  <div>
-                    <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                      <Wrench className="w-4 h-4 text-primary shrink-0" />
-                      <span>{currentPart.name}</span>
-                    </h3>
-                    <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                      {currentPart.subsystem}
-                    </p>
-                  </div>
-                  <span className="text-xs px-2.5 py-1 rounded-md bg-muted text-primary font-mono border border-border">
-                    SOP: {currentPart.sop.id}
-                  </span>
-                </div>
-
-                {/* Specs Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                  <div className="bg-muted p-2 rounded-lg border border-border">
-                    <span className="text-[10px] text-muted-foreground block uppercase">Operating Pressure</span>
-                    <span className="text-xs font-bold font-mono text-primary">{currentPart.specs.pressure}</span>
-                  </div>
-                  <div className="bg-muted p-2 rounded-lg border border-border">
-                    <span className="text-[10px] text-muted-foreground block uppercase">Flow Rating</span>
-                    <span className="text-xs font-bold font-mono text-primary">{currentPart.specs.flow}</span>
-                  </div>
-                  <div className="bg-muted p-2 rounded-lg border border-border">
-                    <span className="text-[10px] text-muted-foreground block uppercase">Temp Ceiling</span>
-                    <span className="text-xs font-bold font-mono text-warning">{currentPart.specs.tempLimit}</span>
-                  </div>
-                  <div className="bg-muted p-2 rounded-lg border border-border">
-                    <span className="text-[10px] text-muted-foreground block uppercase">Torque Rating</span>
-                    <span className="text-xs font-bold font-mono text-success">{currentPart.specs.torque}</span>
-                  </div>
-                </div>
-
-                {/* Mandatory Safety Alert */}
-                <div className="bg-warning-muted border border-warning/40 rounded-xl p-3 flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
-                  <div>
-                    <div className="text-xs font-bold text-warning uppercase tracking-wide">
-                      Mandatory Safety Procedure (OSHA / ISO 4413):
+              {/* Active Component Specifications & Hazard Card — the demo
+                  machine's parts, shown only while that machine is loaded. */}
+              {currentPart ? (
+                <div className="bg-card border border-border rounded-2xl p-3.5 sm:p-5 shadow-lg">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2 border-b border-border">
+                    <div>
+                      <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                        <Wrench className="w-4 h-4 text-primary shrink-0" />
+                        <span>{currentPart.name}</span>
+                      </h3>
+                      <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                        {currentPart.subsystem}
+                      </p>
                     </div>
-                    <p className="text-xs text-warning mt-0.5 leading-relaxed">
-                      {currentPart.sop.hazardAlert}
-                    </p>
+                    <span className="text-xs px-2.5 py-1 rounded-md bg-muted text-primary font-mono border border-border">
+                      SOP: {currentPart.sop.id}
+                    </span>
                   </div>
-                </div>
 
-                {/* Into the authored internals. See TRAINING_COMPONENT_MAP. */}
-                <Link
-                  href={trainingSimHref(selectedPartId)}
-                  className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-primary/40 bg-accent px-4 py-3 transition hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-                >
-                  <span className="min-w-0">
-                    <span className="block text-xs font-bold uppercase tracking-wide text-primary">
-                      Open Training Simulation
+                  {/* Specs Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                    <div className="bg-muted p-2 rounded-lg border border-border">
+                      <span className="text-[10px] text-muted-foreground block uppercase">Operating Pressure</span>
+                      <span className="text-xs font-bold font-mono text-primary">{currentPart.specs.pressure}</span>
+                    </div>
+                    <div className="bg-muted p-2 rounded-lg border border-border">
+                      <span className="text-[10px] text-muted-foreground block uppercase">Flow Rating</span>
+                      <span className="text-xs font-bold font-mono text-primary">{currentPart.specs.flow}</span>
+                    </div>
+                    <div className="bg-muted p-2 rounded-lg border border-border">
+                      <span className="text-[10px] text-muted-foreground block uppercase">Temp Ceiling</span>
+                      <span className="text-xs font-bold font-mono text-warning">{currentPart.specs.tempLimit}</span>
+                    </div>
+                    <div className="bg-muted p-2 rounded-lg border border-border">
+                      <span className="text-[10px] text-muted-foreground block uppercase">Torque Rating</span>
+                      <span className="text-xs font-bold font-mono text-success">{currentPart.specs.torque}</span>
+                    </div>
+                  </div>
+
+                  {/* Mandatory Safety Alert */}
+                  <div className="bg-warning-muted border border-warning/40 rounded-xl p-3 flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-xs font-bold text-warning uppercase tracking-wide">
+                        Mandatory Safety Procedure (OSHA / ISO 4413):
+                      </div>
+                      <p className="text-xs text-warning mt-0.5 leading-relaxed">
+                        {currentPart.sop.hazardAlert}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Into the authored internals. See TRAINING_COMPONENT_MAP. */}
+                  <Link
+                    href={trainingSimHref(currentPart.id)}
+                    className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-primary/40 bg-accent px-4 py-3 transition hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-xs font-bold uppercase tracking-wide text-primary">
+                        Open Training Simulation
+                      </span>
+                      <span className="mt-0.5 block text-xs text-primary">
+                        Exploded assembly, internal components, operating sequence
+                      </span>
                     </span>
-                    <span className="mt-0.5 block text-xs text-primary">
-                      Exploded assembly, internal components, operating sequence
-                    </span>
-                  </span>
-                  <ArrowRight className="h-5 w-5 shrink-0 text-primary" />
-                </Link>
-              </div>
+                    <ArrowRight className="h-5 w-5 shrink-0 text-primary" />
+                  </Link>
+                </div>
+              ) : (
+                <div className="bg-card border border-border rounded-2xl p-5 shadow-lg text-xs text-muted-foreground">
+                  {partOptions.length
+                    ? language === 'hi'
+                      ? 'विवरण देखने के लिए ऊपर कोई पार्ट चुनें।'
+                      : 'Select a part above to see its details.'
+                    : language === 'hi'
+                      ? 'इस मशीन के पार्ट अभी लेबल नहीं हुए — सवाल पूरी मशीन के बारे में पूछे जाएंगे।'
+                      : 'This machine has no labelled parts yet, so questions are asked about the machine as a whole.'}
+                </div>
+              )}
             </div>
 
             {/* Right 5 Columns: AI Voice Diagnostic Copilot */}
@@ -1060,12 +1138,10 @@ export default function SimulationStudioPage() {
                   <div className="grid grid-cols-1 gap-1.5">
                     <button
                       type="button"
-                      onClick={() => askTyped(language === 'hi' ? currentPart.questions.hi : currentPart.questions.en)}
+                      onClick={() => askTyped(suggestedQuestion)}
                       className="text-xs bg-muted hover:bg-muted text-foreground border border-border rounded-lg px-3 py-2 text-left transition flex items-center justify-between group"
                     >
-                      <span className="truncate">
-                        💬 {language === 'hi' ? currentPart.questions.hi : currentPart.questions.en}
-                      </span>
+                      <span className="truncate">💬 {suggestedQuestion}</span>
                       <Send className="w-3 h-3 text-muted-foreground group-hover:text-primary shrink-0 ml-2" />
                     </button>
                     <button
@@ -1073,8 +1149,8 @@ export default function SimulationStudioPage() {
                       onClick={() =>
                         askTyped(
                           language === 'hi'
-                            ? `${currentPart.name} का सुरक्षित LOTO लॉकआउट कैसे करें?`
-                            : `What is the exact zero-energy LOTO isolation procedure for ${currentPart.name}?`
+                            ? `${lotoSubject} का सुरक्षित LOTO लॉकआउट कैसे करें?`
+                            : `What is the exact zero-energy LOTO isolation procedure for ${lotoSubject}?`
                         )
                       }
                       className="text-xs bg-muted hover:bg-muted text-foreground border border-border rounded-lg px-3 py-2 text-left transition flex items-center justify-between group"
@@ -1148,7 +1224,16 @@ export default function SimulationStudioPage() {
         {activeTab === 'scanner' && <ScanPipelinePanel onLoadModel={loadScannedModel} />}
 
         {/* TAB 3: INTERACTIVE SOP & GUIDED WORK ORDER */}
-        {activeTab === 'sop' && (
+        {/* The work order is written against the demo machine's parts, so it
+            only applies while one of those is selected. */}
+        {activeTab === 'sop' && !currentPart && (
+          <div className="bg-card border border-border rounded-2xl p-6 shadow-xl max-w-4xl mx-auto text-sm text-muted-foreground">
+            {language === 'hi'
+              ? 'वर्क ऑर्डर देखने के लिए डेमो मशीन का कोई पार्ट चुनें।'
+              : 'Select a part on the demo machine to see its work order.'}
+          </div>
+        )}
+        {activeTab === 'sop' && currentPart && (
           <div className="bg-card border border-border rounded-2xl p-6 shadow-xl max-w-4xl mx-auto">
             <div className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-6 border-b border-border">
               <div>

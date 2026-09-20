@@ -38,6 +38,12 @@ export interface TurnOptions {
   readonly ground?: Grounder;
   /** Label of the machine part the worker tapped before asking, if any. */
   readonly part?: string | null;
+  /**
+   * The machine on screen — the one the worker just uploaded, scanned or opened.
+   * Without it "what is this?" has no subject at all, and the model answers
+   * about whatever the history last mentioned.
+   */
+  readonly machine?: string | null;
   /** Injected in tests; Bedrock otherwise. */
   readonly streamText?: StreamFn;
   /**
@@ -149,6 +155,7 @@ function startGeneration(opts: {
   spoken: string | null;
   history: TurnOptions['history'];
   part: string | null;
+  machine: string | null;
   ground?: Grounder;
   stream: StreamFn;
 }): Generation {
@@ -185,13 +192,20 @@ function startGeneration(opts: {
 
   void (async () => {
     try {
-      const query = opts.part ? `${opts.part}: ${opts.input}` : opts.input;
+      // Retrieval is about this machine and this part, not the bare words: an
+      // org's SOPs are per machine, and "what is this?" alone retrieves nothing.
+      const subject = [opts.machine, opts.part].filter(Boolean).join(' ');
+      const query = subject ? `${subject}: ${opts.input}` : opts.input;
       const sources = opts.ground ? await opts.ground(query) : null;
       if (aborted) return;
       gen.grounded = Boolean(sources);
       // Verbatim, in whatever language and script it arrived in — never
       // pre-translated. The part the worker tapped rides along as context.
-      const asked = opts.part ? `[The worker tapped this part on the machine model: ${opts.part}]\n${opts.input}` : opts.input;
+      const context = [
+        opts.machine ? `Machine on screen: ${opts.machine}` : null,
+        opts.part ? `Part the worker tapped: ${opts.part}` : null,
+      ].filter(Boolean);
+      const asked = context.length ? `[${context.join('. ')}]\n${opts.input}` : opts.input;
       const stream = opts.stream(
         {
           system: coach.systemFor({ spoken: opts.spoken, sources }),
@@ -247,6 +261,7 @@ export function createTurn(options: TurnOptions): Turn {
   const { send, fail, history, known = null, onHeard, ground, record } = options;
   const stream = options.streamText ?? bedrockStream;
   const part = cleanPart(options.part);
+  const machine = cleanPart(options.machine);
   const fallbackLanguage = isLanguage(options.language) ? options.language : 'hi-IN';
 
   const tBegin = Date.now();
@@ -264,7 +279,7 @@ export function createTurn(options: TurnOptions): Turn {
   let cancelled = false;
 
   const generate = (input: string, spoken: string | null) =>
-    startGeneration({ input, spoken, history, part, ground, stream });
+    startGeneration({ input, spoken, history, part, machine, ground, stream });
 
   /* ── speculation, while the button is still held ── */
   const considerSpeculating = () => {

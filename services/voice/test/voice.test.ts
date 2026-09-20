@@ -577,3 +577,44 @@ test('a typed question with no letters is not answered', async () => {
   assert.equal(modelCalls.length, 0);
   c.ws.close();
 });
+
+test('the machine on screen is the subject: a typed question carries it', async () => {
+  reset();
+  modelReply = () => ['यह ', 'एक ', 'air ', 'compressor ', 'है।'];
+  const c = connect();
+  await c.opened;
+  c.send({ t: 'start', token: 'good:worker-machine' });
+  await c.waitFor((f) => f.t === 'ready');
+
+  // A worker who just uploaded a machine and asks the bare question.
+  c.send({ t: 'ask', text: 'what is this?', language: 'en-IN', machine: 'Air compressor, bay 2' });
+  await c.waitFor((f) => f.t === 'done');
+
+  const asked = modelCalls.at(-1)!.messages.at(-1)!.content;
+  assert.match(asked, /Machine on screen: Air compressor, bay 2/);
+  assert.match(asked, /what is this\?/);
+  // No part was tapped, so nothing claims one was.
+  assert.doesNotMatch(asked, /Part the worker tapped/);
+  c.ws.close();
+});
+
+test('machine and part are both named, and neither is invented', async () => {
+  reset();
+  modelReply = () => HINDI_REPLY;
+  const c = connect();
+  await c.opened;
+  c.send({ t: 'start', token: 'good:worker-both' });
+  await c.waitFor((f) => f.t === 'ready');
+  c.send({ t: 'ask', text: 'yeh kaise kholte hain?', language: 'hi-IN', machine: 'HPU-400', part: 'Relief valve' });
+  await c.waitFor((f) => f.t === 'done');
+  const asked = modelCalls.at(-1)!.messages.at(-1)!.content;
+  assert.match(asked, /Machine on screen: HPU-400\. Part the worker tapped: Relief valve/);
+
+  // And with neither, the question stands alone — no phantom subject.
+  modelCalls.length = 0;
+  c.send({ t: 'ask', text: 'general question', language: 'en-IN' });
+  // The second `done` of this channel, not the first one again.
+  await c.waitFor(() => c.frames.filter((f) => f.t === 'done').length === 2);
+  assert.equal(modelCalls.at(-1)!.messages.at(-1)!.content, 'general question');
+  c.ws.close();
+});

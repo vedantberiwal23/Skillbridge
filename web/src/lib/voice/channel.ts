@@ -78,6 +78,11 @@ export interface TurnOptions {
   history?: { role: 'user' | 'assistant'; content: string }[];
   /** Label of the tapped hotspot, from MachineViewer's onPartSelected. */
   part?: string | null;
+  /**
+   * The machine the worker is looking at — the one they uploaded, scanned or
+   * opened. "What is this?" has no subject without it.
+   */
+  machine?: string | null;
 }
 
 export interface VoiceTurn {
@@ -251,6 +256,7 @@ export function openVoiceChannel(opts: {
           explicit: options.explicit === true,
           history: options.history ?? [],
           part: options.part ?? null,
+          machine: options.machine ?? null,
         })
       );
 
@@ -314,6 +320,7 @@ export function openVoiceChannel(opts: {
           language: options.language,
           history: options.history ?? [],
           part: options.part ?? null,
+          machine: options.machine ?? null,
         })
       );
       return true;

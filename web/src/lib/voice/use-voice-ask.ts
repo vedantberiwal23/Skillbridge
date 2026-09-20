@@ -55,7 +55,7 @@ const EMPTY: VoiceAskState = {
  * a token fetch, a state update, a dynamic import — and the gesture is over,
  * playback stays locked, and the tutor answers to a silent phone.
  */
-export function useVoiceAsk(locale: string, part?: string | null) {
+export function useVoiceAsk(locale: string, part?: string | null, machine?: string | null) {
   const [state, setState] = useState<VoiceAskState>(EMPTY);
   const channelRef = useRef<VoiceChannel | null>(null);
   const turnRef = useRef<VoiceTurn | null>(null);
@@ -65,12 +65,14 @@ export function useVoiceAsk(locale: string, part?: string | null) {
   // render — a ref mutated mid-render is not safe under concurrent rendering,
   // where a render can be discarded after the write has already landed.
   const partRef = useRef<string | null | undefined>(part);
+  const machineRef = useRef<string | null | undefined>(machine);
   const localeRef = useRef<string>(locale);
 
   useEffect(() => {
     partRef.current = part;
+    machineRef.current = machine;
     localeRef.current = locale;
-  }, [part, locale]);
+  }, [part, machine, locale]);
 
   useEffect(() => {
     const channel = openVoiceChannel({
@@ -113,6 +115,7 @@ export function useVoiceAsk(locale: string, part?: string | null) {
         language: voiceLang,
         explicit: true,
         part: partRef.current ?? null,
+        machine: machineRef.current ?? null,
       },
       {
         // A partial must never shorten what is already held: the recogniser

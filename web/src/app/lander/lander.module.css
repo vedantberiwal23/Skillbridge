@@ -235,13 +235,17 @@
 .subject {
   position: absolute;
   z-index: 2;
-  /* Centred under the wordmark block, not the page: the machine belongs in
-     the gap between the two lines, which sits in the right half. */
+  /* Sits in the band between the two lines: half its own height above the
+     hero's midline, so it clears the descender of SKILL and the cap-height of
+     BRIDGE instead of lying across them. Offsets, not a transform — the scroll
+     handler owns the transform. */
   right: clamp(24px, 6vw, 150px);
-  bottom: 23%;
+  top: 50%;
+  margin-top: -17vh;
+  bottom: auto;
   /* Sized by HEIGHT with width auto: a width-driven box grows taller than the
      hero on a short viewport, crops the machine and buries the copy. */
-  height: clamp(200px, 38vh, 360px);
+  height: 34vh;
   width: min(720px, 66vw);
   pointer-events: none;
   filter: drop-shadow(0 18px 40px rgba(26, 25, 23, 0.22));
@@ -253,51 +257,56 @@
   display: none !important;
 }
 
-/* On a phone the hero stacks: wordmark line, copy, machine, wordmark line.
-   Each band gets its own room, so nothing lands on anything else. */
+/* On a phone the bracket leads: SKILL, the machine centred in the gap, then
+   BRIDGE — with the copy below the whole figure instead of inside it. */
 @media (max-width: 760px) {
   .hero {
     align-items: flex-start;
-    padding-top: 84px;
-    padding-bottom: 104px;
+    min-height: auto;
+    padding-top: 26px;
+    padding-bottom: 56px;
   }
 
   .wordLine {
-    font-size: clamp(54px, 15vw, 86px);
-    right: clamp(16px, 4vw, 28px);
+    font-size: clamp(56px, 16vw, 92px);
+    left: 0;
+    right: 0;
+    text-align: center;
   }
 
   .wordLineTop {
-    top: 3%;
+    top: 4vh;
   }
 
   .wordLineBottom {
-    bottom: 3%;
-  }
-
-  /* Clears the upper wordmark line rather than starting under the nav. */
-  .heroCopy {
-    margin-top: 12vh;
-    gap: 14px;
-  }
-
-  .heroActions {
-    width: 100%;
-  }
-
-  /* Equal width, full bleed: two buttons of different widths read as a mistake. */
-  .heroActions > * {
-    width: 100%;
+    top: 30vh;
+    bottom: auto;
   }
 
   .subject {
-    right: 50%;
-    /* The machine renders left of its canvas centre, so the canvas is pushed
-       past centre to bring the machine back onto the middle of the screen. */
-    transform: translateX(72%);
+    /* Centred in the gap between the two lines, on the page's own axis. */
+    top: 13vh;
+    bottom: auto;
+    /* Positioned with offsets, not a transform: the scroll handler writes an
+       inline transform every frame and would overwrite one set here. The
+       machine renders left of its canvas centre, so the canvas hangs past the
+       right edge to bring the machine onto the page's midline. */
+    right: auto;
+    left: 50%;
+    margin-left: -58vw;
+    margin-top: 0;
     width: 128vw;
-    height: clamp(120px, 16vh, 160px);
-    bottom: 10%;
+    height: 17vh;
+  }
+
+  .heroCopy {
+    margin-top: 42vh;
+    gap: 14px;
+  }
+
+  .heroActions,
+  .heroActions > * {
+    width: 100%;
   }
 
   .heroCaption {

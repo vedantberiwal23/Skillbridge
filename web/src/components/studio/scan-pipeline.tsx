@@ -64,9 +64,34 @@ interface CapabilityReport {
 }
 
 const CAD_EXTENSIONS = ['.step', '.stp', '.gltf', '.glb', '.obj'] as const;
+const BROWSER_RENDERABLE = ['.glb', '.gltf'] as const;
+
 function extensionOf(name: string): string {
   const dot = name.lastIndexOf('.');
   return dot === -1 ? '' : name.slice(dot).toLowerCase();
+}
+
+/**
+ * Read the part names out of a glTF or GLB in the browser when running in cloud mode.
+ */
+async function readGltfParts(file: File): Promise<string[]> {
+  try {
+    let json: { nodes?: { name?: string }[] };
+    if (file.name.toLowerCase().endsWith('.glb')) {
+      const buffer = await file.arrayBuffer();
+      const view = new DataView(buffer);
+      if (view.getUint32(0, true) !== 0x46546c67) return [];
+      const jsonLength = view.getUint32(12, true);
+      json = JSON.parse(new TextDecoder().decode(new Uint8Array(buffer, 20, jsonLength)));
+    } else {
+      json = JSON.parse(await file.text());
+    }
+    return (json.nodes ?? [])
+      .map((node) => node.name ?? '')
+      .filter((name) => name.length > 0);
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -204,6 +229,7 @@ export function ScanPipelinePanel({ onLoadModel }: { onLoadModel: (asset: Machin
   const [warnings, setWarnings] = useState<string[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const clientFileRef = useRef<File | null>(null);
 
   // The engine's own report of what this host can run — before anyone uploads.
   useEffect(() => {
@@ -258,6 +284,89 @@ export function ScanPipelinePanel({ onLoadModel }: { onLoadModel: (asset: Machin
     setLods([]);
     setComponents([]);
     setWarnings([]);
+
+    const isDirectBrowserMesh =
+      files.length === 1 &&
+      (BROWSER_RENDERABLE as readonly string[]).includes(extensionOf(files[0].name));
+
+    // When the local engine (:8000) is unreachable (e.g. on deployed cloud environments)
+    if (!engineReady) {
+      if (isDirectBrowserMesh) {
+        clientFileRef.current = files[0];
+        setProjectId('client-preview');
+        setBuiltName(name.trim());
+
+        await step('create', async () => {
+          await new Promise((r) => setTimeout(r, 200));
+          return { id: 'client-preview', name: name.trim() };
+        });
+
+        await step('upload', async () => {
+          setUploadPct(100);
+          await new Promise((r) => setTimeout(r, 250));
+          setSteps((prev) => ({
+            ...prev,
+            upload: { ...prev.upload, note: `${files[0].name} (${fmtBytes(files[0].size)}) loaded in memory` },
+          }));
+          return [];
+        });
+
+        await step('reconstruct', async () => {
+          const discovered = await readGltfParts(files[0]);
+          await new Promise((r) => setTimeout(r, 300));
+          setLods([
+            {
+              id: 'client-lod0',
+              lod: 0,
+              vertex_count: 0,
+              face_count: 0,
+              source: 'browser_mesh',
+              validation_status: 'ready',
+              meta: { size_bytes: files[0].size },
+            },
+          ]);
+          const comps: Component[] = discovered.map((p, i) => ({
+            id: `c-${i}`,
+            stable_id: p,
+            label: p.replace(/^SKB_COMPONENT_/, '').replace(/_/g, ' '),
+            category: 'mechanical',
+            validation_status: 'verified',
+          }));
+          setComponents(comps);
+          setSteps((prev) => ({
+            ...prev,
+            reconstruct: {
+              ...prev.reconstruct,
+              note: `Direct 3D mesh parsed — ${comps.length} part node(s) found`,
+            },
+            author: { state: 'skipped', note: 'Not needed: mesh is already browser-optimized' },
+          }));
+          return comps;
+        });
+
+        setRunning(false);
+        return;
+      }
+
+      setSteps({
+        create: {
+          state: 'failed',
+          durationMs: 150,
+          error: {
+            code: 'ENGINE_REQUIRED',
+            message: 'Photogrammetry and raw STEP CAD conversion require the Machine Twin engine (:8000).',
+            remediation:
+              'On this deployed website, upload a .glb or .gltf file to preview the 3D model directly, or run the engine locally for full reconstruction.',
+          },
+        },
+        upload: { state: 'queued' },
+        reconstruct: { state: 'queued' },
+        author: { state: 'queued' },
+      });
+      setRunning(false);
+      return;
+    }
+
     try {
       const project = await step('create', () =>
         twin<{ id: string; name: string }>('action=create', {
@@ -328,16 +437,23 @@ export function ScanPipelinePanel({ onLoadModel }: { onLoadModel: (asset: Machin
     if (!projectId || !built) return;
     setLoadError(null);
     try {
-      // Fetched here rather than handed to the viewer as a URL: see toBlobUrl.
-      const glbUrl = await toBlobUrl(
-        `/api/twin?action=model&projectId=${encodeURIComponent(projectId)}&lod=0`
-      );
+      let glbUrl: string;
+      if (projectId === 'client-preview' && clientFileRef.current) {
+        glbUrl = URL.createObjectURL(clientFileRef.current);
+      } else {
+        glbUrl = await toBlobUrl(
+          `/api/twin?action=model&projectId=${encodeURIComponent(projectId)}&lod=0`
+        );
+      }
       onLoadModel({
         orgId: '',
         assetId: projectId,
         name: builtName,
         glbUrl,
-        posterUrl: `/api/twin?action=poster&projectId=${encodeURIComponent(projectId)}`,
+        posterUrl:
+          projectId === 'client-preview'
+            ? ''
+            : `/api/twin?action=poster&projectId=${encodeURIComponent(projectId)}`,
         // Hotspots come from reviewed components, and a fresh scan has none yet.
         hotspots: [],
       });
@@ -378,10 +494,11 @@ export function ScanPipelinePanel({ onLoadModel }: { onLoadModel: (asset: Machin
                     : 'Not ready on this host'}
             </span>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Photos → camera poses + coverage check → mesh → browser-ready GLB with levels of detail.
-          </p>
-          {capsError && <p className="text-[11px] text-danger mt-1">{capsError.message} {capsError.remediation}</p>}
+          {capsError && (
+            <div className="text-[11px] text-warning mt-2 p-2.5 bg-muted/60 rounded-lg border border-border">
+              <span className="font-semibold text-foreground">Cloud Deployment Notice:</span> Machine Twin local engine (:8000) runs on your workstation for Apple Object Capture & Blender. On this cloud deployment, upload <code className="font-mono text-primary font-bold">.glb</code> or <code className="font-mono text-primary font-bold">.gltf</code> CAD assemblies to inspect and diagnose 3D models directly in your browser.
+            </div>
+          )}
           {caps && !engineReady && (
             <ul className="text-[11px] text-warning mt-1 space-y-0.5">
               {!caps.mesh_provider && <li>No mesh backend available on this host.</li>}

@@ -264,9 +264,9 @@
   .hero {
     align-items: flex-start;
     min-height: auto;
-    padding-top: 28px;
+    padding-top: 12px;
     /* Reserves the band the figure is pinned into. */
-    padding-bottom: 46vh;
+    padding-bottom: 44vh;
   }
 
   .wordLine {
@@ -293,15 +293,27 @@
     bottom: 15vh;
     right: auto;
     left: 50%;
-    margin-left: -80vw;
+    margin-left: -73vw;
     margin-top: 0;
     width: 128vw;
     height: 17vh;
   }
 
+  /* Centred and given air: left-aligned copy jammed under the nav read as
+     cramped on a narrow screen. */
   .heroCopy {
-    margin-top: 0;
-    gap: 14px;
+    margin-top: 5vh;
+    margin-bottom: 4vh;
+    gap: 16px;
+    align-items: center;
+    text-align: center;
+    min-width: 0;
+  }
+
+  .heroCopy .body,
+  .heroHeadline {
+    margin-inline: auto;
+    max-width: 24ch;
   }
 
   .heroActions,

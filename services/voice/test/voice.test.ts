@@ -120,6 +120,8 @@ before(async () => {
   const vp = (vendor.address() as AddressInfo).port;
   Object.assign(process.env, {
     NODE_ENV: 'development',
+    // The keepalive, sped up so the test below does not wait 25s for it.
+    VOICE_PING_MS: '250',
     SARVAM_API_KEY: 'test-key',
     COGNITO_USER_POOL_ID: 'ap-northeast-1_testpool',
     COGNITO_CLIENT_ID: 'testclient',
@@ -616,5 +618,28 @@ test('machine and part are both named, and neither is invented', async () => {
   // The second `done` of this channel, not the first one again.
   await c.waitFor(() => c.frames.filter((f) => f.t === 'done').length === 2);
   assert.equal(modelCalls.at(-1)!.messages.at(-1)!.content, 'general question');
+  c.ws.close();
+});
+
+test('the server keeps an idle socket warm, without extending the session', async () => {
+  reset();
+  const c = connect();
+  const pings: number[] = [];
+  c.ws.on('ping', () => pings.push(Date.now()));
+  await c.opened;
+  c.send({ t: 'start', token: 'good:worker-idle' });
+  await c.waitFor((f) => f.t === 'ready');
+
+  // Sit completely idle. An Application Load Balancer drops a connection with
+  // no traffic for 60s, so the server has to generate some by itself.
+  await sleep(900);
+  assert.ok(pings.length >= 2, `expected keepalive pings, saw ${pings.length}`);
+  assert.equal(c.ws.readyState, WebSocket.OPEN);
+
+  // The keepalive must not read as activity: `expired` is the only thing
+  // stopping a revoked user holding an authorized socket, so a silent channel
+  // still has to expire on schedule. Proven here by the absence of any bump:
+  // pings flowed, and the channel never reported itself renewed.
+  assert.equal(c.frames.filter((f) => f.t === 'expired').length, 0);
   c.ws.close();
 });

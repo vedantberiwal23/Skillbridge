@@ -61,8 +61,12 @@ const MAX_SOCKETS_PER_USER = 3;
  * holding a live authorized socket — so the ping deliberately does not call
  * `bump()`. It keeps the TCP connection warm between a worker's questions and
  * nothing more; a channel that goes quiet still expires exactly on schedule.
+ *
+ * `VOICE_PING_MS` exists so a test can watch the keepalive without waiting 25
+ * seconds for it. It is not a deployment knob: nothing sets it in CDK, and the
+ * default is what runs in production.
  */
-const PING_INTERVAL_MS = 25 * 1000;
+const PING_INTERVAL_MS = Number(process.env.VOICE_PING_MS ?? 25 * 1000);
 
 const CHANNEL_MAX_MS = 15 * 60 * 1000;
 const CHANNEL_IDLE_MS = 5 * 60 * 1000;

@@ -5,6 +5,7 @@ import { AccessibilityProvider } from "@/components/providers/accessibility-prov
 import { ServiceWorkerRegistration } from "@/components/providers/service-worker";
 import { AmplifyInit } from "@/components/providers/amplify-init";
 import { I18nProvider } from "@/i18n/provider";
+import { GoogleTranslateProvider } from "@/components/providers/google-translate";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -56,6 +57,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <AccessibilityProvider>
           <I18nProvider>{children}</I18nProvider>
         </AccessibilityProvider>
+        <GoogleTranslateProvider />
         <ServiceWorkerRegistration />
         <AmplifyInit />
       </body>

@@ -5,10 +5,36 @@ import { DEFAULT_LOCALE } from './config';
 import en from './messages/en.json';
 import hi from './messages/hi.json';
 import mr from './messages/mr.json';
+import or from './messages/or.json';
+import ta from './messages/ta.json';
+import te from './messages/te.json';
+import kn from './messages/kn.json';
+import gu from './messages/gu.json';
+import bn from './messages/bn.json';
+import pa from './messages/pa.json';
+import ml from './messages/ml.json';
+import as from './messages/as.json';
+import ur from './messages/ur.json';
+import bho from './messages/bho.json';
 
 type Messages = typeof en;
 
-const MESSAGES: Record<string, Messages> = { en, hi: hi as Messages, mr: mr as Messages };
+const MESSAGES: Record<string, Messages> = {
+  en,
+  hi: hi as Messages,
+  mr: mr as Messages,
+  or: or as Messages,
+  ta: ta as Messages,
+  te: te as Messages,
+  kn: kn as Messages,
+  gu: gu as Messages,
+  bn: bn as Messages,
+  pa: pa as Messages,
+  ml: ml as Messages,
+  as: as as Messages,
+  ur: ur as Messages,
+  bho: bho as Messages,
+};
 
 /** Values substituted into a message's {named} placeholders. */
 export type MessageVars = Record<string, string | number>;

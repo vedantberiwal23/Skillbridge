@@ -13,6 +13,7 @@
  */
 
 import { fetchAuthSession } from 'aws-amplify/auth';
+import type { ScreenContext } from './context';
 import { startMic, type Mic } from './mic';
 import * as player from './player';
 
@@ -83,6 +84,12 @@ export interface TurnOptions {
    * opened. "What is this?" has no subject without it.
    */
   machine?: string | null;
+  /**
+   * What the screen is showing — lesson, machine, the selected part and its
+   * description, the steps in view. Without it the tutor has nothing to bind
+   * "this" to and answers the question generically.
+   */
+  context?: ScreenContext | null;
 }
 
 export interface VoiceTurn {
@@ -256,7 +263,8 @@ export function openVoiceChannel(opts: {
           explicit: options.explicit === true,
           history: options.history ?? [],
           part: options.part ?? null,
-          machine: options.machine ?? null,
+          machine: options.machine ?? options.context?.machine ?? null,
+          context: options.context ?? null,
         })
       );
 
@@ -320,7 +328,8 @@ export function openVoiceChannel(opts: {
           language: options.language,
           history: options.history ?? [],
           part: options.part ?? null,
-          machine: options.machine ?? null,
+          machine: options.machine ?? options.context?.machine ?? null,
+          context: options.context ?? null,
         })
       );
       return true;

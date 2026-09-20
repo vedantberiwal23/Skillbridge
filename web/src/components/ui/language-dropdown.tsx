@@ -4,6 +4,7 @@ import React from 'react';
 import { Globe, ChevronDown } from 'lucide-react';
 import { INDIAN_LANGUAGES, type IndianLanguage } from '@/i18n/config';
 import { useI18nSafe } from '@/i18n/provider';
+import { triggerPageTranslation } from '@/components/providers/google-translate';
 
 export interface LanguageDropdownProps {
   value?: string;
@@ -34,6 +35,7 @@ export function LanguageDropdown({
     if (i18n) {
       i18n.setLocale(newCode);
     }
+    triggerPageTranslation(newCode);
   };
 
   // Group languages into Constitutional Scheduled (22 Official) and Industrial Dialects

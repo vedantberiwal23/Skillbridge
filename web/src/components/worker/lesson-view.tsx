@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -9,7 +9,8 @@ import { AskPanel } from '@/components/worker/ask-panel';
 import { useVoiceAsk } from '@/lib/voice/use-voice-ask';
 import { useI18n } from '@/i18n/provider';
 import { LanguageDropdown } from '@/components/ui/language-dropdown';
-import type { LessonContent } from '@/data/curriculum';
+import { TRADES_CATALOG, type LessonContent } from '@/data/curriculum';
+import { lessonContext } from '@/lib/voice/context';
 
 export function LessonView({ lesson }: { lesson: LessonContent }) {
   const router = useRouter();
@@ -42,8 +43,18 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
       label: chosen?.label || 'Hydraulic Pump',
     };
   });
-  // The machine, then the part on it: "what is this?" needs both.
-  const ask = useVoiceAsk(locale, selectedPart.label, lesson.simulationConfig.title);
+  /**
+   * Everything the tutor needs to answer about THIS machine rather than about
+   * machinery in general: the lesson, the twin it belongs to, the part in
+   * focus with its own description and safety rule, the objectives and the SOP
+   * steps rendered below. Built from the lesson data the page already has, so
+   * every lesson in the catalogue is covered without per-machine wiring.
+   */
+  const context = useMemo(
+    () => lessonContext(lesson, selectedPart.id, TRADES_CATALOG[lesson.tradeId] ?? null),
+    [lesson, selectedPart.id]
+  );
+  const ask = useVoiceAsk(locale, selectedPart.label, context);
 
   // Checklist of SOP steps completed by worker
   const [checkedSteps, setCheckedSteps] = useState<Record<number, boolean>>({});

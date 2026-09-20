@@ -4,6 +4,7 @@ import { openRealtimeStt } from '../sarvam/stt.js';
 import { openStreamingTts, SAMPLE_RATE, speakable } from '../sarvam/tts.js';
 import { config } from '../config.js';
 import type { Grounder } from './grounding.js';
+import { retrievalQuery, type ScreenContext } from './context.js';
 import * as coach from './coach.js';
 
 /**
@@ -44,6 +45,13 @@ export interface TurnOptions {
    * about whatever the history last mentioned.
    */
   readonly machine?: string | null;
+  /**
+   * What the worker's screen is showing — lesson, machine, selected part, the
+   * steps in front of them. Sanitised by channel.ts before it gets here. This
+   * is what lets "what does this do?" be answered about the thing on screen
+   * rather than about machinery in general.
+   */
+  readonly context?: ScreenContext | null;
   /** Injected in tests; Bedrock otherwise. */
   readonly streamText?: StreamFn;
   /**
@@ -156,6 +164,7 @@ function startGeneration(opts: {
   history: TurnOptions['history'];
   part: string | null;
   machine: string | null;
+  context: ScreenContext | null;
   ground?: Grounder;
   stream: StreamFn;
 }): Generation {
@@ -194,21 +203,23 @@ function startGeneration(opts: {
     try {
       // Retrieval is about this machine and this part, not the bare words: an
       // org's SOPs are per machine, and "what is this?" alone retrieves nothing.
-      const subject = [opts.machine, opts.part].filter(Boolean).join(' ');
-      const query = subject ? `${subject}: ${opts.input}` : opts.input;
+      const subject = [opts.machine || opts.context?.machine, opts.part || opts.context?.part?.label].filter(Boolean).join(' ');
+      const query = retrievalQuery(subject ? `${subject}: ${opts.input}` : opts.input, opts.context);
       const sources = opts.ground ? await opts.ground(query) : null;
       if (aborted) return;
       gen.grounded = Boolean(sources);
       // Verbatim, in whatever language and script it arrived in — never
       // pre-translated. The part the worker tapped rides along as context.
+      const machineName = opts.machine || opts.context?.machine;
+      const partName = opts.part || opts.context?.part?.label;
       const context = [
-        opts.machine ? `Machine on screen: ${opts.machine}` : null,
-        opts.part ? `Part the worker tapped: ${opts.part}` : null,
+        machineName ? `Machine on screen: ${machineName}` : null,
+        partName ? `Part the worker tapped: ${partName}` : null,
       ].filter(Boolean);
       const asked = context.length ? `[${context.join('. ')}]\n${opts.input}` : opts.input;
       const stream = opts.stream(
         {
-          system: coach.systemFor({ spoken: opts.spoken, sources }),
+          system: coach.systemFor({ spoken: opts.spoken, sources, context: opts.context }),
           messages: coach.messagesFrom(opts.history, asked),
           maxTokens: coach.MAX_TOKENS,
         },
@@ -262,6 +273,10 @@ export function createTurn(options: TurnOptions): Turn {
   const stream = options.streamText ?? bedrockStream;
   const part = cleanPart(options.part);
   const machine = cleanPart(options.machine);
+  // The selected part travels in both places on purpose: as the short label the
+  // question is prefixed with, and inside the screen description with its own
+  // explanation and safety rule.
+  const context = options.context ?? null;
   const fallbackLanguage = isLanguage(options.language) ? options.language : 'hi-IN';
 
   const tBegin = Date.now();
@@ -279,7 +294,7 @@ export function createTurn(options: TurnOptions): Turn {
   let cancelled = false;
 
   const generate = (input: string, spoken: string | null) =>
-    startGeneration({ input, spoken, history, part, machine, ground, stream });
+    startGeneration({ input, spoken, history, part, machine, context, ground, stream });
 
   /* ── speculation, while the button is still held ── */
   const considerSpeculating = () => {

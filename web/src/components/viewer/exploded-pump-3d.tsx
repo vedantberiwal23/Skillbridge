@@ -243,7 +243,7 @@ export function ExplodedPump3D({
       }
     } catch (err) {
       console.warn('WebGL context creation failed; falling back to 3D image:', err);
-      setWebGlFailed(true);
+      setTimeout(() => setWebGlFailed(true), 0);
       return;
     }
 

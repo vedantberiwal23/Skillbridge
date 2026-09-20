@@ -756,3 +756,44 @@
     justify-content: center;
   }
 }
+
+/* The close, on a phone: one centred column like everything above it, and a
+   wordmark sized to the screen so it is cropped by the page edge rather than
+   running off it. */
+@media (max-width: 760px) {
+  .closeActions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .closeActions > * {
+    width: 100%;
+  }
+
+  .footStrip {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+  }
+
+  .wordmarkCrop {
+    font-size: clamp(44px, 17vw, 96px);
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Every section head and its prose sit on the phone's centre line. */
+@media (max-width: 760px) {
+  .section .two > div,
+  .studyStage > div:first-child,
+  .section > .wrap {
+    text-align: center;
+  }
+
+  .section .body,
+  .studyStage .body {
+    margin-inline: auto;
+  }
+}

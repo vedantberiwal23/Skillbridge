@@ -5,9 +5,10 @@ import Link from 'next/link';
 import { Instrument_Serif, Azeret_Mono } from 'next/font/google';
 
 import { useI18n } from '@/i18n/provider';
-import { LOCALES, LOCALE_LABELS, type Locale } from '@/i18n/config';
+import { isLocale, type Locale } from '@/i18n/config';
 import { ExplodedPump3D } from '@/components/viewer/exploded-pump-3d';
 import { LANDER_COPY } from './copy';
+import { HERO_BY_LANGUAGE, HERO_LANGUAGE_ORDER } from './copy-languages';
 import { TRADES_CATALOG } from '@/data/curriculum';
 import s from './lander.module.css';
 
@@ -57,7 +58,19 @@ function study(progress: number) {
 
 export default function LanderPage() {
   const { locale, setLocale } = useI18n();
-  const t = LANDER_COPY[locale];
+  /**
+   * The hero speaks 22 languages; the sections below it speak the three the
+   * product's catalogue ships. Choosing one of those three also switches the
+   * app itself, so the language follows the reader past sign-in.
+   */
+  const [lang, setLang] = useState<string>(locale);
+  const hero = HERO_BY_LANGUAGE[lang] ?? HERO_BY_LANGUAGE.en;
+  const t = LANDER_COPY[isLocale(lang) ? lang : locale];
+
+  const chooseLanguage = (next: string) => {
+    setLang(next);
+    if (isLocale(next)) setLocale(next);
+  };
   const heroRef = useRef<HTMLElement>(null);
   const studyRef = useRef<HTMLDivElement>(null);
   const [heroProgress, setHeroProgress] = useState(0);
@@ -128,18 +141,18 @@ export default function LanderPage() {
               beside Sign in so nobody has to hunt for their own language. */}
           <select
             className={s.langSwitch}
-            value={locale}
-            onChange={(e) => setLocale(e.target.value as Locale)}
+            value={lang}
+            onChange={(e) => chooseLanguage(e.target.value)}
             aria-label={t.language}
           >
-            {LOCALES.map((code) => (
+            {HERO_LANGUAGE_ORDER.map((code) => (
               <option key={code} value={code}>
-                {LOCALE_LABELS[code]}
+                {HERO_BY_LANGUAGE[code].label}
               </option>
             ))}
           </select>
           <Link href="/login" className={s.btnSolid}>
-            {t.signIn}
+            {hero.signIn}
           </Link>
         </div>
       </nav>
@@ -170,16 +183,16 @@ export default function LanderPage() {
         </div>
 
         <div className={s.heroCopy}>
-          <p className={`${s.labelPigment} ${s.reveal}`}>{t.eyebrow}</p>
+          <p className={`${s.labelPigment} ${s.reveal}`}>{hero.eyebrow}</p>
           <h1 className={`${s.heroHeadline} ${s.reveal}`}>
-            {t.headA}
-            <span className={s.italic}>{t.headItalic}</span>
-            {t.headB}
+            {hero.headA}
+            <span className={s.italic}>{hero.headItalic}</span>
+            {hero.headB}
           </h1>
-          <p className={`${s.heroLede} ${s.reveal}`}>{t.lede}</p>
+          <p className={`${s.heroLede} ${s.reveal}`}>{hero.lede}</p>
           <div className={`${s.heroActions} ${s.reveal}`}>
-            <Link href="/login" className={s.btnSolid}>{t.ctaPrimary}</Link>
-            <a href="#method" className={s.btn}>{t.ctaSecondary}</a>
+            <Link href="/login" className={s.btnSolid}>{hero.ctaPrimary}</Link>
+            <a href="#method" className={s.btn}>{hero.ctaSecondary}</a>
           </div>
         </div>
 
@@ -327,7 +340,7 @@ export default function LanderPage() {
           </p>
         </div>
         <div className={s.closeActions}>
-          <Link href="/login" className={s.btnSolid}>{t.ctaPrimary}</Link>
+          <Link href="/login" className={s.btnSolid}>{hero.ctaPrimary}</Link>
           <a href="#method" className={s.btn}>{t.back}</a>
         </div>
         <div className={s.footStrip}>

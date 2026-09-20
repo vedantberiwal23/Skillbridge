@@ -115,6 +115,33 @@
   border-bottom-color: var(--pigment);
 }
 
+.navRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Square, hairline, monospace — a control, not a chip. */
+.langSwitch {
+  appearance: none;
+  height: 44px;
+  padding: 0 32px 0 12px;
+  border: 1px solid var(--hair);
+  background:
+    linear-gradient(45deg, transparent 50%, var(--ink) 50%) calc(100% - 16px) 50% / 5px 5px no-repeat,
+    transparent;
+  color: var(--ink);
+  font-family: var(--font-mono-editorial), ui-monospace, monospace;
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.langSwitch:focus-visible {
+  outline: 1px solid var(--pigment);
+  outline-offset: 2px;
+}
+
 /* ── buttons ──────────────────────────────────────────────────────────── */
 
 .btn {
@@ -166,7 +193,7 @@
   /* Above both wordmark lines: centred type crosses the copy column at middle
      widths, and the sentence has to stay readable. */
   z-index: 5;
-  max-width: 44vw;
+  max-width: min(56vw, 740px);
   min-width: 300px;
   display: flex;
   flex-direction: column;
@@ -182,8 +209,18 @@
 
 .heroHeadline {
   composes: serif;
-  font-size: clamp(30px, 4vw, 56px);
-  max-width: 14ch;
+  /* The left column is the argument; it is set to be read across a room. */
+  font-size: clamp(40px, 6.2vw, 92px);
+  line-height: 1.04;
+  max-width: 15ch;
+}
+
+/* The hero's own lede, a step up from the body copy used in the sections. */
+.heroLede {
+  font-size: clamp(15px, 1.35vw, 19px);
+  line-height: 1.65;
+  color: var(--ink-2);
+  max-width: 44ch;
 }
 
 .heroActions {
@@ -212,7 +249,7 @@
   right: clamp(24px, 4vw, 72px);
   text-align: right;
   composes: serif;
-  font-size: clamp(74px, 17.5vw, 258px);
+  font-size: clamp(64px, 13.5vw, 196px);
   line-height: 0.82;
   color: var(--ink);
   pointer-events: none;
@@ -252,20 +289,10 @@
   will-change: transform;
 }
 
-/*
- * The pump's HUD is suppressed by the component itself.
- *
- * This used to be `.subject > div > *:not(:nth-child(2)) { display: none }`,
- * which kept only the second child — written when the component rendered its
- * toolbar first and the canvas second. Passing `transparent` skips all four HUD
- * blocks, so the wrapper now renders exactly one child: the canvas host. The
- * rule then matched that single child and hid the machine outright, leaving an
- * empty hero.
- *
- * Nothing replaces it. Selecting children by position was the bug; the
- * component's own `transparent` prop is the supported way to ask for a bare
- * subject.
- */
+/* The pump component ships its own HUD; here it is a subject, not a tool. */
+.subject > div > *:not(:nth-child(2)) {
+  display: none !important;
+}
 
 /* On a phone the copy leads and the figure follows it: eyebrow, headline,
    paragraph, buttons — then SKILL, the machine and BRIDGE as one block at the
@@ -310,21 +337,37 @@
     height: 17vh;
   }
 
-  /* Centred and given air: left-aligned copy jammed under the nav read as
-     cramped on a narrow screen. */
+  /* Centred column on a phone: the hero is one stack down the middle of the
+     screen, headline included, so nothing reads as an off-axis fragment. */
   .heroCopy {
     margin-top: 2vh;
-    margin-bottom: 8vh;
-    gap: 22px;
+    margin-bottom: 7vh;
+    gap: 18px;
     align-items: center;
     text-align: center;
     min-width: 0;
+    width: 100%;
   }
 
-  .heroCopy .body,
   .heroHeadline {
-    margin-inline: auto;
-    max-width: 24ch;
+    font-size: clamp(30px, 8.4vw, 44px);
+    max-width: 16ch;
+  }
+
+  .heroLede {
+    font-size: 13.5px;
+    max-width: 40ch;
+    text-align: center;
+  }
+
+  .navRight {
+    gap: 8px;
+  }
+
+  .langSwitch {
+    height: 40px;
+    padding: 0 26px 0 10px;
+    font-size: 12px;
   }
 
   .heroActions,
@@ -343,6 +386,60 @@
 
   .heroCaption {
     display: none;
+  }
+}
+
+/* A ruled row on a phone: label and its value on one line, the description
+   under both — instead of the three columns folding into orphan fragments. */
+@media (max-width: 760px) {
+  .row {
+    grid-template-columns: 1fr auto;
+    gap: 6px 16px;
+    padding: 16px 0;
+  }
+
+  .row > *:nth-child(1) {
+    grid-area: 1 / 1 / 2 / 2;
+  }
+
+  .row > *:nth-child(3) {
+    grid-area: 1 / 2 / 2 / 3;
+  }
+
+  .row > *:nth-child(2) {
+    grid-area: 2 / 1 / 3 / 3;
+  }
+
+  /* Each work row reads as a small record: name, then labelled fields. */
+  .table tr {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 20px 0;
+  }
+
+  .table td {
+    display: grid;
+    grid-template-columns: 9ch 1fr;
+    gap: 12px;
+    align-items: baseline;
+    letter-spacing: 0.08em;
+  }
+
+  .table td::before {
+    content: attr(data-label);
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .table td:first-child {
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  .table td:first-child::before {
+    content: none;
   }
 }
 
@@ -594,5 +691,109 @@
     opacity: 1;
     transform: none;
     transition: none;
+  }
+}
+
+/* Work rows on a phone.
+   Last in the file on purpose: the generic `.table td { display: block }`
+   collapse further up would otherwise win and paste each field label straight
+   onto its value — "INDUSTRYHEAVY MANUFACTURING". */
+@media (max-width: 760px) {
+  .table td {
+    display: grid;
+    grid-template-columns: 8ch 1fr;
+    column-gap: 14px;
+    row-gap: 2px;
+    align-items: baseline;
+    padding: 2px 0;
+    letter-spacing: 0.08em;
+  }
+
+  .table td::before {
+    content: attr(data-label);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .table td:first-child {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .table td:first-child::before {
+    content: none;
+  }
+}
+
+/* Section headings on a phone follow the hero: one centred column down the
+   middle of the screen. The ruled rows keep their label-left, value-right
+   structure — centring a spec sheet would make it unreadable. */
+@media (max-width: 760px) {
+  .section > .wrap,
+  .section .two > div:first-child,
+  .studyStage > div:first-child {
+    text-align: center;
+  }
+
+  .section .two > div:first-child .body,
+  .studyStage > div:first-child .body {
+    margin-inline: auto;
+  }
+
+  .h2 {
+    margin-inline: auto;
+    max-width: 18ch;
+  }
+
+  .table td:first-child {
+    text-align: center;
+  }
+
+  .legend,
+  .readouts {
+    justify-content: center;
+  }
+}
+
+/* The close, on a phone: one centred column like everything above it, and a
+   wordmark sized to the screen so it is cropped by the page edge rather than
+   running off it. */
+@media (max-width: 760px) {
+  .closeActions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .closeActions > * {
+    width: 100%;
+  }
+
+  .footStrip {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+  }
+
+  .wordmarkCrop {
+    font-size: clamp(44px, 17vw, 96px);
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Every section head and its prose sit on the phone's centre line. */
+@media (max-width: 760px) {
+  .section .two > div,
+  .studyStage > div:first-child,
+  .section > .wrap {
+    text-align: center;
+  }
+
+  .section .body,
+  .studyStage .body {
+    margin-inline: auto;
   }
 }

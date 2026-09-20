@@ -170,10 +170,9 @@
  * actually gets.
  */
 .machine-viewer {
-  display: block !important;
-  width: 100% !important;
-  min-height: 640px !important;
-  height: 640px !important;
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
   background-color: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -181,25 +180,7 @@
   overflow: hidden;
 }
 
-:fullscreen .machine-viewer,
-.machine-viewer:fullscreen {
-  width: 100vw !important;
-  height: 100vh !important;
-  min-height: 100vh !important;
-  border-radius: 0;
-  border: none;
-}
-
-@media (max-width: 768px) {
-  .machine-viewer {
-    min-height: 480px !important;
-    height: 480px !important;
-  }
-}
-
 .machine-viewer--fallback {
-  min-height: auto;
-  height: auto;
   aspect-ratio: auto;
   padding: 0.5rem;
 }
@@ -547,33 +528,4 @@ label,
 caption {
   font-family: var(--font-mono-editorial), ui-monospace, monospace;
   letter-spacing: 0.12em;
-}
-
-/* ── Seamless Full-Page Translation Overrides ── */
-.goog-te-banner-frame.skiptranslate,
-.goog-te-banner-frame,
-iframe.goog-te-banner-frame {
-  display: none !important;
-  visibility: hidden !important;
-}
-
-body {
-  top: 0px !important;
-  position: static !important;
-}
-
-.goog-tooltip,
-.goog-tooltip:hover,
-#goog-gt-tt,
-.goog-text-highlight,
-.VIpgJd-ZVi9od-ORHb-OEVmcd,
-.VIpgJd-ZVi9od-l4eHX-hSRGPd {
-  display: none !important;
-  background-color: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-#google_translate_element {
-  display: none !important;
 }

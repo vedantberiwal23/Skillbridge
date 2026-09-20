@@ -4,7 +4,6 @@
 *.log
 .env
 .env.local
-*.md
 
 # third-party module kept locally for reference only — not our code, not shipped
 reference/

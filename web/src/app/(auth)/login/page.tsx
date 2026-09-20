@@ -3,14 +3,14 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { signIn, signOut } from 'aws-amplify/auth';
+import { signIn } from 'aws-amplify/auth';
 import { ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { cn } from 'cn';
 
 import { GlobeBrandPanel } from '@/components/visual/globe-brand-panel';
 import { configureAmplify } from '@/lib/amplify';
 import { useI18n } from '@/i18n/provider';
-import { LanguageDropdown } from '@/components/ui/language-dropdown';
+import { LOCALES, LOCALE_LABELS, type Locale } from '@/i18n/config';
 
 /**
  * Sign in.
@@ -69,23 +69,6 @@ export default function LoginPage() {
     try {
       setLoading(true);
       configureAmplify();
-
-      /**
-       * Sign whoever is already here out first.
-       *
-       * Amplify keeps tokens in cookies (`ssr: true`), so a session survives a
-       * new tab and an emptied localStorage. `signIn` then throws
-       * `UserAlreadyAuthenticatedException`, which the catch below reports as
-       * "invalid credentials" — sending you to check a password that was never
-       * wrong. It fires whenever someone signs in as one role and then tries
-       * another without using Sign out.
-       */
-      try {
-        await signOut();
-      } catch {
-        /* nobody was signed in, which is the normal case */
-      }
-
       const output = await signIn({ username: toUsername(idKind, identifier), password });
       if (output.isSignedIn) router.push('/');
       else setError(t('auth.invalidCredentials'));
@@ -104,13 +87,27 @@ export default function LoginPage() {
 
       <div className="flex w-full flex-col px-6 py-6 sm:px-10 lg:w-1/2 lg:px-16">
         <div className="flex items-center justify-between">
-          <Link href="/lander" className="inline-flex items-center gap-2.5">
+          <Link href="/welcome" className="inline-flex items-center gap-2.5">
             <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
               S
             </span>
             <span className="text-lg font-semibold tracking-tight text-foreground">SkillBridge</span>
           </Link>
-          <LanguageDropdown value={locale} onChange={setLocale} />
+          <div className="inline-flex rounded-xl border border-border bg-card p-1">
+            {LOCALES.map((code) => (
+              <button
+                key={code}
+                type="button"
+                onClick={() => setLocale(code as Locale)}
+                className={cn(
+                  'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                  locale === code ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {LOCALE_LABELS[code]}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-10">

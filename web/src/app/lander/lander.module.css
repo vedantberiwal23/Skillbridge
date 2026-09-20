@@ -215,24 +215,27 @@
 
 .wordLineTop {
   composes: wordLine;
-  top: 12%;
+  top: 9%;
   z-index: 4;
 }
 
 .wordLineBottom {
   composes: wordLine;
-  bottom: 14%;
+  bottom: 9%;
   z-index: 1;
 }
 
 .subject {
   position: absolute;
   z-index: 2;
-  right: clamp(40px, 22vw, 360px);
-  bottom: 12%;
+  /* Centred on the gap between the two lines and pulled left of the line
+     ends, so it overlaps the bottom of SKILL and the top of BRIDGE instead of
+     burying one of them. */
+  right: clamp(60px, 26vw, 430px);
+  bottom: 26%;
   /* Sized by HEIGHT with width auto: a width-driven box grows taller than the
      hero on a short viewport, crops the machine and buries the copy. */
-  height: clamp(220px, 46vh, 420px);
+  height: clamp(200px, 40vh, 380px);
   width: min(620px, 60vw);
   pointer-events: none;
   filter: drop-shadow(0 18px 40px rgba(26, 25, 23, 0.22));
@@ -244,15 +247,34 @@
   display: none !important;
 }
 
+/* On a phone the copy owns the middle of the screen, so the machine drops to
+   the bottom third and the wordmark lines pull to the edges around it —
+   otherwise the pump lands straight on the headline. */
 @media (max-width: 760px) {
+  .hero {
+    align-items: flex-start;
+    padding-top: 84px;
+    padding-bottom: 96px;
+  }
+
   .subject {
     right: 50%;
     transform: translateX(50%);
-    height: clamp(170px, 30vh, 260px);
+    bottom: 11%;
+    height: clamp(130px, 21vh, 190px);
+    width: 88vw;
   }
 
   .wordLineTop {
-    top: 6%;
+    top: 4%;
+  }
+
+  .wordLineBottom {
+    bottom: 4%;
+  }
+
+  .heroCaption {
+    display: none;
   }
 }
 

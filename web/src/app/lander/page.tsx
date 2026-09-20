@@ -264,10 +264,14 @@ export default function LanderPage() {
 
       {/* ── 6. work table: the trades actually in the catalogue ── */}
       <section id="work" className={s.section}>
-        <p className={`${s.labelPigment} ${s.reveal}`}>04 — Work</p>
-        <h2 className={`${s.h2} ${s.reveal}`} style={{ marginTop: 14 }}>
-          Trades in the catalogue.
-        </h2>
+        {/* Same measure as the table below it, or the heading hangs off the
+            page edge while the data sits in the centred column. */}
+        <div className={s.wrap}>
+          <p className={`${s.labelPigment} ${s.reveal}`}>04 — Work</p>
+          <h2 className={`${s.h2} ${s.reveal}`} style={{ marginTop: 14 }}>
+            Trades in the catalogue.
+          </h2>
+        </div>
         <table className={`${s.table} ${s.reveal}`}>
           <thead>
             <tr>
@@ -295,12 +299,14 @@ export default function LanderPage() {
 
       {/* ── 7. close ── */}
       <section className={s.section} style={{ paddingBottom: 0 }}>
-        <h2 className={`${s.h2} ${s.reveal}`} style={{ margin: '0 auto', maxWidth: 1320 }}>
-          Built for the floor, <span className={s.italic}>not the classroom</span>.
-        </h2>
-        <p className={`${s.label} ${s.reveal}`} style={{ margin: '16px auto 0', maxWidth: 1320 }}>
-          Invite-only · Worker accounts are created by the employer · No self sign-up anywhere
-        </p>
+        <div className={s.wrap}>
+          <h2 className={`${s.h2} ${s.reveal}`}>
+            Built for the floor, <span className={s.italic}>not the classroom</span>.
+          </h2>
+          <p className={`${s.label} ${s.reveal}`} style={{ marginTop: 16 }}>
+            Invite-only · Worker accounts are created by the employer · No self sign-up anywhere
+          </p>
+        </div>
         <div className={s.closeActions}>
           <Link href="/login" className={s.btnSolid}>Enter the platform</Link>
           <a href="#method" className={s.btn}>Back to the method</a>

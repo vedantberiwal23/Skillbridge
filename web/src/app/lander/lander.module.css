@@ -247,30 +247,51 @@
   display: none !important;
 }
 
-/* On a phone the copy owns the middle of the screen, so the machine drops to
-   the bottom third and the wordmark lines pull to the edges around it —
-   otherwise the pump lands straight on the headline. */
+/* On a phone the hero stacks: wordmark line, copy, machine, wordmark line.
+   Each band gets its own room, so nothing lands on anything else. */
 @media (max-width: 760px) {
   .hero {
     align-items: flex-start;
     padding-top: 84px;
-    padding-bottom: 96px;
+    padding-bottom: 104px;
+  }
+
+  .wordLine {
+    font-size: clamp(54px, 15vw, 86px);
+    right: clamp(16px, 4vw, 28px);
+  }
+
+  .wordLineTop {
+    top: 3%;
+  }
+
+  .wordLineBottom {
+    bottom: 3%;
+  }
+
+  /* Clears the upper wordmark line rather than starting under the nav. */
+  .heroCopy {
+    margin-top: 12vh;
+    gap: 14px;
+  }
+
+  .heroActions {
+    width: 100%;
+  }
+
+  /* Equal width, full bleed: two buttons of different widths read as a mistake. */
+  .heroActions > * {
+    width: 100%;
   }
 
   .subject {
     right: 50%;
-    transform: translateX(50%);
-    bottom: 11%;
-    height: clamp(130px, 21vh, 190px);
-    width: 88vw;
-  }
-
-  .wordLineTop {
-    top: 4%;
-  }
-
-  .wordLineBottom {
-    bottom: 4%;
+    /* The machine renders left of its canvas centre, so the canvas is pushed
+       past centre to bring the machine back onto the middle of the screen. */
+    transform: translateX(72%);
+    width: 128vw;
+    height: clamp(120px, 16vh, 160px);
+    bottom: 10%;
   }
 
   .heroCaption {
@@ -285,6 +306,12 @@
   border-top: 1px solid var(--hair);
 }
 
+/* The measure every section's content sits on. */
+.wrap {
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
 .two {
   display: grid;
   gap: clamp(32px, 5vw, 72px);
@@ -295,7 +322,13 @@
 }
 
 @media (min-width: 960px) {
-  .two {
+  /* The measure every section's content sits on. */
+.wrap {
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.two {
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   }
 }

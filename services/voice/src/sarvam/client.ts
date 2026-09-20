@@ -65,6 +65,23 @@ export const LANGUAGES = [...SPEAKABLE_LANGUAGES, ...UNVOICED_LANGUAGES];
 export const isLanguage = (code: string): boolean =>
   LANGUAGES.some((l) => l.code === code);
 
+/**
+ * The same language, spelled differently by two Sarvam endpoints.
+ *
+ * `saaras:v3-realtime` reports Odia as `or-IN`; `bulbul:v3` and the batch API
+ * use `od-IN`, and so does every list in this service. Left untranslated, a
+ * detected `or-IN` matches nothing, the turn falls back to the picker's
+ * language, and an Odia speaker on a Hindi interface is answered in Hindi —
+ * with recognition having got it perfectly right.
+ *
+ * Normalised where detection enters the system (sarvam/stt.ts), so exactly one
+ * spelling exists everywhere after that.
+ */
+const DETECTED_ALIASES: Record<string, string> = { 'or-IN': 'od-IN' };
+
+export const normalizeDetected = (code: string | null): string | null =>
+  code ? (DETECTED_ALIASES[code] ?? code) : code;
+
 /** Is there a voice that can read this language aloud? */
 export const isSpeakable = (code: string): boolean =>
   SPEAKABLE_LANGUAGES.some((l) => l.code === code);

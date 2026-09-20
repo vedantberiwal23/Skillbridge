@@ -38,6 +38,8 @@ const KB_FOR_ORG: Record<string, string | null> = {
   // Provisioned, but no knowledge base yet: the attribute is simply absent.
   'org-nokb': null,
   'org-broken': 'KB-BROKEN-01',
+  // Has a knowledge base, but nothing in it is about the machine being asked about.
+  'org-offtopic': 'KB-OFFTOPIC-01',
 };
 
 const SOP_TEXT =
@@ -70,6 +72,18 @@ before(async () => {
       return res.end(JSON.stringify({ message: 'internal failure' }));
     }
     res.writeHead(200, { 'content-type': 'application/json' });
+    // An org whose knowledge base holds nothing about the question still gets
+    // its nearest neighbours back — a vector search never returns "no match".
+    if (url.includes('KB-OFFTOPIC')) {
+      return res.end(
+        JSON.stringify({
+          retrievalResults: [
+            { content: { text: 'Wiring digital input and output modules on a PLC: connect start and stop buttons…' }, score: 0.21 },
+            { content: { text: 'Ladder logic seal-in contact…' }, score: 0.18 },
+          ],
+        })
+      );
+    }
     res.end(JSON.stringify({ retrievalResults: [{ content: { text: SOP_TEXT }, score: 0.9 }] }));
   });
   await new Promise<void>((r) => kb.listen(0, '127.0.0.1', r));
@@ -158,4 +172,22 @@ test('one org can never be handed another org\'s documents', async () => {
     retrieveCalls.map((c) => c.url.match(/knowledgebases\/([^/]+)/)?.[1]),
     ['KB-ACME-01']
   );
+});
+
+test('a knowledge base with nothing relevant answers ungrounded, not off-topic', async () => {
+  retrieveCalls.length = 0;
+  const sources = await grounding.grounderFor('org-offtopic')('what is this air compressor?');
+
+  // The KB answered — with its nearest neighbours, which are about something
+  // else entirely. Handing those to the model as "the only authority for steps
+  // and values" is what makes a tutor explain PLC start/stop buttons to someone
+  // asking about a compressor.
+  assert.equal(retrieveCalls.length, 1, 'it did search');
+  assert.equal(sources, null, 'and kept nothing, because nothing was close enough');
+});
+
+test('a strong match is still used', async () => {
+  retrieveCalls.length = 0;
+  const sources = await grounding.grounderFor('org-acme')('relief valve pressure?');
+  assert.equal(sources, SOP_TEXT);
 });

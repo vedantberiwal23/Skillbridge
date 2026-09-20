@@ -47,3 +47,15 @@ test('history is clamped and never starts with the assistant', () => {
 test('a model loop is detected', () => {
   assert.equal(coach.looksDegenerate('valve matlab valve matlab valve matlab valve'), true);
 });
+
+test('the tutor is told to resolve the problem, not just define the part', () => {
+  // A worker at a machine asks because something has to happen next. Answering
+  // "a shaft seal keeps oil in" to "why is it leaking?" is a reply, not help.
+  const system = coach.systemFor({ spoken: 'hi-IN' });
+  assert.match(system, /most likely cause FIRST/);
+  assert.match(system, /then the one check that confirms it, then the fix/);
+  assert.match(system, /steps in order/);
+  assert.match(system, /never finish without something they can do at the machine right now/i);
+  // The number still comes from the SOPs, never from the model.
+  assert.match(system, /only take the number itself from the company procedures/);
+});

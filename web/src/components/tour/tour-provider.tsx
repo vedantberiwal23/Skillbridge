@@ -16,7 +16,7 @@ import { Compass, X } from 'lucide-react';
 import { cn } from 'cn';
 
 import { useI18n } from '@/i18n/provider';
-import type { Locale } from '@/i18n/config';
+import { isLocale, type Locale } from '@/i18n/config';
 import type { Role } from '@/lib/types';
 import { TOURS, tourCopy } from './tour-steps';
 
@@ -281,8 +281,9 @@ function TourOverlay({
   onSkip: () => void;
 }) {
   const { locale } = useI18n();
-  const ui = UI[locale];
-  const { title, body } = tourCopy(copy, locale);
+  const activeLocale: Locale = isLocale(locale) ? locale : 'en';
+  const ui = UI[activeLocale];
+  const { title, body } = tourCopy(copy, activeLocale);
   const cardRef = useRef<HTMLDivElement>(null);
   const [cardHeight, setCardHeight] = useState(220);
   const [viewport, setViewport] = useState(() => ({
@@ -473,7 +474,8 @@ export function TourLauncher({
 }) {
   const { start } = useTour();
   const { locale } = useI18n();
-  const label = UI[locale].replay;
+  const activeLocale: Locale = isLocale(locale) ? locale : 'en';
+  const label = UI[activeLocale].replay;
 
   if (variant === 'icon') {
     return (

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { VOICE_LANGUAGE, type Locale } from '@/i18n/config';
+import { VOICE_LANGUAGE, INDIAN_LANGUAGES, type Locale } from '@/i18n/config';
 import { openVoiceChannel, type ChannelState, type VoiceChannel, type VoiceTurn } from './channel';
 
 export interface VoiceAskState {
@@ -55,7 +55,7 @@ const EMPTY: VoiceAskState = {
  * a token fetch, a state update, a dynamic import — and the gesture is over,
  * playback stays locked, and the tutor answers to a silent phone.
  */
-export function useVoiceAsk(locale: Locale, part?: string | null) {
+export function useVoiceAsk(locale: string, part?: string | null) {
   const [state, setState] = useState<VoiceAskState>(EMPTY);
   const channelRef = useRef<VoiceChannel | null>(null);
   const turnRef = useRef<VoiceTurn | null>(null);
@@ -65,7 +65,7 @@ export function useVoiceAsk(locale: Locale, part?: string | null) {
   // render — a ref mutated mid-render is not safe under concurrent rendering,
   // where a render can be discarded after the write has already landed.
   const partRef = useRef<string | null | undefined>(part);
-  const localeRef = useRef<Locale>(locale);
+  const localeRef = useRef<string>(locale);
 
   useEffect(() => {
     partRef.current = part;
@@ -103,9 +103,14 @@ export function useVoiceAsk(locale: Locale, part?: string | null) {
       grounded: false,
     }));
 
+    const voiceLang =
+      INDIAN_LANGUAGES.find((l) => l.code === localeRef.current)?.voiceCode ||
+      VOICE_LANGUAGE[localeRef.current as Locale] ||
+      'hi-IN';
+
     turnRef.current = channel.startTurn(
       {
-        language: VOICE_LANGUAGE[localeRef.current],
+        language: voiceLang,
         explicit: true,
         part: partRef.current ?? null,
       },

@@ -26,6 +26,8 @@ import type { MachineAsset } from '@/lib/types';
 import { openVoiceChannel, type VoiceChannel, type ChannelState, type VoiceTurn, type TurnHandlers } from '@/lib/voice/channel';
 import * as player from '@/lib/voice/player';
 import { ScanPipelinePanel } from '@/components/studio/scan-pipeline';
+import { LanguageDropdown } from '@/components/ui/language-dropdown';
+import { INDIAN_LANGUAGES } from '@/i18n/config';
 
 /**
  * The Machine Twin output, served as a static asset.
@@ -263,7 +265,9 @@ export default function SimulationStudioPage() {
 
   // Navigation & Product State
   const [activeTab, setActiveTab] = useState<'twin' | 'scanner' | 'sop' | 'analytics' | 'api'>('twin');
-  const [language, setLanguage] = useState<'en' | 'hi'>('hi');
+  const [language, setLanguage] = useState<string>('hi');
+  const currentVoiceCode =
+    INDIAN_LANGUAGES.find((l) => l.code === language)?.voiceCode || (language === 'hi' ? 'hi-IN' : 'en-IN');
   const [selectedPartId, setSelectedPartId] = useState<string>('relief-valve');
   const [autoRotate, setAutoRotate] = useState<boolean>(false);
   const [activeAsset, setActiveAsset] = useState<MachineAsset>(MACHINE_TWIN_ASSET);
@@ -370,7 +374,7 @@ export default function SimulationStudioPage() {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = language === 'hi' ? 'hi-IN' : 'en-IN';
+      utterance.lang = currentVoiceCode;
       utterance.rate = 1.05;
       utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => setIsSpeaking(false);
@@ -463,7 +467,7 @@ export default function SimulationStudioPage() {
     setTranscript(q);
     setAiThinking(true);
     sentAtRef.current = Date.now();
-    ch.ask(q, { language: language === 'hi' ? 'hi-IN' : 'en-IN', part: currentPart.name, history: historyForTurn() }, turnHandlers(q));
+    ch.ask(q, { language: currentVoiceCode, part: currentPart.name, history: historyForTurn() }, turnHandlers(q));
   };
 
   // Push-To-Talk Handlers with AudioWorklet & WebSocket Streaming
@@ -484,7 +488,7 @@ export default function SimulationStudioPage() {
     setIsRecording(true);
     currentTurnRef.current = ch.startTurn(
       {
-        language: language === 'hi' ? 'hi-IN' : 'en-IN',
+        language: currentVoiceCode,
         explicit: true,
         part: currentPart.name,
         history: historyForTurn(),
@@ -580,31 +584,12 @@ export default function SimulationStudioPage() {
               </span>
             </div>
 
-            {/* Language Switcher */}
-            <div className="flex bg-card border border-border rounded-lg p-0.5 text-xs">
-              <button
-                type="button"
-                onClick={() => setLanguage('en')}
-                className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md font-medium transition text-xs ${
-                  language === 'en'
-                    ? 'bg-primary text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                EN
-              </button>
-              <button
-                type="button"
-                onClick={() => setLanguage('hi')}
-                className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md font-medium transition text-xs ${
-                  language === 'hi'
-                    ? 'bg-primary text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                हिंदी
-              </button>
-            </div>
+            {/* Language Switcher (All 22 Official Languages) */}
+            <LanguageDropdown
+              value={language}
+              onChange={setLanguage}
+              compact
+            />
 
             {/* 3D vs 2D Toggle */}
             <button

@@ -185,7 +185,8 @@ export default function OnboardingPage() {
   const { t, locale, setLocale } = useI18n();
   const { profile, settings, save } = useProfile();
   const router = useRouter();
-  const copy = COPY[locale];
+  const activeLocale: Locale = isLocale(locale) ? locale : 'en';
+  const copy = COPY[activeLocale];
 
   const [stepIndex, setStepIndex] = useState(0);
   const [language, setLanguage] = useState<string>(settings?.language ?? locale);

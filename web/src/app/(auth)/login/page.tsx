@@ -10,7 +10,7 @@ import { cn } from 'cn';
 import { GlobeBrandPanel } from '@/components/visual/globe-brand-panel';
 import { configureAmplify } from '@/lib/amplify';
 import { useI18n } from '@/i18n/provider';
-import { LOCALES, LOCALE_LABELS, type Locale } from '@/i18n/config';
+import { LanguageDropdown } from '@/components/ui/language-dropdown';
 
 /**
  * Sign in.
@@ -110,21 +110,7 @@ export default function LoginPage() {
             </span>
             <span className="text-lg font-semibold tracking-tight text-foreground">SkillBridge</span>
           </Link>
-          <div className="inline-flex rounded-xl border border-border bg-card p-1">
-            {LOCALES.map((code) => (
-              <button
-                key={code}
-                type="button"
-                onClick={() => setLocale(code as Locale)}
-                className={cn(
-                  'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                  locale === code ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {LOCALE_LABELS[code]}
-              </button>
-            ))}
-          </div>
+          <LanguageDropdown value={locale} onChange={setLocale} />
         </div>
 
         <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-10">

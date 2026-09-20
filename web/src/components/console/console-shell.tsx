@@ -22,6 +22,7 @@ import { cn } from 'cn';
 
 import { configureAmplify } from '@/lib/amplify';
 import { TourLauncher } from '@/components/tour/tour-provider';
+import { LanguageDropdown } from '@/components/ui/language-dropdown';
 
 type NavItem = {
   href: string;
@@ -77,7 +78,8 @@ export function ConsoleShell({
             <NavLink key={item.href} item={item} active={isActive(pathname, item.href)} />
           ))}
         </nav>
-        <div className="mt-auto flex flex-col gap-0.5 border-t border-border px-3 py-4">
+        <div className="mt-auto flex flex-col gap-2 border-t border-border px-3 py-4">
+          <LanguageDropdown className="w-full justify-between" />
           <TourLauncher />
           <SignOutButton />
         </div>
@@ -86,7 +88,8 @@ export function ConsoleShell({
       <header className="sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur lg:hidden">
         <div className="flex items-center justify-between px-4 pt-3">
           <Brand subtitle={SUBTITLE[role]} />
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
+            <LanguageDropdown compact />
             <TourLauncher variant="icon" className="size-9" />
             <SignOutButton compact />
           </div>

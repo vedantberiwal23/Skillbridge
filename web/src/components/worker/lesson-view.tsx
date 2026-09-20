@@ -8,7 +8,7 @@ import { InteractiveSimulation } from '@/components/viewer/interactive-simulatio
 import { AskPanel } from '@/components/worker/ask-panel';
 import { useVoiceAsk } from '@/lib/voice/use-voice-ask';
 import { useI18n } from '@/i18n/provider';
-import { LOCALES, LOCALE_LABELS, type Locale } from '@/i18n/config';
+import { LanguageDropdown } from '@/components/ui/language-dropdown';
 import type { LessonContent } from '@/data/curriculum';
 
 export function LessonView({ lesson }: { lesson: LessonContent }) {
@@ -93,22 +93,7 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
 
           <div className="flex items-center gap-3">
             {/* Quick Locale Selector */}
-            <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white p-1 text-xs shadow-2xs">
-              {LOCALES.map((code) => (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => setLocale(code as Locale)}
-                  className={`min-h-11 rounded-lg px-3 py-2 font-semibold transition-all ${
-                    locale === code
-                      ? 'bg-primary text-white'
-                      : 'text-slate-500 hover:text-slate-900'
-                  }`}
-                >
-                  {LOCALE_LABELS[code]}
-                </button>
-              ))}
-            </div>
+            <LanguageDropdown value={locale} onChange={setLocale} />
 
             <span className="hidden sm:inline-block rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-primary">
               Active SOP Session

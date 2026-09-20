@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import catalogData from '@/data/materials-catalog.json';
 import { useI18n } from '@/i18n/provider';
-import { LOCALES, LOCALE_LABELS, type Locale } from '@/i18n/config';
+import { LanguageDropdown } from '@/components/ui/language-dropdown';
 
 interface MaterialItem {
   id: number;
@@ -134,22 +134,7 @@ export default function LibraryPage() {
 
           <div className="flex items-center gap-4">
             {/* Quick Locale Selector */}
-            <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white p-1 text-xs shadow-2xs">
-              {LOCALES.map((code) => (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => setLocale(code as Locale)}
-                  className={`rounded-lg px-2.5 py-1 font-semibold transition-all ${
-                    locale === code
-                      ? 'bg-primary text-white'
-                      : 'text-slate-500 hover:text-slate-900'
-                  }`}
-                >
-                  {LOCALE_LABELS[code]}
-                </button>
-              ))}
-            </div>
+            <LanguageDropdown value={locale} onChange={setLocale} />
 
             <Link
               href="/worker-file"

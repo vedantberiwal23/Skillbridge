@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 
 import { useI18n } from '@/i18n/provider';
-import { LOCALES, LOCALE_LABELS, type Locale } from '@/i18n/config';
+import { LanguageDropdown } from '@/components/ui/language-dropdown';
 import { useProfile } from '@/components/providers/profile-provider';
 import { TRADES_CATALOG, type TradeTrack } from '@/data/curriculum';
 import { TourLauncher } from '@/components/tour/tour-provider';
@@ -168,22 +168,7 @@ export default function PlanPage() {
 
           <div className="flex items-center gap-4">
             {/* Language Switcher */}
-            <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white p-1 text-xs shadow-xs">
-              {LOCALES.map((code) => (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => setLocale(code as Locale)}
-                  className={`min-h-11 rounded-lg px-3 py-2 font-medium transition-all ${
-                    locale === code
-                      ? 'bg-primary text-white font-semibold'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  {LOCALE_LABELS[code]}
-                </button>
-              ))}
-            </div>
+            <LanguageDropdown value={locale} onChange={setLocale} />
 
             <div className="flex items-center gap-2.5">
               <Link

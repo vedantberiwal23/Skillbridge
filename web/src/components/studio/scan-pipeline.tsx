@@ -158,6 +158,31 @@ function uploadWithProgress(projectId: string, files: File[], onProgress: (pct: 
   });
 }
 
+/**
+ * Fetch a model through the app's own origin and hand the viewer a blob URL.
+ *
+ * `model-viewer` loads the GLB with its own loader, and anything that makes that
+ * request behave differently from a page fetch - a redirect to login, a session
+ * the loader does not carry, a proxy answering JSON on error - ends identically:
+ * the model never loads and the viewer falls back to the poster, which looks
+ * like a working model that refuses to rotate. Fetching it here turns that into
+ * a real, reportable error and gives the viewer bytes it cannot fail on.
+ */
+async function toBlobUrl(url: string): Promise<string> {
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) {
+    throw new Error(`model request failed (HTTP ${res.status})`);
+  }
+  const type = res.headers.get('content-type') ?? '';
+  if (type.includes('application/json')) {
+    // The proxy answers JSON when the engine is unreachable, and a JSON body
+    // handed to model-viewer fails silently.
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.error ?? 'the engine returned an error instead of a model');
+  }
+  return URL.createObjectURL(await res.blob());
+}
+
 export function ScanPipelinePanel({ onLoadModel }: { onLoadModel: (asset: MachineAsset) => void }) {
   const [name, setName] = useState('');
   const [manufacturer, setManufacturer] = useState('');
@@ -177,6 +202,7 @@ export function ScanPipelinePanel({ onLoadModel }: { onLoadModel: (asset: Machin
   const [lods, setLods] = useState<Lod[]>([]);
   const [components, setComponents] = useState<Component[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   // The engine's own report of what this host can run — before anyone uploads.
@@ -298,18 +324,26 @@ export function ScanPipelinePanel({ onLoadModel }: { onLoadModel: (asset: Machin
   };
 
   const built = Boolean(projectId && lods.length);
-  const loadBuilt = () => {
+  const loadBuilt = async () => {
     if (!projectId || !built) return;
-    onLoadModel({
-      orgId: '',
-      assetId: projectId,
-      name: builtName,
-      // Through the authenticated proxy; project ids are unique, so no cache-buster.
-      glbUrl: `/api/twin?action=model&projectId=${encodeURIComponent(projectId)}&lod=0`,
-      posterUrl: `/api/twin?action=poster&projectId=${encodeURIComponent(projectId)}`,
-      // Hotspots come from reviewed components, and a fresh scan has none yet.
-      hotspots: [],
-    });
+    setLoadError(null);
+    try {
+      // Fetched here rather than handed to the viewer as a URL: see toBlobUrl.
+      const glbUrl = await toBlobUrl(
+        `/api/twin?action=model&projectId=${encodeURIComponent(projectId)}&lod=0`
+      );
+      onLoadModel({
+        orgId: '',
+        assetId: projectId,
+        name: builtName,
+        glbUrl,
+        posterUrl: `/api/twin?action=poster&projectId=${encodeURIComponent(projectId)}`,
+        // Hotspots come from reviewed components, and a fresh scan has none yet.
+        hotspots: [],
+      });
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'could not load the model');
+    }
   };
 
   const doneCount = STEPS.filter(({ key }) => steps[key].state === 'done' || steps[key].state === 'skipped').length;
@@ -548,6 +582,9 @@ export function ScanPipelinePanel({ onLoadModel }: { onLoadModel: (asset: Machin
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
+            {loadError ? (
+              <p className="text-xs text-danger mt-3">The 3D model could not be loaded: {loadError}</p>
+            ) : null}
           </div>
         </div>
 

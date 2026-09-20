@@ -108,6 +108,15 @@ export function MachineViewer({
       <div className="machine-viewer machine-viewer--fallback">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={asset.posterUrl} alt={asset.name} loading="lazy" className="max-h-[340px] rounded-lg object-contain shadow-md" />
+        {/* Say which view this is. A poster and a loaded model look the same
+            until someone tries to drag one, and "it will not move" is a far
+            worse thing to discover than "this is the 2D view". */}
+        {!prefer2D && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Showing the 2D view &mdash; the 3D model could not be loaded. The parts below
+            are still tappable.
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-2 mt-4 w-full max-w-md">
           {asset.hotspots.map((hotspot, idx) => (
             <button

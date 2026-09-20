@@ -542,7 +542,7 @@ export default function SimulationStudioPage() {
 
   // Execute API Test
   return (
-    <div className="min-h-screen bg-background text-primary-foreground flex flex-col font-sans selection:bg-primary selection:text-primary-foreground">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary selection:text-primary-foreground">
       {/* ── Top Enterprise Header ────────────────────────────────────────── */}
       <header className="border-b border-border bg-background/95 sticky top-0 z-50 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">

@@ -155,6 +155,8 @@ export function ExplodedPump3D({
   const [showAllLabels, setShowAllLabels] = useState(true);
   const [screenCoords, setScreenCoords] = useState<Record<string, { x: number; y: number }>>({});
 
+  const [webGlFailed, setWebGlFailed] = useState(false);
+
   // 3D Camera Orbit Drag state (Matches perspective in Photo 1)
   const isDraggingRef = useRef(false);
   const previousMousePosition = useRef({ x: 0, y: 0 });
@@ -228,20 +230,27 @@ export function ExplodedPump3D({
     updateCameraPos();
 
     // 2. High-Precision WebGL Renderer
-    // Phones pay for antialiasing and a 2x pixel ratio in fragments, and a 6in
-    // screen shows almost none of the benefit. HANDOFF §2 items 4-5.
     const small = window.innerWidth < 768;
-    const renderer = new THREE.WebGLRenderer({
-      antialias: !small,
-      alpha: true,
-      powerPreference: 'high-performance',
-    });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: !small,
+        alpha: true,
+        powerPreference: 'high-performance',
+      });
+      if (transparent) {
+        renderer.setClearColor(0x000000, 0);
+      }
+    } catch (err) {
+      console.warn('WebGL context creation failed; falling back to 3D image:', err);
+      setWebGlFailed(true);
+      return;
+    }
+
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, small ? 1.5 : 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
-    // PCFSoftShadowMap with a directional light is the most expensive thing in
-    // this scene and contributes least at phone size, so mobile goes without.
     renderer.shadowMap.enabled = !small;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
@@ -878,50 +887,62 @@ export function ExplodedPump3D({
       }
     >
       {/* -------------------------------------------------------------
-         TOP APP BAR
+         TOP APP BAR (Hidden when embedded as hero subject)
          ------------------------------------------------------------- */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 bg-[#334155]/90 backdrop-blur-xs text-white border-b border-slate-600">
-        <button
-          type="button"
-          className="rounded bg-[#2563EB] hover:bg-blue-600 px-3 py-1 text-xs font-bold shadow-xs transition-all"
-        >
-          Settings
-        </button>
+      {!transparent && (
+        <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 bg-[#334155]/90 backdrop-blur-xs text-white border-b border-slate-600">
+          <button
+            type="button"
+            className="rounded bg-[#2563EB] hover:bg-blue-600 px-3 py-1 text-xs font-bold shadow-xs transition-all"
+          >
+            Settings
+          </button>
 
-        <div className="flex items-center gap-2">
-          <span className="rounded bg-teal-600 px-4 py-1 text-xs font-bold tracking-wide">
-            Back to Session
-          </span>
-          <div className="size-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold">
-            DP
+          <div className="flex items-center gap-2">
+            <span className="rounded bg-teal-600 px-4 py-1 text-xs font-bold tracking-wide">
+              Back to Session
+            </span>
+            <div className="size-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold">
+              DP
+            </div>
           </div>
-        </div>
 
-        <button
-          type="button"
-          className="rounded bg-[#2563EB] hover:bg-blue-600 px-3 py-1 text-xs font-bold shadow-xs transition-all"
-        >
-          Your Account
-        </button>
-      </div>
+          <button
+            type="button"
+            className="rounded bg-[#2563EB] hover:bg-blue-600 px-3 py-1 text-xs font-bold shadow-xs transition-all"
+          >
+            Your Account
+          </button>
+        </div>
+      )}
 
       {/* -------------------------------------------------------------
-         3D WEBGL VIEWPORT (Three.js Canvas)
+         3D WEBGL VIEWPORT (Three.js Canvas) or Graceful 3D Fallback
          ------------------------------------------------------------- */}
-      <div
-        ref={containerRef}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
-        className="w-full h-full cursor-grab active:cursor-grabbing"
-      />
+      {webGlFailed ? (
+        <div className="w-full h-full flex items-center justify-center pointer-events-none select-none">
+          <img
+            src="/twin/poster.webp"
+            alt="Axial-Piston Pump 3D Cutaway"
+            className="w-full h-full object-contain filter drop-shadow-lg"
+          />
+        </div>
+      ) : (
+        <div
+          ref={containerRef}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onWheel={handleWheel}
+          className="w-full h-full cursor-grab active:cursor-grabbing"
+        />
+      )}
 
       {/* -------------------------------------------------------------
          LEFT HUD: INTERACTION CONTROLS INSTRUCTIONS
          ------------------------------------------------------------- */}
-      {showControls && (
+      {!transparent && showControls && (
         <div className="pointer-events-none absolute top-16 left-6 z-10 text-[11px] font-medium text-slate-700 space-y-0.5 leading-snug bg-white/75 p-2 rounded-lg backdrop-blur-2xs border border-slate-200">
           <div><span className="font-bold">Zoom:</span> Scroll Mouse Wheel</div>
           <div><span className="font-bold">Rotate:</span> Left Mouse Drag</div>
@@ -933,7 +954,7 @@ export function ExplodedPump3D({
       {/* -------------------------------------------------------------
          FLOATING 3D CALLOUT LABELS & LEADER LINES (All Labels Toggle)
          ------------------------------------------------------------- */}
-      {showAllLabels && (
+      {!transparent && showAllLabels && (
         <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
           <svg className="w-full h-full">
             {CALLOUT_LABELS.map((callout) => {
@@ -994,90 +1015,92 @@ export function ExplodedPump3D({
       {/* -------------------------------------------------------------
          RIGHT CONTROL PANEL (Exact Match to Reference Screenshot)
          ------------------------------------------------------------- */}
-      <div className="absolute top-20 right-5 z-20 w-44 rounded-2xl bg-[#2D5DA7] p-4 text-white shadow-xl border border-blue-400/40">
-        {/* Explode View Slider */}
-        <div className="mb-3.5">
-          <label className="block text-center text-xs font-bold text-white mb-1.5">
-            Explode View
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={explodePct}
-            onChange={(e) => handleExplodeChange(Number(e.target.value))}
-            className="w-full h-2 bg-blue-900/60 rounded-lg appearance-none cursor-pointer accent-white"
-          />
-        </div>
-
-        {/* Action Buttons */}
-        <div className="space-y-1.5 mb-3.5">
-          <button
-            type="button"
-            onClick={handleStartSpin}
-            className={`w-full rounded-lg py-1.5 text-xs font-bold shadow-xs transition-colors ${
-              isSpinning ? 'bg-emerald-400 text-slate-900 ring-2 ring-emerald-200' : 'bg-white/95 hover:bg-white text-slate-900'
-            }`}
-          >
-            Start Spin
-          </button>
-
-          <button
-            type="button"
-            onClick={handleStopSpin}
-            className="w-full rounded-lg bg-white/95 hover:bg-white text-slate-900 py-1.5 text-xs font-bold shadow-xs transition-colors"
-          >
-            Stop Spin
-          </button>
-
-          <button
-            type="button"
-            onClick={handleReset}
-            className="w-full rounded-lg bg-white/95 hover:bg-white text-slate-900 py-1.5 text-xs font-bold shadow-xs transition-colors"
-          >
-            Reset
-          </button>
-        </div>
-
-        {/* Toggle Switches */}
-        <div className="space-y-2 border-t border-blue-400/40 pt-3">
-          {/* Controls Toggle */}
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => setShowControls(!showControls)}
-              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                showControls ? 'bg-emerald-400' : 'bg-blue-950/60'
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block size-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                  showControls ? 'translate-x-4' : 'translate-x-0'
-                }`}
-              />
-            </button>
-            <span className="text-xs font-bold text-white">Controls</span>
+      {!transparent && (
+        <div className="absolute top-20 right-5 z-20 w-44 rounded-2xl bg-[#2D5DA7] p-4 text-white shadow-xl border border-blue-400/40">
+          {/* Explode View Slider */}
+          <div className="mb-3.5">
+            <label className="block text-center text-xs font-bold text-white mb-1.5">
+              Explode View
+            </label>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={explodePct}
+              onChange={(e) => handleExplodeChange(Number(e.target.value))}
+              className="w-full h-2 bg-blue-900/60 rounded-lg appearance-none cursor-pointer accent-white"
+            />
           </div>
 
-          {/* All Labels Toggle */}
-          <div className="flex items-center justify-between">
+          {/* Action Buttons */}
+          <div className="space-y-1.5 mb-3.5">
             <button
               type="button"
-              onClick={() => setShowAllLabels(!showAllLabels)}
-              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                showAllLabels ? 'bg-emerald-400' : 'bg-blue-950/60'
+              onClick={handleStartSpin}
+              className={`w-full rounded-lg py-1.5 text-xs font-bold shadow-xs transition-colors ${
+                isSpinning ? 'bg-emerald-400 text-slate-900 ring-2 ring-emerald-200' : 'bg-white/95 hover:bg-white text-slate-900'
               }`}
             >
-              <span
-                className={`pointer-events-none inline-block size-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                  showAllLabels ? 'translate-x-4' : 'translate-x-0'
-                }`}
-              />
+              Start Spin
             </button>
-            <span className="text-xs font-bold text-white">All Labels</span>
+
+            <button
+              type="button"
+              onClick={handleStopSpin}
+              className="w-full rounded-lg bg-white/95 hover:bg-white text-slate-900 py-1.5 text-xs font-bold shadow-xs transition-colors"
+            >
+              Stop Spin
+            </button>
+
+            <button
+              type="button"
+              onClick={handleReset}
+              className="w-full rounded-lg bg-white/95 hover:bg-white text-slate-900 py-1.5 text-xs font-bold shadow-xs transition-colors"
+            >
+              Reset
+            </button>
+          </div>
+
+          {/* Toggle Switches */}
+          <div className="space-y-2 border-t border-blue-400/40 pt-3">
+            {/* Controls Toggle */}
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setShowControls(!showControls)}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                  showControls ? 'bg-emerald-400' : 'bg-blue-950/60'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block size-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                    showControls ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              <span className="text-xs font-bold text-white">Controls</span>
+            </div>
+
+            {/* All Labels Toggle */}
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setShowAllLabels(!showAllLabels)}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                  showAllLabels ? 'bg-emerald-400' : 'bg-blue-950/60'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block size-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                    showAllLabels ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              <span className="text-xs font-bold text-white">All Labels</span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

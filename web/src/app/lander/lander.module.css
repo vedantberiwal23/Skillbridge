@@ -21,7 +21,9 @@
   font-family: var(--font-mono-editorial), ui-monospace, monospace;
   font-size: 12.5px;
   line-height: 1.6;
-  overflow-x: hidden;
+  /* clip, not hidden: `overflow-x: hidden` makes this a scroll container and
+     silently kills `position: sticky` in the pinned study below it. */
+  overflow-x: clip;
 }
 
 .page *,
@@ -233,10 +235,7 @@
   height: clamp(220px, 46vh, 420px);
   width: min(620px, 60vw);
   pointer-events: none;
-  /* The renderer paints its own light ground; multiply knocks that white out
-     against the bone field so the machine reads as a cut-out standing in the
-     wordmark's gap rather than a picture pasted over it. */
-  mix-blend-mode: multiply;
+  filter: drop-shadow(0 18px 40px rgba(26, 25, 23, 0.22));
   will-change: transform;
 }
 
@@ -321,7 +320,7 @@
 /* ── pinned study ─────────────────────────────────────────────────────── */
 
 .studyOuter {
-  height: 320vh;
+  height: 240vh;
   position: relative;
   border-top: 1px solid var(--hair);
   background: var(--ground-2);
@@ -340,9 +339,14 @@
 
 .studyPlot {
   position: relative;
-  flex: 1;
-  margin: 24px 0;
-  min-height: 0;
+  flex: 1 1 auto;
+  margin: 20px 0;
+  min-height: 200px;
+}
+
+.studyPlot > svg {
+  position: absolute;
+  inset: 0;
 }
 
 .readouts {

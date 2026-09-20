@@ -7,6 +7,13 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 interface ExplodedPump3DProps {
   onSelectComponent?: (componentId: string, label: string) => void;
   selectedComponentId?: string | null;
+  /**
+   * Leave the scene unpainted so the page shows through. Used where the pump
+   * is a subject rather than a tool — the landing page stands it in the gap
+   * between two lines of the wordmark, and a white plate behind it would hide
+   * the lower line.
+   */
+  transparent?: boolean;
 }
 
 // 12 distinct mechanical subassemblies that translate along the X axis
@@ -125,6 +132,7 @@ function createCastIronNoiseTexture(): THREE.CanvasTexture {
 export function ExplodedPump3D({
   onSelectComponent,
   selectedComponentId,
+  transparent = false,
 }: ExplodedPump3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -203,7 +211,7 @@ export function ExplodedPump3D({
 
     // 1. Scene & Camera Setup
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#FFFFFF');
+    if (!transparent) scene.background = new THREE.Color('#FFFFFF');
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 1000);

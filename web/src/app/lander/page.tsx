@@ -135,7 +135,7 @@ export default function LanderPage() {
             transform: `translate3d(0, ${-heroProgress * 24}vh, 0) scale(${1 + heroProgress * 0.08})`,
           }}
         >
-          <ExplodedPump3D />
+          <ExplodedPump3D transparent />
         </div>
 
         <div

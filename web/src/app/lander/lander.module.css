@@ -193,7 +193,7 @@
   /* Above both wordmark lines: centred type crosses the copy column at middle
      widths, and the sentence has to stay readable. */
   z-index: 5;
-  max-width: min(52vw, 660px);
+  max-width: min(56vw, 740px);
   min-width: 300px;
   display: flex;
   flex-direction: column;
@@ -210,17 +210,17 @@
 .heroHeadline {
   composes: serif;
   /* The left column is the argument; it is set to be read across a room. */
-  font-size: clamp(36px, 5.2vw, 76px);
+  font-size: clamp(40px, 6.2vw, 92px);
   line-height: 1.04;
   max-width: 15ch;
 }
 
 /* The hero's own lede, a step up from the body copy used in the sections. */
 .heroLede {
-  font-size: clamp(14px, 1.15vw, 17px);
+  font-size: clamp(15px, 1.35vw, 19px);
   line-height: 1.65;
   color: var(--ink-2);
-  max-width: 46ch;
+  max-width: 44ch;
 }
 
 .heroActions {
@@ -249,7 +249,7 @@
   right: clamp(24px, 4vw, 72px);
   text-align: right;
   composes: serif;
-  font-size: clamp(74px, 17.5vw, 258px);
+  font-size: clamp(64px, 13.5vw, 196px);
   line-height: 0.82;
   color: var(--ink);
   pointer-events: none;

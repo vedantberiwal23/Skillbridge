@@ -205,12 +205,12 @@
 /* The signature: two stacked wordmark lines, the subject standing in the gap. */
 .wordLine {
   position: absolute;
-  /* Both lines share one centred axis, so SKILL and BRIDGE stack dead on top
-     of each other whatever the viewport — right-aligning them let the shorter
-     word drift off the longer one as the type scaled. */
-  left: clamp(8px, 2vw, 36px);
-  right: clamp(8px, 2vw, 36px);
-  text-align: center;
+  /* Both lines end on one right edge and the block sits in the right half,
+     clear of the copy column. Right alignment is what keeps SKILL and BRIDGE
+     squared with each other as the type scales. */
+  left: auto;
+  right: clamp(24px, 4vw, 72px);
+  text-align: right;
   composes: serif;
   font-size: clamp(74px, 17.5vw, 258px);
   line-height: 0.82;
@@ -235,12 +235,10 @@
 .subject {
   position: absolute;
   z-index: 2;
-  /* On the same centred axis as the wordmark, so the machine stands in the
-     middle of the gap rather than off to one side of it. The extra 6% pushes
-     the canvas right because the machine renders left of its own centre. */
-  right: 50%;
-  transform: translateX(56%);
-  bottom: 24%;
+  /* Centred under the wordmark block, not the page: the machine belongs in
+     the gap between the two lines, which sits in the right half. */
+  right: clamp(24px, 6vw, 150px);
+  bottom: 23%;
   /* Sized by HEIGHT with width auto: a width-driven box grows taller than the
      hero on a short viewport, crops the machine and buries the copy. */
   height: clamp(200px, 38vh, 360px);

@@ -132,9 +132,7 @@ export default function LanderPage() {
         <div
           className={s.subject}
           style={{
-            // translateX keeps the centring the stylesheet sets; the scroll
-            // motion rides on top of it.
-            transform: `translateX(56%) translate3d(0, ${-heroProgress * 24}vh, 0) scale(${1 + heroProgress * 0.08})`,
+            transform: `translate3d(0, ${-heroProgress * 24}vh, 0) scale(${1 + heroProgress * 0.08})`,
           }}
         >
           <ExplodedPump3D transparent />

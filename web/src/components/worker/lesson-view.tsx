@@ -278,6 +278,7 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
             error={ask.error}
             empty={ask.empty}
             grounded={ask.grounded}
+            spoken={ask.spoken}
           />
         </div>
 

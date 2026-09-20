@@ -489,7 +489,10 @@ export function createTurn(options: TurnOptions): Turn {
           (async () => {
             let audio: string | null = null;
             try {
-              audio = await textToSpeech(sentence, { language: coach.languageOfText(sentence, replyLanguage) });
+              const clipVoice = coach.voiceFor(sentence, replyLanguage);
+              // Nothing can read it; the sentence is still shown, just not spoken.
+              if (clipVoice === null) return;
+              audio = await textToSpeech(sentence, { language: clipVoice });
             } catch (e) {
               console.warn('[voice/turn] clip synthesis failed:', (e as Error).message);
             }
@@ -533,15 +536,32 @@ export function createTurn(options: TurnOptions): Turn {
       // the speech engine needs to start.
       let held = '';
       let written = '';
-      let spokenLanguage = replyLanguage;
+      /** The voice reading the answer, or null once we know none can. */
+      let spokenLanguage: string | null = replyLanguage;
+      /** Set when the answer's script has no bulbul voice: text, no audio. */
+      let unvoiced = false;
       const toVoice = (text: string) => {
+        if (unvoiced) return;
         if (restMode) return toRest(text);
         fed += text;
         tts.sendText(text);
       };
       const setVoice = (text: string) => {
-        spokenLanguage = coach.languageOfText(text, replyLanguage);
-        if (!restMode) tts.configure(spokenLanguage);
+        // The script the model actually wrote decides the voice — Assamese is
+        // Bengali script, so the Bengali voice reads it. Null means no voice
+        // shares this script (Perso-Arabic, Ol Chiki, Meetei Mayek), and the
+        // answer is shown rather than read aloud in a voice that would mangle it.
+        const voice = coach.voiceFor(text, replyLanguage);
+        spokenLanguage = voice;
+        if (voice === null) {
+          unvoiced = true;
+          if (!restMode) {
+            restMode = true;
+            tts.close();
+          }
+          return;
+        }
+        if (!restMode) tts.configure(voice);
       };
       const toSpeech = (text: string) => {
         if (restMode || tts.language()) return toVoice(text);
@@ -626,7 +646,13 @@ export function createTurn(options: TurnOptions): Turn {
         transcript,
         heard_language: replyLanguage,
         text: replyText,
-        language: spokenLanguage,
+        language: spokenLanguage ?? replyLanguage,
+        /**
+         * False when the answer is written in a language bulbul:v3 has no voice
+         * for. The client shows the text and says it cannot be read aloud,
+         * rather than the worker waiting for audio that never comes.
+         */
+        spoken: !unvoiced,
         grounded: answer.grounded,
         engines: {
           stt: `sarvam:${config.sarvam.sttModel}`,

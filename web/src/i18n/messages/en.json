@@ -117,6 +117,7 @@
     "voiceUnavailable": "The voice tutor is not reachable right now.",
     "assessmentEmpty": "No questions have been set for this assessment yet.",
     "fromYourSop": "From your company's SOP",
+    "textOnlyLanguage": "Answer shown as text — this language has no voice yet",
     "heardNothing": "I did not catch that. Hold the button and speak again."
   },
   "assessment": {

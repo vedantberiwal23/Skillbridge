@@ -62,7 +62,18 @@ export interface TurnHandlers {
   onFinal?: (text: string, language: string | null) => void;
   onThinking?: () => void;
   onDelta?: (text: string) => void;
-  onReply?: (reply: { transcript: string; text: string; language: string; grounded: boolean }) => void;
+  onReply?: (reply: {
+    transcript: string;
+    text: string;
+    language: string;
+    grounded: boolean;
+    /**
+     * False when the answer is in a language bulbul:v3 has no voice for. The
+     * text is complete; no audio is coming, and the panel should say so rather
+     * than leave the worker waiting for a voice.
+     */
+    spoken: boolean;
+  }) => void;
   /** Nothing with letters was heard — silence is not a question. */
   onEmpty?: () => void;
   onError?: (code: string | null, message: string) => void;

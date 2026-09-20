@@ -33,7 +33,21 @@ export interface IndianLanguage {
   glyph: string;
   region: string;
   desc: string;
+  /** The Sarvam code sent to the voice service. */
   voiceCode: string;
+  /**
+   * What a worker actually gets when they pick this, which is not the same for
+   * all 26 — saaras:v3 understands 22 Indian languages, bulbul:v3 speaks 11.
+   *
+   *   'own'      understood, answered and spoken in this language
+   *   'related'  answered in this language, read aloud by the nearest voice
+   *              that shares its script (Assamese by the Bengali voice,
+   *              Devanagari languages by the Hindi one)
+   *   'text'     answered in this language on screen; no voice can read its
+   *              script, so it is not spoken
+   *   'hindi'    a dialect Sarvam has no model for; answered in Hindi
+   */
+  voice: 'own' | 'related' | 'text' | 'hindi';
 }
 
 /** Comprehensive catalog of languages spoken across India's industrial workforce. */
@@ -46,6 +60,7 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     region: 'North & Central India',
     desc: 'दुकान और कार्यशाला प्रशिक्षण एवं आवाज में सहायता',
     voiceCode: 'hi-IN',
+    voice: 'own',
   },
   {
     code: 'en',
@@ -55,6 +70,7 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     region: 'Pan-India Industrial Standard',
     desc: 'Primary industrial vocabulary & standard terminology',
     voiceCode: 'en-IN',
+    voice: 'own',
   },
   {
     code: 'mr',
@@ -64,6 +80,7 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     region: 'Maharashtra Industrial Belt',
     desc: 'औद्योगिक प्रशिक्षण आणि हँड्स-फ्री ऑडिओ मार्गदर्शन',
     voiceCode: 'mr-IN',
+    voice: 'own',
   },
   {
     code: 'ta',
@@ -73,6 +90,7 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     region: 'Tamil Nadu Automotive & Machinery Hub',
     desc: 'தொழிற்சாலை பயிற்சி மற்றும் குரல் வழிகாட்டல்',
     voiceCode: 'ta-IN',
+    voice: 'own',
   },
   {
     code: 'te',
@@ -82,6 +100,7 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     region: 'Telangana & Andhra Industrial Corridors',
     desc: 'పరిశ్రమల శిక్షణ మరియు వాయిస్ అసిస్టెన్స్',
     voiceCode: 'te-IN',
+    voice: 'own',
   },
   {
     code: 'kn',
@@ -91,6 +110,7 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     region: 'Karnataka Aerospace & Machine Tools',
     desc: 'ಕೈಗಾರಿಕಾ ತರಬೇತಿ ಮತ್ತು ಧ್ವನಿ ಮಾರ್ಗದರ್ಶನ',
     voiceCode: 'kn-IN',
+    voice: 'own',
   },
   {
     code: 'gu',
@@ -100,6 +120,7 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     region: 'Gujarat Heavy Engineering & Petrochemical',
     desc: 'ઔદ્યોગિક તાલીમ અને અવાજ માર્ગદર્શન',
     voiceCode: 'gu-IN',
+    voice: 'own',
   },
   {
     code: 'bn',
@@ -109,6 +130,7 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     region: 'West Bengal & Eastern Industrial Sector',
     desc: 'শিল্প প্রশিক্ষণ এবং ভয়েস সহায়তা',
     voiceCode: 'bn-IN',
+    voice: 'own',
   },
   {
     code: 'pa',
@@ -118,6 +140,7 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     region: 'Punjab Fabrication & Machinery Cluster',
     desc: 'ਉਦਯੋਗਿਕ ਸਿਖਲਾਈ ਅਤੇ ਆਵਾਜ਼ ਸਹਾਇਤਾ',
     voiceCode: 'pa-IN',
+    voice: 'own',
   },
   {
     code: 'ml',
@@ -127,6 +150,7 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     region: 'Kerala Precision & Tech Corridors',
     desc: 'വ്യാവസായിക പരിശീലനവും വോയ്‌സ് മാർഗ്ഗനിർദ്ദേശവും',
     voiceCode: 'ml-IN',
+    voice: 'own',
   },
   {
     code: 'or',
@@ -140,6 +164,7 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     // not refused — it falls back to Hindi — so `or-IN` answered every Odia
     // speaker in Hindi with nothing on screen to say why.
     voiceCode: 'od-IN',
+    voice: 'own',
   },
   {
     code: 'as',
@@ -149,6 +174,7 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     region: 'Assam & Northeast Industrial Zone',
     desc: 'উদ্যোগিক প্ৰশিক্ষণ আৰু ভইচ সহায়',
     voiceCode: 'as-IN',
+    voice: 'related',
   },
   {
     code: 'ur',
@@ -158,6 +184,7 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     region: 'North & Deccan Manufacturing Centers',
     desc: 'صنعتی تربیت اور صوتی معاونت',
     voiceCode: 'ur-IN',
+    voice: 'text',
   },
   {
     code: 'bho',
@@ -167,6 +194,7 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     region: 'Bihar & Purvanchal Industrial Workforce',
     desc: 'कारखाना प्रशिक्षण आ आवाज में पूरा मदद',
     voiceCode: 'hi-IN',
+    voice: 'own',
   },
   {
     code: 'mai',
@@ -175,7 +203,8 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     glyph: 'मै',
     region: 'Bihar & Mithilanchal Region',
     desc: 'औद्योगिक प्रशिक्षण आ ध्वनि सहायता',
-    voiceCode: 'hi-IN',
+    voiceCode: 'mai-IN',
+    voice: 'related',
   },
   {
     code: 'raj',
@@ -185,6 +214,7 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     region: 'Rajasthan Mining & Heavy Engineering',
     desc: 'कारखाना प्रशिक्षण अर आवाज में सीखो',
     voiceCode: 'hi-IN',
+    voice: 'own',
   },
   {
     code: 'kok',
@@ -193,7 +223,8 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     glyph: 'कों',
     region: 'Goa & Konkan Coastal Industrial Hubs',
     desc: 'कारखान्यांतलें प्रशिक्षण आनी व्हॉइस मार्गदर्शन',
-    voiceCode: 'mr-IN',
+    voiceCode: 'kok-IN',
+    voice: 'related',
   },
   {
     code: 'ne',
@@ -202,7 +233,8 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     glyph: 'ने',
     region: 'Himalayan Industrial & Hydroelectric Plants',
     desc: 'औद्योगिक तालिम र भ्वाइस सहायता',
-    voiceCode: 'ne-NP',
+    voiceCode: 'ne-IN',
+    voice: 'related',
   },
   {
     code: 'doi',
@@ -211,7 +243,8 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     glyph: 'डो',
     region: 'Jammu & Northern Industrial Belts',
     desc: 'औद्योगिक प्रशिक्षण ते आवाज च मद्द',
-    voiceCode: 'hi-IN',
+    voiceCode: 'doi-IN',
+    voice: 'related',
   },
   {
     code: 'ks',
@@ -220,7 +253,8 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     glyph: 'کٲ',
     region: 'Jammu & Kashmir Craft & Manufacturing',
     desc: 'صنعتی تربیت تہٕ آواز ہُنٛد رہنمائی',
-    voiceCode: 'ur-IN',
+    voiceCode: 'ks-IN',
+    voice: 'text',
   },
   {
     code: 'sat',
@@ -229,7 +263,8 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     glyph: 'ᱥᱟ',
     region: 'Jharkhand, Odisha & Bengal Mining Belt',
     desc: 'ᱠᱟᱹᱨᱜᱟᱹᱲ ᱴᱨᱮᱱᱤᱝ ᱟᱨ ᱟᱲᱟᱝ ᱜᱚᱲᱚ',
-    voiceCode: 'hi-IN',
+    voiceCode: 'sat-IN',
+    voice: 'text',
   },
   {
     code: 'brx',
@@ -238,7 +273,8 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     glyph: 'ब',
     region: 'Assam & Bodoland Industrial Area',
     desc: 'इन्डस्ट्रियेल ट्रेनिं आरो खोलो सहाय',
-    voiceCode: 'as-IN',
+    voiceCode: 'brx-IN',
+    voice: 'related',
   },
   {
     code: 'sd',
@@ -247,7 +283,8 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     glyph: 'सि',
     region: 'Western Manufacturing & Trade Hubs',
     desc: 'صنعتی تربيت ۽ آواز جي مدد',
-    voiceCode: 'hi-IN',
+    voiceCode: 'sd-IN',
+    voice: 'text',
   },
   {
     code: 'bgc',
@@ -257,6 +294,7 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     region: 'Haryana Automotive & Auto-Components Hub',
     desc: 'फैक्ट्री की ट्रेनिंग अर बोल के मदद',
     voiceCode: 'hi-IN',
+    voice: 'own',
   },
   {
     code: 'hne',
@@ -266,6 +304,7 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     region: 'Chhattisgarh Steel, Sponge Iron & Power Plants',
     desc: 'कारखाना ट्रेनिंग अउर आवाज म सहायता',
     voiceCode: 'hi-IN',
+    voice: 'own',
   },
   {
     code: 'mni',
@@ -274,7 +313,8 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     glyph: 'মৈ',
     region: 'Manipur & Northeast Border Infrastructure',
     desc: 'ইন্ডাস্ট্রি ফ্রেনিং অমসুং খোঞ্জেলগী তেংবাং',
-    voiceCode: 'as-IN',
+    voiceCode: 'mni-IN',
+    voice: 'text',
   },
 ];
 

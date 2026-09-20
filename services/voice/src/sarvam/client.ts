@@ -13,7 +13,22 @@ import { config } from '../config.js';
  * A decimal point is not a sentence end — "2.5 bar" must stay one clause.
  */
 
-export const LANGUAGES = [
+/**
+ * Two lists, because Sarvam's models do not cover the same set — and treating
+ * them as one is what made a worker who picked Assamese get answered in Hindi.
+ *
+ *   UNDERSTOOD  saaras:v3 transcribes 22 Indian languages plus English, so this
+ *               is what a worker may SPEAK and what the reply may be WRITTEN in.
+ *   SPEAKABLE   bulbul:v3 has voices for 11 of them. That is the only list that
+ *               decides what can be SAID out loud.
+ *
+ * A language in the first list but not the second still works: the question is
+ * transcribed, the answer is written in that language, and it is read aloud by
+ * the closest voice that shares the script — or, where no voice shares it
+ * (Perso-Arabic, Ol Chiki, Meetei Mayek), shown as text and not spoken. What is
+ * never acceptable is silently answering in a language nobody asked for.
+ */
+export const SPEAKABLE_LANGUAGES = [
   { code: 'en-IN', label: 'English', native: 'English' },
   { code: 'hi-IN', label: 'Hindi', native: 'हिन्दी' },
   { code: 'bn-IN', label: 'Bengali', native: 'বাংলা' },
@@ -27,8 +42,32 @@ export const LANGUAGES = [
   { code: 'od-IN', label: 'Odia', native: 'ଓଡ଼ିଆ' },
 ] as const;
 
+/** Understood but unvoiced: saaras:v3 transcribes these, bulbul:v3 cannot speak them. */
+export const UNVOICED_LANGUAGES = [
+  { code: 'as-IN', label: 'Assamese', native: 'অসমীয়া' },
+  { code: 'ur-IN', label: 'Urdu', native: 'اردو' },
+  { code: 'ne-IN', label: 'Nepali', native: 'नेपाली' },
+  { code: 'kok-IN', label: 'Konkani', native: 'कोंकणी' },
+  { code: 'ks-IN', label: 'Kashmiri', native: 'کٲشُر' },
+  { code: 'sd-IN', label: 'Sindhi', native: 'سنڌي' },
+  { code: 'sa-IN', label: 'Sanskrit', native: 'संस्कृतम्' },
+  { code: 'sat-IN', label: 'Santali', native: 'ᱥᱟᱱᱛᱟᱲᱤ' },
+  { code: 'mni-IN', label: 'Manipuri', native: 'ꯃꯤꯇꯩꯂꯣꯟ' },
+  { code: 'brx-IN', label: 'Bodo', native: 'बड़ो' },
+  { code: 'mai-IN', label: 'Maithili', native: 'मैथिली' },
+  { code: 'doi-IN', label: 'Dogri', native: 'डोगरी' },
+] as const;
+
+/** Everything a worker may speak. */
+export const LANGUAGES = [...SPEAKABLE_LANGUAGES, ...UNVOICED_LANGUAGES];
+
+/** Can a worker ask in this language, and be answered in it in writing? */
 export const isLanguage = (code: string): boolean =>
   LANGUAGES.some((l) => l.code === code);
+
+/** Is there a voice that can read this language aloud? */
+export const isSpeakable = (code: string): boolean =>
+  SPEAKABLE_LANGUAGES.some((l) => l.code === code);
 
 /**
  * Technical terms must survive translation as English. Every Indian technician

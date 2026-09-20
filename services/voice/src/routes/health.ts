@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { LANGUAGES } from '../sarvam/client.js';
+import { LANGUAGES, SPEAKABLE_LANGUAGES } from '../sarvam/client.js';
 import { config } from '../config.js';
 
 export const health = Router();
@@ -16,7 +16,11 @@ health.get('/healthz', (_req, res) => {
 health.get('/voice/config', (_req, res) => {
   res.json({
     configured: Boolean(config.sarvam.apiKey),
+    // Everything a worker may ask in …
     languages: LANGUAGES,
+    // … and the subset that can be read back aloud. A client that shows one as
+    // the other promises a spoken answer it will not get.
+    spokenLanguages: SPEAKABLE_LANGUAGES,
     models: {
       stt: config.sarvam.sttModel,
       tts: config.sarvam.ttsModel,

@@ -289,8 +289,11 @@
   will-change: transform;
 }
 
-/* The pump component ships its own HUD; here it is a subject, not a tool. */
-.subject > div > *:not(:nth-child(2)) {
+/* The pump component ships its own HUD; here it is a subject, not a tool.
+   Target the overlays by how they are positioned rather than by child index —
+   an index rule hid the canvas itself the moment that component's markup
+   changed, and the machine simply vanished. */
+.subject > div > [class*='absolute'] {
   display: none !important;
 }
 

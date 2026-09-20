@@ -115,6 +115,33 @@
   border-bottom-color: var(--pigment);
 }
 
+.navRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Square, hairline, monospace — a control, not a chip. */
+.langSwitch {
+  appearance: none;
+  height: 44px;
+  padding: 0 32px 0 12px;
+  border: 1px solid var(--hair);
+  background:
+    linear-gradient(45deg, transparent 50%, var(--ink) 50%) calc(100% - 16px) 50% / 5px 5px no-repeat,
+    transparent;
+  color: var(--ink);
+  font-family: var(--font-mono-editorial), ui-monospace, monospace;
+  font-size: 12.5px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.langSwitch:focus-visible {
+  outline: 1px solid var(--pigment);
+  outline-offset: 2px;
+}
+
 /* ── buttons ──────────────────────────────────────────────────────────── */
 
 .btn {
@@ -166,7 +193,7 @@
   /* Above both wordmark lines: centred type crosses the copy column at middle
      widths, and the sentence has to stay readable. */
   z-index: 5;
-  max-width: 44vw;
+  max-width: min(52vw, 660px);
   min-width: 300px;
   display: flex;
   flex-direction: column;
@@ -182,8 +209,18 @@
 
 .heroHeadline {
   composes: serif;
-  font-size: clamp(30px, 4vw, 56px);
-  max-width: 14ch;
+  /* The left column is the argument; it is set to be read across a room. */
+  font-size: clamp(36px, 5.2vw, 76px);
+  line-height: 1.04;
+  max-width: 15ch;
+}
+
+/* The hero's own lede, a step up from the body copy used in the sections. */
+.heroLede {
+  font-size: clamp(14px, 1.15vw, 17px);
+  line-height: 1.65;
+  color: var(--ink-2);
+  max-width: 46ch;
 }
 
 .heroActions {
@@ -300,20 +337,37 @@
     height: 17vh;
   }
 
-  /* Ranged left on one gutter, like the rest of the page. Centred monospace
-     prose gives a ragged left edge that reads as decoration, not a document. */
+  /* Centred column on a phone: the hero is one stack down the middle of the
+     screen, headline included, so nothing reads as an off-axis fragment. */
   .heroCopy {
     margin-top: 2vh;
-    margin-bottom: 8vh;
-    gap: 20px;
-    align-items: flex-start;
-    text-align: left;
+    margin-bottom: 7vh;
+    gap: 18px;
+    align-items: center;
+    text-align: center;
     min-width: 0;
+    width: 100%;
   }
 
-  .heroCopy .body,
   .heroHeadline {
-    max-width: none;
+    font-size: clamp(30px, 8.4vw, 44px);
+    max-width: 16ch;
+  }
+
+  .heroLede {
+    font-size: 13.5px;
+    max-width: 40ch;
+    text-align: center;
+  }
+
+  .navRight {
+    gap: 8px;
+  }
+
+  .langSwitch {
+    height: 40px;
+    padding: 0 26px 0 10px;
+    font-size: 12px;
   }
 
   .heroActions,

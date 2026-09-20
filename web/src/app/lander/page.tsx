@@ -4,7 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Instrument_Serif, Azeret_Mono } from 'next/font/google';
 
+import { useI18n } from '@/i18n/provider';
+import { LOCALES, LOCALE_LABELS, type Locale } from '@/i18n/config';
 import { ExplodedPump3D } from '@/components/viewer/exploded-pump-3d';
+import { LANDER_COPY } from './copy';
 import { TRADES_CATALOG } from '@/data/curriculum';
 import s from './lander.module.css';
 
@@ -53,6 +56,8 @@ function study(progress: number) {
 }
 
 export default function LanderPage() {
+  const { locale, setLocale } = useI18n();
+  const t = LANDER_COPY[locale];
   const heroRef = useRef<HTMLElement>(null);
   const studyRef = useRef<HTMLDivElement>(null);
   const [heroProgress, setHeroProgress] = useState(0);
@@ -112,12 +117,31 @@ export default function LanderPage() {
           SkillBridge<span style={{ color: 'var(--pigment)' }}>.</span>
         </Link>
         <div className={s.navLinks}>
-          <a className={s.navLink} href="#method">Method</a>
-          <a className={s.navLink} href="#study">Study</a>
-          <a className={s.navLink} href="#practice">Practice</a>
-          <a className={s.navLink} href="#work">Work</a>
+          {(['#method', '#study', '#practice', '#work'] as const).map((href, i) => (
+            <a key={href} className={s.navLink} href={href}>
+              {t.nav[i]}
+            </a>
+          ))}
         </div>
-        <Link href="/login" className={s.btnSolid}>Sign in</Link>
+        <div className={s.navRight}>
+          {/* One switch, whole page — including on a phone, where it sits
+              beside Sign in so nobody has to hunt for their own language. */}
+          <select
+            className={s.langSwitch}
+            value={locale}
+            onChange={(e) => setLocale(e.target.value as Locale)}
+            aria-label={t.language}
+          >
+            {LOCALES.map((code) => (
+              <option key={code} value={code}>
+                {LOCALE_LABELS[code]}
+              </option>
+            ))}
+          </select>
+          <Link href="/login" className={s.btnSolid}>
+            {t.signIn}
+          </Link>
+        </div>
       </nav>
 
       {/* ── 2. hero: split wordmark bracketing the machine ── */}
@@ -146,37 +170,33 @@ export default function LanderPage() {
         </div>
 
         <div className={s.heroCopy}>
-          <p className={`${s.labelPigment} ${s.reveal}`}>Vocational training studio — Pune, IN</p>
+          <p className={`${s.labelPigment} ${s.reveal}`}>{t.eyebrow}</p>
           <h1 className={`${s.heroHeadline} ${s.reveal}`}>
-            The machine teaches, <span className={s.italic}>out loud</span>, in the worker&rsquo;s own language.
+            {t.headA}
+            <span className={s.italic}>{t.headItalic}</span>
+            {t.headB}
           </h1>
-          <p className={`${s.body} ${s.reveal}`}>
-            A technician holds a button and asks in Hindi or Marathi. The answer comes back from the
-            employer&rsquo;s own procedure documents, cites the one it used, and refuses when it has none.
-          </p>
+          <p className={`${s.heroLede} ${s.reveal}`}>{t.lede}</p>
           <div className={`${s.heroActions} ${s.reveal}`}>
-            <Link href="/login" className={s.btnSolid}>Enter the platform</Link>
-            <a href="#method" className={s.btn}>Read the method</a>
+            <Link href="/login" className={s.btnSolid}>{t.ctaPrimary}</Link>
+            <a href="#method" className={s.btn}>{t.ctaSecondary}</a>
           </div>
         </div>
 
-        <p className={s.heroCaption}>
-          Fig. 01 — Axial-piston pump, {PISTONS} pistons, {BORE_MM} mm bore. Exploded along the shaft axis.
-        </p>
+        <p className={s.heroCaption}>{t.figure}</p>
       </section>
 
       {/* ── 3. method: prose, ruled data, and a drawing to scale ── */}
       <section id="method" className={s.section}>
         <div className={s.two}>
           <div>
-            <p className={`${s.labelPigment} ${s.reveal}`}>01 — Method</p>
+            <p className={`${s.labelPigment} ${s.reveal}`}>{t.methodEyebrow}</p>
             <h2 className={`${s.h2} ${s.reveal}`} style={{ marginTop: 14 }}>
-              Grounded in <span className={s.italic}>their</span> procedures, not the internet&rsquo;s.
+              {t.methodHeadA}
+              <span className={s.italic}>{t.methodHeadItalic}</span>
+              {t.methodHeadB}
             </h2>
-            <p className={`${s.body} ${s.reveal}`} style={{ marginTop: 16 }}>
-              Each employer&rsquo;s documents are indexed under their own prefix and their own key. A question
-              is answered from that set or not at all. The tutor names the document it answered from, and
-              where a procedure is silent it says so and sends the worker to their supervisor.
+            <p className={`${s.body} ${s.reveal}`} style={{ marginTop: 16 }}>{t.methodLede}
             </p>
 
             <dl className={`${s.rows} ${s.reveal}`}>
@@ -208,9 +228,11 @@ export default function LanderPage() {
       <div id="study" ref={studyRef} className={s.studyOuter}>
         <div className={s.studyStage}>
           <div>
-            <p className={s.labelPigment}>02 — Study</p>
+            <p className={s.labelPigment}>{t.studyEyebrow}</p>
             <h2 className={s.h2} style={{ marginTop: 14 }}>
-              Swashplate angle sets <span className={s.italic}>everything</span> downstream.
+              {t.studyHeadA}
+              <span className={s.italic}>{t.studyHeadItalic}</span>
+              {t.studyHeadB}
             </h2>
             <p className={s.body} style={{ marginTop: 12 }}>
               V = z · (π/4 · d²) · (D · tan θ), at {PISTONS} pistons, {BORE_MM} mm bore, {PITCH_MM} mm pitch
@@ -235,13 +257,10 @@ export default function LanderPage() {
       <section id="practice" className={s.section}>
         <div className={s.two}>
           <div>
-            <p className={`${s.labelPigment} ${s.reveal}`}>03 — Practice</p>
-            <h2 className={`${s.h2} ${s.reveal}`} style={{ marginTop: 14 }}>
-              What the platform will and will not do.
+            <p className={`${s.labelPigment} ${s.reveal}`}>{t.practiceEyebrow}</p>
+            <h2 className={`${s.h2} ${s.reveal}`} style={{ marginTop: 14 }}>{t.practiceHead}
             </h2>
-            <p className={`${s.body} ${s.reveal}`} style={{ marginTop: 16 }}>
-              Accounts exist only by invitation from an employer. Scores are never reported by the device
-              that earned them. A module closes when its assessment is passed, not when a worker says so.
+            <p className={`${s.body} ${s.reveal}`} style={{ marginTop: 16 }}>{t.practiceLede}
             </p>
           </div>
           <dl className={`${s.rows} ${s.reveal}`} style={{ marginTop: 0 }}>
@@ -267,9 +286,8 @@ export default function LanderPage() {
         {/* Same measure as the table below it, or the heading hangs off the
             page edge while the data sits in the centred column. */}
         <div className={s.wrap}>
-          <p className={`${s.labelPigment} ${s.reveal}`}>04 — Work</p>
-          <h2 className={`${s.h2} ${s.reveal}`} style={{ marginTop: 14 }}>
-            Trades in the catalogue.
+          <p className={`${s.labelPigment} ${s.reveal}`}>{t.workEyebrow}</p>
+          <h2 className={`${s.h2} ${s.reveal}`} style={{ marginTop: 14 }}>{t.workHead}
           </h2>
         </div>
         <table className={`${s.table} ${s.reveal}`}>
@@ -301,15 +319,16 @@ export default function LanderPage() {
       <section className={s.section} style={{ paddingBottom: 0 }}>
         <div className={s.wrap}>
           <h2 className={`${s.h2} ${s.reveal}`}>
-            Built for the floor, <span className={s.italic}>not the classroom</span>.
+            {t.closeHeadA}
+            <span className={s.italic}>{t.closeHeadItalic}</span>
+            {t.closeHeadB}
           </h2>
-          <p className={`${s.label} ${s.reveal}`} style={{ marginTop: 16 }}>
-            Invite-only · Worker accounts are created by the employer · No self sign-up anywhere
+          <p className={`${s.label} ${s.reveal}`} style={{ marginTop: 16 }}>{t.fineprint}
           </p>
         </div>
         <div className={s.closeActions}>
-          <Link href="/login" className={s.btnSolid}>Enter the platform</Link>
-          <a href="#method" className={s.btn}>Back to the method</a>
+          <Link href="/login" className={s.btnSolid}>{t.ctaPrimary}</Link>
+          <a href="#method" className={s.btn}>{t.back}</a>
         </div>
         <div className={s.footStrip}>
           <span className={s.label}>SkillBridge — vocational training studio</span>

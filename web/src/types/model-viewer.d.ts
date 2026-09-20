@@ -20,6 +20,15 @@ declare module 'react' {
           /** When the model is shown. 'auto' displays it as soon as it loads. */
           reveal?: 'auto' | 'interaction' | 'manual';
           'auto-rotate'?: string;
+          bounds?: 'tight' | 'legacy';
+          'camera-orbit'?: string;
+          'min-camera-orbit'?: string;
+          'max-camera-orbit'?: string;
+          'camera-target'?: string;
+          'field-of-view'?: string;
+          'min-field-of-view'?: string;
+          'max-field-of-view'?: string;
+          'interpolation-decay'?: string | number;
         },
         HTMLElement
       >;

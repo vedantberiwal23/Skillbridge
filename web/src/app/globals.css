@@ -172,7 +172,8 @@
 .machine-viewer {
   display: block;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  min-height: 520px;
+  height: 560px;
   background-color: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -180,7 +181,25 @@
   overflow: hidden;
 }
 
+:fullscreen .machine-viewer,
+.machine-viewer:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  border-radius: 0;
+  border: none;
+}
+
+@media (max-width: 768px) {
+  .machine-viewer {
+    min-height: 400px;
+    height: 440px;
+  }
+}
+
 .machine-viewer--fallback {
+  min-height: auto;
+  height: auto;
   aspect-ratio: auto;
   padding: 0.5rem;
 }

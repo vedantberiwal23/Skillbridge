@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { ZoomIn, ZoomOut, RotateCcw, Maximize2, Minimize2 } from 'lucide-react';
 import { useAccessibility } from '@/components/providers/accessibility-provider';
 import type { MachineAsset } from '@/lib/types';
 
@@ -48,6 +49,52 @@ export function MachineViewer({
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const failed = failedUrl === asset.glbUrl;
   const viewerRef = useRef<HTMLElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  const handleZoomIn = () => {
+    const element = viewerRef.current as (HTMLElement & { zoom?: (step: number) => void }) | null;
+    if (element?.zoom) {
+      element.zoom(1);
+    }
+  };
+
+  const handleZoomOut = () => {
+    const element = viewerRef.current as (HTMLElement & { zoom?: (step: number) => void }) | null;
+    if (element?.zoom) {
+      element.zoom(-1);
+    }
+  };
+
+  const handleReset = () => {
+    const element = viewerRef.current as (HTMLElement & {
+      cameraOrbit?: string;
+      jumpCameraToGoal?: () => void;
+      resetTurntableRotation?: () => void;
+    }) | null;
+    if (element) {
+      element.cameraOrbit = 'auto auto 70%';
+      element.jumpCameraToGoal?.();
+      element.resetTurntableRotation?.();
+    }
+  };
+
+  const toggleFullscreen = () => {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  };
 
   useEffect(() => {
     if (prefer2D) return;
@@ -107,7 +154,7 @@ export function MachineViewer({
     return (
       <div className="machine-viewer machine-viewer--fallback">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={asset.posterUrl} alt={asset.name} loading="lazy" className="max-h-[340px] rounded-lg object-contain shadow-md" />
+        <img src={asset.posterUrl} alt={asset.name} loading="lazy" className="max-h-[480px] rounded-lg object-contain shadow-md mx-auto" />
         {/* Say which view this is. A poster and a loaded model look the same
             until someone tries to drag one, and "it will not move" is a far
             worse thing to discover than "this is the 2D view". */}
@@ -117,7 +164,7 @@ export function MachineViewer({
             are still tappable.
           </p>
         )}
-        <div className="grid grid-cols-2 gap-2 mt-4 w-full max-w-md">
+        <div className="grid grid-cols-2 gap-2 mt-4 w-full max-w-md mx-auto">
           {asset.hotspots.map((hotspot, idx) => (
             <button
               key={hotspot.id}
@@ -147,36 +194,89 @@ export function MachineViewer({
    * the payload saving actually comes from.
    */
   return (
-    <model-viewer
-      className="machine-viewer"
-      src={asset.glbUrl}
-      poster={asset.posterUrl}
-      alt={asset.name}
-      camera-controls
-      auto-rotate={autoRotate ? '' : undefined}
-      shadow-intensity="1"
-      loading="eager"
-      reveal="auto"
-      ref={viewerRef}
-    >
-      {asset.hotspots.map((hotspot, idx) => {
-        const isSelected = selectedPartId === hotspot.id;
-        return (
-          <button
-            key={hotspot.id}
-            type="button"
-            slot={`hotspot-${hotspot.id}`}
-            data-position={hotspot.position}
-            data-normal={hotspot.normal}
-            className={`hotspot-pin ${isSelected ? 'active' : ''}`}
-            onClick={() => onPartSelected?.(hotspot.id)}
-            aria-label={hotspot.label}
-          >
-            <span className="text-xs font-bold">{idx + 1}</span>
-            <span className="hotspot-annotation">{hotspot.label}</span>
-          </button>
-        );
-      })}
-    </model-viewer>
+    <div ref={containerRef} className="relative w-full group">
+      <model-viewer
+        className="machine-viewer"
+        src={asset.glbUrl}
+        poster={asset.posterUrl}
+        alt={asset.name}
+        camera-controls
+        auto-rotate={autoRotate ? '' : undefined}
+        shadow-intensity="1"
+        loading="eager"
+        reveal="auto"
+        bounds="tight"
+        camera-orbit="0deg 75deg 70%"
+        min-camera-orbit="auto auto 5%"
+        max-camera-orbit="auto auto 160%"
+        interpolation-decay="150"
+        ref={viewerRef}
+      >
+        {asset.hotspots.map((hotspot, idx) => {
+          const isSelected = selectedPartId === hotspot.id;
+          return (
+            <button
+              key={hotspot.id}
+              type="button"
+              slot={`hotspot-${hotspot.id}`}
+              data-position={hotspot.position}
+              data-normal={hotspot.normal}
+              className={`hotspot-pin ${isSelected ? 'active' : ''}`}
+              onClick={() => onPartSelected?.(hotspot.id)}
+              aria-label={hotspot.label}
+            >
+              <span className="text-xs font-bold">{idx + 1}</span>
+              <span className="hotspot-annotation">{hotspot.label}</span>
+            </button>
+          );
+        })}
+      </model-viewer>
+
+      {/* Floating Viewport HUD Controls */}
+      <div className="absolute top-3 right-3 flex items-center gap-1 bg-card/90 backdrop-blur-md p-1.5 rounded-xl border border-border shadow-lg z-10">
+        <button
+          type="button"
+          onClick={handleZoomIn}
+          title="Zoom In (+)"
+          aria-label="Zoom In"
+          className="p-1.5 rounded-lg hover:bg-muted text-foreground transition flex items-center justify-center cursor-pointer"
+        >
+          <ZoomIn className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={handleZoomOut}
+          title="Zoom Out (-)"
+          aria-label="Zoom Out"
+          className="p-1.5 rounded-lg hover:bg-muted text-foreground transition flex items-center justify-center cursor-pointer"
+        >
+          <ZoomOut className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={handleReset}
+          title="Reset Camera & Center"
+          aria-label="Reset Camera"
+          className="p-1.5 rounded-lg hover:bg-muted text-foreground transition flex items-center justify-center cursor-pointer"
+        >
+          <RotateCcw className="w-4 h-4" />
+        </button>
+        <div className="h-4 w-px bg-border mx-0.5" />
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+          aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+          className="p-1.5 rounded-lg hover:bg-muted text-foreground transition flex items-center justify-center cursor-pointer"
+        >
+          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+        </button>
+      </div>
+
+      {/* Interaction hint overlay */}
+      <div className="absolute bottom-3 right-3 hidden sm:flex items-center gap-1.5 bg-card/85 backdrop-blur-sm px-2.5 py-1 rounded-lg border border-border/80 text-[10px] text-muted-foreground pointer-events-none">
+        <span>Scroll to Zoom · Drag to Orbit</span>
+      </div>
+    </div>
   );
 }

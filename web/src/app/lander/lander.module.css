@@ -297,10 +297,13 @@
   display: none !important;
 }
 
-/* On a phone the copy leads and the figure follows it: eyebrow, headline,
-   paragraph, buttons — then SKILL, the machine and BRIDGE as one block at the
-   foot of the hero. */
-@media (max-width: 760px) {
+/* Phone AND tablet: the copy leads and the figure follows it — eyebrow,
+   headline, paragraph, buttons, then SKILL, the machine and BRIDGE as one
+   block at the foot of the hero.
+   Up to 1024px, because the side-by-side composition needs room for a copy
+   column and a wordmark column at once; on a tablet the machine landed across
+   the headline instead. */
+@media (max-width: 1024px) {
   .hero {
     align-items: flex-start;
     min-height: auto;
@@ -311,7 +314,7 @@
   }
 
   .wordLine {
-    font-size: clamp(56px, 16vw, 92px);
+    font-size: clamp(56px, 15vw, 150px);
     left: 0;
     right: 0;
     text-align: center;
@@ -353,13 +356,13 @@
   }
 
   .heroHeadline {
-    font-size: clamp(30px, 8.4vw, 44px);
-    max-width: 16ch;
+    font-size: clamp(30px, 6.4vw, 60px);
+    max-width: 18ch;
   }
 
   .heroLede {
-    font-size: 13.5px;
-    max-width: 40ch;
+    font-size: clamp(13.5px, 1.6vw, 17px);
+    max-width: 52ch;
     text-align: center;
   }
 
@@ -376,6 +379,17 @@
   .heroActions,
   .heroActions > * {
     width: 100%;
+  }
+
+  @media (min-width: 620px) {
+    .heroActions {
+      width: auto;
+    }
+
+    .heroActions > * {
+      width: auto;
+      min-width: 220px;
+    }
   }
 
   .heroActions {

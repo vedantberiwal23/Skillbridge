@@ -93,6 +93,24 @@ export class ComputeStack extends cdk.Stack {
       })
     );
 
+    /**
+     * Retrieval against the per-org Knowledge Bases.
+     *
+     * Without this the tutor still answers — `services/voice/src/voice/
+     * grounding.ts` catches the failure and falls back to an ungrounded reply —
+     * so the gap is invisible in production: every answer silently stops coming
+     * from the employer's own procedures, which is the one thing the product
+     * promises. The KB ids are minted per tenant by `provision-org.mjs`, so the
+     * grant is by resource pattern rather than by id.
+     */
+    this.voiceServiceRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'RetrieveFromOrgKnowledgeBases',
+        actions: ['bedrock:Retrieve'],
+        resources: [`arn:aws:bedrock:${this.region}:${this.account}:knowledge-base/*`],
+      })
+    );
+
     props.table.grantReadWriteData(this.voiceServiceRole);
 
     /**

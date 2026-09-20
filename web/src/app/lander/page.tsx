@@ -287,9 +287,9 @@ export default function LanderPage() {
               return (
                 <tr key={trade.id}>
                   <td className={s.projectName}>{trade.name}</td>
-                  <td>{trade.industry}</td>
-                  <td>{String(trade.stages.length).padStart(2, '0')}</td>
-                  <td>{String(modules).padStart(2, '0')}</td>
+                  <td data-label="Industry">{trade.industry}</td>
+                  <td data-label="Stages">{String(trade.stages.length).padStart(2, '0')}</td>
+                  <td data-label="Modules">{String(modules).padStart(2, '0')}</td>
                 </tr>
               );
             })}

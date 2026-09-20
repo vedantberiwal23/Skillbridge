@@ -148,8 +148,9 @@ export function ExplodedPump3D({
   // Interactive UI state for the exploded-view controls
   const [explodePct, setExplodePct] = useState(65);
   const explodePctRef = useRef(65);
-  const [isSpinning, setIsSpinning] = useState(false);
-  const isSpinningRef = useRef(false);
+  // As a subject the machine has no controls, so it turns on its own.
+  const [isSpinning, setIsSpinning] = useState(transparent);
+  const isSpinningRef = useRef(transparent);
   const [showControls, setShowControls] = useState(true);
   const [showAllLabels, setShowAllLabels] = useState(true);
   const [screenCoords, setScreenCoords] = useState<Record<string, { x: number; y: number }>>({});
@@ -867,7 +868,15 @@ export function ExplodedPump3D({
   };
 
   return (
-    <div className="relative w-full h-[580px] sm:h-[640px] bg-white rounded-2xl overflow-hidden border border-slate-300 shadow-sm select-none">
+    <div
+      className={
+        transparent
+          ? // A subject, not a panel: no plate, no border, no fixed height —
+            // it fills whatever box the page gives it.
+            'relative w-full h-full select-none'
+          : 'relative w-full h-[580px] sm:h-[640px] bg-white rounded-2xl overflow-hidden border border-slate-300 shadow-sm select-none'
+      }
+    >
       {/* -------------------------------------------------------------
          TOP APP BAR
          ------------------------------------------------------------- */}

@@ -224,7 +224,19 @@ export function handleConnection(
     // makes that independent of anything the turn does.
     const { userId, orgId } = user!;
     const currentSession = sessionId;
-    const language = typeof msg.language === 'string' && isLanguage(msg.language) ? msg.language : 'hi-IN';
+    /**
+     * An unknown code falls back to Hindi rather than refusing the turn — but it
+     * is logged, because the worker asked for one language and is answered in
+     * another with nothing on screen to say so. That is how `or-IN` (the ISO
+     * code for Odia; Sarvam wants `od-IN`) answered every Odia speaker in Hindi
+     * without a single error anywhere.
+     */
+    const askedLanguage = typeof msg.language === 'string' ? msg.language : '';
+    const supported = isLanguage(askedLanguage);
+    if (askedLanguage && !supported) {
+      console.warn(`[voice/channel] unsupported language ${askedLanguage} — answering in hi-IN`);
+    }
+    const language = supported ? askedLanguage : 'hi-IN';
     // An explicit pick beats inference; otherwise what was heard last. A typed
     // question has no recogniser to detect its language, so the language the
     // worker is using the app in is taken as known.

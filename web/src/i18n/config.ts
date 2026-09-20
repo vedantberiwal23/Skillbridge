@@ -135,7 +135,11 @@ export const INDIAN_LANGUAGES: readonly IndianLanguage[] = [
     glyph: 'ଓ',
     region: 'Odisha Mining & Metallurgy Manufacturing',
     desc: 'ଶିଳ୍ପ ତାଲିମ ଏବଂ ଭଏସ୍ ମାର୍ଗଦର୍ଶନ',
-    voiceCode: 'or-IN',
+    // `od-IN`, not the ISO `or-IN`: that is the code Sarvam uses, and the voice
+    // service accepts only codes it can actually speak. An unrecognised code is
+    // not refused — it falls back to Hindi — so `or-IN` answered every Odia
+    // speaker in Hindi with nothing on screen to say why.
+    voiceCode: 'od-IN',
   },
   {
     code: 'as',

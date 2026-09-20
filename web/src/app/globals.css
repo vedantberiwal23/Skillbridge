@@ -66,107 +66,68 @@
 }
 
 :root {
-  /* SkillBridge — light, warm, premium consumer product. This is the
-     product's only theme (no light/dark toggle), so it lives directly on
-     :root. Warm off-white shell, deep charcoal text, one accent — a growth
-     green — that carries progress, success and primary actions. Everything
-     else is neutral so the green always reads as meaningful, not decorative. */
-  --background: #faf8f4;
-  --foreground: #221e1a;
-  --card: #ffffff;
-  --card-foreground: #221e1a;
-  --popover: #ffffff;
-  --popover-foreground: #221e1a;
+  /* SkillBridge — warm editorial studio. One bone ground, near-black ink and a
+     single oxide pigment that only ever appears as type, a rule or a marker.
+     Square corners everywhere: --radius is 0 and every component derives from
+     it. Set on :root because this is the product's only theme. */
+  --background: #e7e3da;
+  --foreground: #1a1917;
+  --card: #efece4;
+  --card-foreground: #1a1917;
+  --popover: #efece4;
+  --popover-foreground: #1a1917;
 
-  --primary: #15803d;
-  --primary-foreground: #ffffff;
-  --secondary: #eaf4ec;
-  --secondary-foreground: #15803d;
-  --muted: #f0ece3;
-  --muted-foreground: #71675a;
-  --accent: #eaf4ec;
-  --accent-foreground: #15803d;
+  --primary: #9b3418;
+  --primary-foreground: #f4f1ea;
+  --secondary: #dcd7cb;
+  --secondary-foreground: #1a1917;
+  --muted: #dcd7cb;
+  --muted-foreground: #6e6a61;
+  --accent: #dcd7cb;
+  --accent-foreground: #1a1917;
 
-  --destructive: #c0392b;
-  --border: #e7e1d4;
-  --input: #e7e1d4;
-  --ring: #15803d;
+  --destructive: #9b3418;
+  --border: rgba(26, 25, 23, 0.16);
+  --input: rgba(26, 25, 23, 0.16);
+  --ring: #9b3418;
 
-  /* Brand accent for the marketing surface. */
-  --brand: #f2621f;
-  --brand-foreground: #ffffff;
+  --brand: #9b3418;
+  --brand-foreground: #f4f1ea;
 
-  --success: #15803d;
-  --success-foreground: #ffffff;
-  --success-muted: #eaf4ec;
-  --warning: #b8791a;
-  --warning-foreground: #ffffff;
-  --warning-muted: #fbf1de;
-  --danger: #c0392b;
-  --danger-foreground: #ffffff;
-  --danger-muted: #fbeae8;
+  /* Status: the pigment carries "act on this", ink carries everything else,
+     so colour never decorates. */
+  --success: #1a1917;
+  --success-foreground: #f4f1ea;
+  --success-muted: #dcd7cb;
+  --warning: #6e6a61;
+  --warning-foreground: #f4f1ea;
+  --warning-muted: #dcd7cb;
+  --danger: #9b3418;
+  --danger-foreground: #f4f1ea;
+  --danger-muted: #e6ddd4;
 
-  --chart-1: #15803d;
-  --chart-2: #b8791a;
-  --chart-3: #3a6896;
-  --chart-4: #c0392b;
-  --chart-5: #8c8577;
+  --chart-1: #1a1917;
+  --chart-2: #9b3418;
+  --chart-3: #4a4741;
+  --chart-4: #6e6a61;
+  --chart-5: #b7b0a2;
 
-  --radius: 1rem;
+  --radius: 0rem;
 
-  --sidebar: #ffffff;
-  --sidebar-foreground: #221e1a;
-  --sidebar-primary: #15803d;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #eaf4ec;
-  --sidebar-accent-foreground: #15803d;
-  --sidebar-border: #e7e1d4;
-  --sidebar-ring: #15803d;
+  --sidebar: #efece4;
+  --sidebar-foreground: #1a1917;
+  --sidebar-primary: #9b3418;
+  --sidebar-primary-foreground: #f4f1ea;
+  --sidebar-accent: #dcd7cb;
+  --sidebar-accent-foreground: #1a1917;
+  --sidebar-border: rgba(26, 25, 23, 0.16);
+  --sidebar-ring: #9b3418;
 }
 
 .dark {
-  --background: #faf8f4;
-  --foreground: #221e1a;
-  --card: #ffffff;
-  --card-foreground: #221e1a;
-  --popover: #ffffff;
-  --popover-foreground: #221e1a;
-
-  --primary: #15803d;
-  --primary-foreground: #ffffff;
-  --secondary: #eaf4ec;
-  --secondary-foreground: #15803d;
-  --muted: #f0ece3;
-  --muted-foreground: #71675a;
-  --accent: #eaf4ec;
-  --accent-foreground: #15803d;
-
-  --destructive: #c0392b;
-  --border: #e7e1d4;
-  --input: #e7e1d4;
-  --ring: #15803d;
-
-  --brand: #ff7a3d;
-  --brand-foreground: #091d30;
-
-  --success: #15803d;
-  --success-foreground: #ffffff;
-  --success-muted: #eaf4ec;
-  --warning: #b8791a;
-  --warning-foreground: #ffffff;
-  --warning-muted: #fbf1de;
-  --danger: #c0392b;
-  --danger-foreground: #ffffff;
-  --danger-muted: #fbeae8;
-
-  --sidebar: #ffffff;
-  --sidebar-foreground: #221e1a;
-  --sidebar-primary: #15803d;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #eaf4ec;
-  --sidebar-accent-foreground: #15803d;
-  --sidebar-border: #e7e1d4;
-  --sidebar-ring: #15803d;
+  /* No dark theme: the studio palette is the only one. Kept so `.dark` on an
+     element cannot resurrect the old scheme. */
+  color-scheme: light;
 }
 
 @layer base {
@@ -538,4 +499,33 @@
   .tour-card {
     transition: none;
   }
+}
+
+
+/* ── editorial typography ─────────────────────────────────────────────────
+   Display serif carries the voice at every size; monospace carries the data.
+   Applied globally so every screen inherits the studio's type, not just the
+   landing page. */
+body {
+  font-family: var(--font-mono-editorial), ui-monospace, SFMono-Regular, monospace;
+  letter-spacing: 0.01em;
+}
+
+h1,
+h2,
+h3,
+.font-heading {
+  font-family: var(--font-serif-editorial), Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+}
+
+/* Small caps-ish labels: the uppercase, widely tracked monospace the studio
+   uses for anything factual. */
+.font-data,
+th,
+label,
+caption {
+  font-family: var(--font-mono-editorial), ui-monospace, monospace;
+  letter-spacing: 0.12em;
 }

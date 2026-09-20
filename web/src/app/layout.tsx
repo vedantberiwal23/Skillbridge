@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif, Azeret_Mono } from "next/font/google";
 import "./globals.css";
 import { AccessibilityProvider } from "@/components/providers/accessibility-provider";
 import { ServiceWorkerRegistration } from "@/components/providers/service-worker";
@@ -16,6 +16,21 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+/* The studio's two faces: a high-contrast display serif for voice, a
+   monospace for data. Loaded here so every route inherits them. */
+const editorialSerif = Instrument_Serif({
+  weight: "400",
+  style: ["normal", "italic"],
+  subsets: ["latin"],
+  variable: "--font-serif-editorial",
+});
+
+const editorialMono = Azeret_Mono({
+  weight: ["400", "500", "600"],
+  subsets: ["latin"],
+  variable: "--font-mono-editorial",
+});
+
 export const metadata: Metadata = {
   title: "SkillBridge",
   description:
@@ -24,7 +39,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0a",
+  themeColor: "#e7e3da",
   // The target device is a phone held on a shop floor; zoom stays enabled
   // because pinch-to-zoom is a real accessibility affordance here.
   width: "device-width",
@@ -35,7 +50,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${editorialSerif.variable} ${editorialMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <AccessibilityProvider>

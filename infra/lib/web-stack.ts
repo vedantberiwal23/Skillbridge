@@ -5,7 +5,12 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
-import { APP_NAME, WEB_BRANCH } from './config';
+import {
+  APP_NAME,
+  WEB_BRANCH,
+  WEB_REPOSITORY,
+  githubTokenRef,
+} from './config';
 
 export interface WebStackProps extends cdk.StackProps {
   /**
@@ -49,26 +54,33 @@ export interface WebStackProps extends cdk.StackProps {
  * (DATA-MODEL.md Decision 2), so the app is not a static export. A static `WEB`
  * platform breaks every server route at once.
  *
- * NO REPOSITORY IS CONNECTED, and that is the design rather than an omission.
- * The web tier ships through the Amplify **deployment specification**:
- * `infra/scripts/deploy-web.mjs` builds `web/` locally, assembles a bundle that
- * already conforms to the spec, and uploads it with CreateDeployment /
- * StartDeployment. Amplify runs no build of its own.
+ * THE REPOSITORY IS CONNECTED AND AMPLIFY RUNS THE BUILD. This replaces an
+ * earlier design in which `infra/scripts/deploy-web.mjs` built `web/` locally,
+ * assembled a bundle conforming to the Amplify Hosting deployment
+ * specification, and uploaded it with CreateDeployment / StartDeployment.
  *
- * That removes three problems at once rather than working around them:
- *   - no GitHub OAuth token, so nothing secret has to live in CDK, an env var,
- *     Secrets Manager or the console, and no GitHub App install is needed
- *   - no build spec, so the monorepo layout (the app lives in `web/`) never
- *     raises AWS's `AMPLIFY_MONOREPO_APP_ROOT`-in-the-console requirement, which
- *     would have contradicted this repo's "never set one in the console" rule
- *   - no dependence on Amplify supporting a particular Next.js version. AWS
- *     documents Next.js 15; this app is 16.3.5. Under the deployment spec
- *     Amplify only runs a Node server on port 3000 and never parses the build,
- *     so the question does not arise.
+ * That design does not work, and fails silently rather than loudly. AWS
+ * documents that "Amplify Hosting does not support manual deploys for
+ * server-side rendered (SSR) apps": the CreateDeployment path deploys only
+ * `.amplify-hosting/static` and ignores the compute primitive entirely, so
+ * every route falls through to the static primitive and is served by S3 — `/`
+ * returns 404, everything else 301s to a trailing slash — while the job still
+ * reports SUCCEED and the console shows a healthy deployment. Confirmed against
+ * three real deployments on 2026-09-19, including one with the branch framework
+ * forced to `Next.js - SSR`.
  *
- * A git connection can still be added later if auto-deploy is wanted:
- * `AWS::Amplify::App` has no create-only properties, so `Repository` and the
- * token can be attached to this same app by a plain update.
+ * What the old design was right about is the cost of the alternative, and those
+ * costs are now paid rather than avoided:
+ *   - a GitHub token is required. It lives in Secrets Manager and reaches the
+ *     template only as a `{{resolve:}}` dynamic reference — see config.ts.
+ *   - the monorepo layout needs `AMPLIFY_MONOREPO_APP_ROOT`, declared in
+ *     `environmentVariables` below rather than in the console, which keeps the
+ *     "never set one in the console" rule intact.
+ *   - the app now DOES depend on Amplify supporting its Next.js version. AWS
+ *     documents Amplify Hosting compute as supporting Next.js 12 through 15;
+ *     this app is 16.3.5. That is the open risk in this stack. If an Amplify
+ *     build cannot produce a working Next 16 app, the fallbacks are Next 15 or
+ *     hosting the standalone server on App Runner beside the voice service.
  */
 export class WebStack extends cdk.Stack {
   readonly app: amplify.CfnApp;
@@ -132,7 +144,60 @@ export class WebStack extends cdk.Stack {
       // repository is public and auto-branch-creation or PR previews are on;
       // revisit when the repository connection is decided.
       computeRoleArn: this.computeRole.roleArn,
+      /**
+       * Amplify builds the app itself from this repository. A connection is
+       * required, not optional: manual deploys cannot host SSR, so the only
+       * supported route to Amplify Hosting compute is a repository build.
+       *
+       * The token is a CloudFormation dynamic reference, so the value is
+       * resolved at deploy time and appears in neither this source, the
+       * synthesised template, nor `cdk.context.json`.
+       */
+      repository: WEB_REPOSITORY,
+      accessToken: githubTokenRef(),
+      /**
+       * The app lives in `web/`, so the build spec declares an application at
+       * that root and `AMPLIFY_MONOREPO_APP_ROOT` tells Amplify's compute where
+       * the built output is. Declared here rather than in the console, per the
+       * same rule that governs `environmentVariables`.
+       *
+       * Node is pinned: Next 16 requires >= 20, and the build image's default
+       * is older than that on some Amplify image versions.
+       */
+      buildSpec: [
+        'version: 1',
+        'applications:',
+        '  - appRoot: web',
+        '    frontend:',
+        '      phases:',
+        '        preBuild:',
+        '          commands:',
+        '            - nvm install 22',
+        '            - nvm use 22',
+        '            - npm ci',
+        '        build:',
+        '          commands:',
+        // Amplify's environment variables reach the BUILD, not the SSR runtime.
+        // Next inlines `NEXT_PUBLIC_*` at build time, so those survive — but a
+        // server-only value like APP_TABLE_NAME is read from `process.env` when
+        // a request runs, and there it is undefined. `ddb.ts` falls back to `''`,
+        // so every DynamoDB call fails and every data route answers 500 while
+        // auth still works, because Cognito falls back to the NEXT_PUBLIC_ copy.
+        // Writing them into `.env.production` before the build is AWS's
+        // documented fix. Keep the list in step with `environmentVariables`.
+        "            - env | grep -E '^(APP_TABLE_NAME|ASSESSMENT_SCORER_QUEUE_URL|LEARNING_PLAN_QUEUE_URL|MACHINE_TWIN_URL|COGNITO_USER_POOL_ID|COGNITO_CLIENT_ID)=' >> .env.production || true",
+        '            - npm run build',
+        '      artifacts:',
+        '        baseDirectory: .next',
+        '        files:',
+        "          - '**/*'",
+        '      cache:',
+        '        paths:',
+        '          - node_modules/**/*',
+        '',
+      ].join('\n'),
       environmentVariables: [
+        { name: 'AMPLIFY_MONOREPO_APP_ROOT', value: 'web' },
         { name: 'NEXT_PUBLIC_COGNITO_USER_POOL_ID', value: props.userPool.userPoolId },
         { name: 'NEXT_PUBLIC_COGNITO_CLIENT_ID', value: props.userPoolClientId },
         { name: 'NEXT_PUBLIC_AWS_REGION', value: this.region },
@@ -144,13 +209,9 @@ export class WebStack extends cdk.Stack {
     });
 
     /**
-     * A deployment target for the manual (deployment-specification) path.
-     *
-     * This is not a git branch — nothing is connected to a repository. Amplify
-     * requires a branch to deploy *into*, and `infra/scripts/deploy-web.mjs`
-     * uploads a bundle to this one. `framework` is left unset deliberately:
-     * Amplify never inspects the build, because the bundle already conforms to
-     * the deployment specification.
+     * The tracked git branch. `WEB_BRANCH` must name a branch that exists in
+     * the repository — this one's default is `master` — or Amplify connects the
+     * branch and every build fails to find a ref.
      */
     this.branch = new amplify.CfnBranch(this, 'MainBranch', {
       appId: this.app.attrAppId,
@@ -159,7 +220,10 @@ export class WebStack extends cdk.Stack {
       // Branch-level role wins over the app-level default; set both so the
       // branch is correct even if the app-level value is later changed.
       computeRoleArn: this.computeRole.roleArn,
-      enableAutoBuild: false,
+      // Build on push. The repository is the source of truth for the web tier
+      // now that there is no manual upload path.
+      enableAutoBuild: true,
+      framework: 'Next.js - SSR',
     });
 
     new cdk.CfnOutput(this, 'AmplifyAppId', { value: this.app.attrAppId });

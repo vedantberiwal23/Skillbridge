@@ -7,11 +7,11 @@ import { useMemo } from "react";
 import { motion } from "framer-motion";
 
 /**
- * Framer Motion's named easings. Typed as this union rather than `string` so a
- * typo is a compile error — the upstream component used a cast here, which both
- * hid that and failed to typecheck against framer-motion v13's Easing type.
+ * The named easings framer-motion accepts. Declared here because the package
+ * does not re-export its own `Easing` type, and a bare `string` is not
+ * assignable to the `transition` prop on a motion element.
  */
-type NamedEasing =
+type Ease =
     | "linear"
     | "easeIn"
     | "easeOut"
@@ -29,7 +29,7 @@ type Transition = {
     stiffness?: number;
     damping?: number;
     mass?: number;
-    ease?: NamedEasing;
+    ease?: Ease;
     duration?: number;
 };
 
@@ -289,3 +289,4 @@ export default function KineticTextGrid(props: Props) {
         </div>
     );
 }
+export { KineticTextGrid as AppearText };

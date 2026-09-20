@@ -24,6 +24,9 @@ import { createTurn, type Turn, type TurnOptions } from './turn.js';
  *   { t: 'audio',  b64 }                50ms linear16 @16k frames
  *   { t: 'stop' }                       button up
  *   { t: 'cancel' }                     turn abandoned
+ *   { t: 'ask', text, language, history }  a TYPED question (+ optional part):
+ *                                       no audio, answered and spoken exactly
+ *                                       like a spoken one, then `done`
  *
  * Server → client:
  *   ready, listening, partial, final, thinking, delta,
@@ -48,6 +51,18 @@ const MAX_SOCKETS_PER_USER = 3;
  * it must not live long enough for that authorization to go stale. On expiry the
  * client silently warms a fresh one, which re-verifies the token.
  */
+/**
+ * Transport keepalive, well under the 60 s an Application Load Balancer counts
+ * as idle before it drops a connection.
+ *
+ * This is NOT a session extension. `CHANNEL_IDLE_MS` and `CHANNEL_MAX_MS` are a
+ * security bound — the only thing stopping a revoked or role-changed user from
+ * holding a live authorized socket — so the ping deliberately does not call
+ * `bump()`. It keeps the TCP connection warm between a worker's questions and
+ * nothing more; a channel that goes quiet still expires exactly on schedule.
+ */
+const PING_INTERVAL_MS = 25 * 1000;
+
 const CHANNEL_MAX_MS = 15 * 60 * 1000;
 const CHANNEL_IDLE_MS = 5 * 60 * 1000;
 
@@ -186,10 +201,77 @@ export function handleConnection(
     idle = setTimeout(expire, CHANNEL_IDLE_MS);
   };
   const lifetime = setTimeout(expire, CHANNEL_MAX_MS);
+  // `ws` answers an incoming pong itself; this only has to generate traffic.
+  const ping = setInterval(() => {
+    if (ws.readyState === ws.OPEN) ws.ping();
+  }, PING_INTERVAL_MS);
   const unauthenticated = setTimeout(() => {
     if (!user) ws.close();
   }, START_TIMEOUT_MS);
   let tokenExpiry: NodeJS.Timeout | undefined;
+
+  /** One turn — spoken (`text` null) or typed — bound to this channel's verified identity. */
+  const newTurn = (msg: Record<string, unknown>, text: string | null): Turn => {
+    frames = 0;
+    turns += 1;
+    // Captured now so the callback cannot observe a later `user`. The channel
+    // is bound to one identity for its whole life, but reading it out here
+    // makes that independent of anything the turn does.
+    const { userId, orgId } = user!;
+    const currentSession = sessionId;
+    const language = typeof msg.language === 'string' && isLanguage(msg.language) ? msg.language : 'hi-IN';
+    // An explicit pick beats inference; otherwise what was heard last. A typed
+    // question has no recogniser to detect its language, so the language the
+    // worker is using the app in is taken as known.
+    const known = (msg.explicit === true || text !== null) && isLanguage(language) ? language : lastLanguage;
+    return createTurn({
+      send,
+      fail,
+      language,
+      history: Array.isArray(msg.history) ? msg.history : [],
+      known,
+      onHeard: (l) => {
+        lastLanguage = l;
+      },
+      ground,
+      part: typeof msg.part === 'string' ? msg.part : null,
+      text,
+      streamText: deps.streamText,
+      /**
+       * The turn reports what happened; the tenant and the worker come from
+       * the VERIFIED token held by this channel, never from anything the
+       * client sent. `recordTurn` hands the write off without awaiting, so
+       * this returns immediately and the turn path is unaffected.
+       */
+      record: (completed) => {
+        answered += 1;
+        if (completed.spokenLanguage) languages.add(completed.spokenLanguage);
+        saveTurn({ ...completed, userId, orgId, sessionId: currentSession });
+      },
+    });
+  };
+
+  /** Finish the current turn and report it. The CHANNEL survives the turn. */
+  const runTurn = async () => {
+    if (busy || !turn) return;
+    busy = true;
+    const current = turn;
+    try {
+      await current.finish();
+    } catch (e) {
+      if (e instanceof ModelError) fail(e.message, e.code);
+      else {
+        console.error('[voice/channel] turn failed:', (e as Error).message);
+        fail('voice turn failed');
+      }
+    } finally {
+      // Only the turn's own sockets close.
+      current.cancel();
+      turn = null;
+      busy = false;
+      if (!closed) send({ t: 'done' });
+    }
+  };
 
   ws.on('message', async (raw) => {
     let msg: Record<string, unknown>;
@@ -247,41 +329,22 @@ export function handleConnection(
     /* ── begin: button down, one turn ── */
     if (msg.t === 'begin') {
       if (busy || turn) return;
-      frames = 0;
-      turns += 1;
-      // Captured now so the callback cannot observe a later `user`. The channel
-      // is bound to one identity for its whole life, but reading it out here
-      // makes that independent of anything the turn does.
-      const { userId, orgId } = user;
-      const currentSession = sessionId;
-      const language = typeof msg.language === 'string' && isLanguage(msg.language) ? msg.language : 'hi-IN';
-      // An explicit pick beats inference; otherwise what was heard last.
-      const known = msg.explicit === true && isLanguage(language) ? language : lastLanguage;
-      turn = createTurn({
-        send,
-        fail,
-        language,
-        history: Array.isArray(msg.history) ? msg.history : [],
-        known,
-        onHeard: (l) => {
-          lastLanguage = l;
-        },
-        ground,
-        part: typeof msg.part === 'string' ? msg.part : null,
-        streamText: deps.streamText,
-        /**
-         * The turn reports what happened; the tenant and the worker come from
-         * the VERIFIED token held by this channel, never from anything the
-         * client sent. `recordTurn` hands the write off without awaiting, so
-         * this returns immediately and the turn path is unaffected.
-         */
-        record: (completed) => {
-          answered += 1;
-          if (completed.spokenLanguage) languages.add(completed.spokenLanguage);
-          saveTurn({ ...completed, userId, orgId, sessionId: currentSession });
-        },
-      });
+      turn = newTurn(msg, null);
       send({ t: 'listening' });
+      return;
+    }
+
+    /* ── ask: a typed question — the same turn, with no audio to wait for ── */
+    if (msg.t === 'ask') {
+      if (busy || turn) return;
+      const text = typeof msg.text === 'string' ? msg.text.trim() : '';
+      if (!/\p{L}/u.test(text)) {
+        send({ t: 'empty', note: 'type a question first' });
+        send({ t: 'done' });
+        return;
+      }
+      turn = newTurn(msg, text);
+      await runTurn();
       return;
     }
 
@@ -294,24 +357,7 @@ export function handleConnection(
     }
 
     if (msg.t === 'stop') {
-      if (busy) return;
-      busy = true;
-      const current = turn;
-      try {
-        await current.finish();
-      } catch (e) {
-        if (e instanceof ModelError) fail(e.message, e.code);
-        else {
-          console.error('[voice/channel] turn failed:', (e as Error).message);
-          fail('voice turn failed');
-        }
-      } finally {
-        // The CHANNEL survives the turn; only the turn's own sockets close.
-        current.cancel();
-        turn = null;
-        busy = false;
-        if (!closed) send({ t: 'done' });
-      }
+      await runTurn();
       return;
     }
 
@@ -328,6 +374,7 @@ export function handleConnection(
     closed = true;
     clearTimeout(idle);
     clearTimeout(lifetime);
+    clearInterval(ping);
     clearTimeout(unauthenticated);
     clearTimeout(tokenExpiry);
     if (counted && user) {

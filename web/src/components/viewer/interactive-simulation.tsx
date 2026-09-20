@@ -1,8 +1,28 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import type { SimulationConfig } from '@/data/curriculum';
-import { ExplodedPump3D } from './exploded-pump-3d';
+
+/**
+ * three.js is ~600 KB and reaches one lesson. Loaded on demand, not in the shell.
+ *
+ * Statically imported it landed in the bundle for every worker — including the
+ * 2D/accessibility path, which renders no 3D at all, and everyone who never
+ * opens this lesson. `ssr: false` because it touches WebGL on mount, and the
+ * placeholder keeps the panel's height so the page does not jump when it lands.
+ */
+const ExplodedPump3D = dynamic(
+  () => import('./exploded-pump-3d').then((m) => m.ExplodedPump3D),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[420px] items-center justify-center text-sm text-slate-400">
+        Loading 3D model…
+      </div>
+    ),
+  }
+);
 
 function makeSpurGearPath(cx: number, cy: number, rootR: number, tipR: number, numTeeth: number) {
   const pts: string[] = [];

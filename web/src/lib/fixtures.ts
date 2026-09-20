@@ -31,7 +31,6 @@ import type {
   JobOpportunity,
   Lesson,
   LearningPlan,
-  MachineAsset,
   SkillProfile,
   UserProfile,
   UserSettings,
@@ -57,41 +56,6 @@ export const fixtureSettings: UserSettings = {
   accessibilityMode: false,
 };
 
-export const fixtureAsset: MachineAsset = {
-  orgId: ORG_ID,
-  assetId: 'asset-hydraulic-power-unit',
-  name: 'Hydraulic power unit',
-  // TODO(assets): no GLB authored yet — the 2D path below is what currently
-  // renders. See CLAUDE.md: models must be authored fresh, not sourced.
-  glbUrl: '/models/hydraulic-power-unit.glb',
-  posterUrl: '/schematics/hydraulic-power-unit.svg',
-  hotspots: [
-    {
-      id: 'pump',
-      label: 'Pump',
-      position: '-0.35m 0.12m 0.05m',
-      normal: '0m 1m 0m',
-    },
-    {
-      id: 'relief-valve',
-      label: 'Pressure relief valve',
-      position: '0.05m 0.28m 0.02m',
-      normal: '0m 1m 0m',
-    },
-    {
-      id: 'reservoir',
-      label: 'Reservoir',
-      position: '0m -0.18m 0.06m',
-      normal: '0m 1m 0m',
-    },
-    {
-      id: 'filter',
-      label: 'Return filter',
-      position: '0.32m -0.02m 0.04m',
-      normal: '1m 0m 0m',
-    },
-  ],
-};
 
 export const fixtureLessons: Lesson[] = [
   {

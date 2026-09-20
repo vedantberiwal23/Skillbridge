@@ -283,9 +283,27 @@ function OriginkitBaseGlobeStudy(props: Props) {
         const soil: number[] = []
         const land8: number[][] = []
 
+        // The globe is a 2D canvas, so there is no context pool to exhaust — but
+        // it redraws a few hundred points every frame, forever, including in a
+        // background tab and while scrolled past. Skip the work when nothing can
+        // see it; `last` is still advanced so the first visible frame does not
+        // jump by however long the tab was hidden.
+        let onScreen = true
+        const io =
+            typeof IntersectionObserver !== "undefined"
+                ? new IntersectionObserver((es) => {
+                      onScreen = es.some((e) => e.isIntersecting)
+                  })
+                : null
+        io?.observe(canvas)
+
         const render = (now: number) => {
             const dt = Math.min(0.05, (now - last) / 1000)
             last = now
+            if (!onScreen || document.visibilityState !== "visible") {
+                raf = requestAnimationFrame(render)
+                return
+            }
             const v = vRef.current
             const sp = v.speed as number
             clock += dt * sp
@@ -550,6 +568,7 @@ function OriginkitBaseGlobeStudy(props: Props) {
 
         return () => {
             cancelAnimationFrame(raf)
+            io?.disconnect()
             canvas.removeEventListener("pointermove", track)
             canvas.removeEventListener("pointerenter", track)
             canvas.removeEventListener("pointerleave", onLeave)

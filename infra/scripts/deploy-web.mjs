@@ -22,7 +22,16 @@
  *     deploy-manifest.json
  */
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync, readFileSync, statSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  rmSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+} from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -59,25 +68,92 @@ function stackOutput(key) {
   return found.OutputValue;
 }
 
-/** Zip a directory's CONTENTS. `zip` is not installed on this machine; PowerShell is. */
+/**
+ * Zip a directory's CONTENTS, with POSIX separators in the entry names.
+ *
+ * NOT `Compress-Archive`: it writes Windows separators into the entry names
+ * (`compute\default\server.js`), and the ZIP spec requires `/`. Amplify still
+ * parses the root-level `deploy-manifest.json` — no separator in that name — so
+ * the deployment reports SUCCEED, but it cannot resolve the compute
+ * entrypoint. Every route then falls through to the static primitive and the
+ * whole app is served from S3, returning 404 for every SSR route and 301 for
+ * the rest. Verified against a real deploy, not theorised.
+ *
+ * `tar.exe` is bsdtar and has shipped in Windows since 1803. Passing the
+ * top-level names rather than `.` keeps entries unprefixed; with `.` every
+ * name gains a `./`.
+ */
 function zipDirectory(source, destination) {
   rmSync(destination, { force: true });
   if (process.platform === 'win32') {
+    const names = readdirSync(source);
     execFileSync(
-      'powershell',
-      [
-        '-NoProfile',
-        '-Command',
-        `Compress-Archive -Path '${source}\\*' -DestinationPath '${destination}' -CompressionLevel Optimal -Force`,
-      ],
+      join(process.env.SystemRoot ?? 'C:/Windows', 'System32', 'tar.exe'),
+      ['-a', '-c', '-f', destination, '-C', source, ...names],
       { stdio: 'inherit' }
     );
   } else {
     execFileSync('zip', ['-qr', destination, '.'], { cwd: source, stdio: 'inherit' });
   }
+
+  assertPosixEntries(destination);
 }
 
-function buildBundle() {
+/**
+ * Fail loudly rather than shipping a bundle Amplify will silently half-ignore.
+ * Reads the central directory: 4-byte signature, then the name length at +28
+ * and the name at +46.
+ */
+function assertPosixEntries(zipPath) {
+  const buf = readFileSync(zipPath);
+  const SIG = 0x02014b50;
+  let entries = 0;
+  let manifest = false;
+  let entrypoint = false;
+  for (let i = 0; i + 46 <= buf.length; i++) {
+    if (buf.readUInt32LE(i) !== SIG) continue;
+    const nameLen = buf.readUInt16LE(i + 28);
+    const name = buf.toString('utf8', i + 46, i + 46 + nameLen);
+    entries += 1;
+    if (name.includes('\\')) {
+      throw new Error(`zip entry has a Windows separator, Amplify will not resolve it: ${name}`);
+    }
+    if (name === 'deploy-manifest.json') manifest = true;
+    if (name === 'compute/default/server.js') entrypoint = true;
+    i += 46 + nameLen - 1;
+  }
+  if (!manifest) throw new Error('deploy-manifest.json is not at the zip root');
+  if (!entrypoint) throw new Error('compute/default/server.js is missing from the zip');
+  console.log(`  ${entries} entries, manifest and compute entrypoint at the expected paths`);
+}
+
+/**
+ * The app's environment variables, read back off the Amplify app itself.
+ *
+ * Amplify's own variables reach the SSR compute at runtime, which is enough for
+ * server-only values like APP_TABLE_NAME. It is NOT enough for `NEXT_PUBLIC_*`:
+ * Next inlines those into the client bundle at build time, and the build runs
+ * here, on this machine. Without this, `NEXT_PUBLIC_VOICE_URL` is absent from
+ * the build, the browser falls back to `http://localhost:3002`, and voice is
+ * dead in the deployed app while the Amplify console shows the value set
+ * correctly — which is the worst version of this bug.
+ *
+ * Reading them from the app rather than a local `.env` keeps `web-stack.ts` the
+ * single authority CLAUDE.md requires. No secret is ever in this list.
+ */
+function amplifyEnv(appId) {
+  if (!appId) return {};
+  const vars = aws(['amplify', 'get-app', '--app-id', appId]).app?.environmentVariables ?? {};
+  const names = Object.keys(vars);
+  console.log(`> build env from Amplify app ${appId}: ${names.join(', ') || '(none)'}`);
+  const missing = names.filter((n) => n.startsWith('NEXT_PUBLIC_') && !vars[n]);
+  if (missing.length) {
+    console.warn(`  WARNING: empty in the app, so absent from the bundle: ${missing.join(', ')}`);
+  }
+  return vars;
+}
+
+function buildBundle(env = {}) {
   console.log('> building web (output: standalone)');
   // Node refuses to spawn a .cmd directly since v20, so npm needs a shell on
   // Windows. Arguments here are literals, not user input.
@@ -85,6 +161,9 @@ function buildBundle() {
     cwd: WEB,
     stdio: 'inherit',
     shell: process.platform === 'win32',
+    // The app's values win over whatever this machine happens to have in
+    // `web/.env.local`, so a deploy cannot pick up a stale local override.
+    env: { ...process.env, ...env },
   });
 
   const standalone = join(WEB, '.next', 'standalone');
@@ -207,12 +286,52 @@ async function deploy(appId, branchName) {
 
 // `--bundle-only` builds and validates the bundle without touching AWS, so the
 // shape can be checked before the stack exists.
+/**
+ * This script no longer deploys, and refuses rather than pretending to.
+ *
+ * Amplify Hosting does not support manual deploys for SSR apps. The
+ * CreateDeployment path below uploads the bundle, reports SUCCEED, deploys only
+ * `static/`, and leaves the site 404ing from S3 — so running it against a
+ * working app would silently replace it with a broken one. The web tier now
+ * builds from the connected repository; see `infra/lib/web-stack.ts`.
+ *
+ * `--bundle-only` still works and is still useful: it is the fastest way to
+ * check that `output: 'standalone'` is intact and the bundle assembles.
+ */
+if (!process.argv.includes('--bundle-only')) {
+  console.error(
+    [
+      'deploy-web.mjs no longer deploys.',
+      '',
+      'Amplify Hosting does not support manual deploys for server-side rendered',
+      'apps: CreateDeployment deploys only .amplify-hosting/static, ignores the',
+      'compute primitive, and still reports SUCCEED. Running it would replace a',
+      'working site with one that 404s from S3.',
+      '',
+      'The web tier builds from the connected repository. To ship a change:',
+      '  git push origin master        # Amplify builds on push',
+      '  npx cdk deploy skillbridge-web   # for stack or env-var changes',
+      '',
+      'To validate the bundle locally without deploying: --bundle-only',
+    ].join('\n')
+  );
+  process.exit(1);
+}
+
 if (process.argv.includes('--bundle-only')) {
-  buildBundle();
+  // Still resolve the app when it exists, so `--bundle-only` validates the same
+  // bundle a real deploy would produce rather than a differently-configured one.
+  let env = {};
+  try {
+    env = amplifyEnv(arg('app-id') ?? stackOutput('AmplifyAppId'));
+  } catch {
+    console.warn('> no skillbridge-web stack yet; building without the app env');
+  }
+  buildBundle(env);
   console.log(`> bundle ready at ${OUT} (not deployed)`);
 } else {
   const appId = arg('app-id') ?? stackOutput('AmplifyAppId');
   const branchName = arg('branch') ?? stackOutput('AmplifyBranchName');
-  buildBundle();
+  buildBundle(amplifyEnv(appId));
   await deploy(appId, branchName);
 }

@@ -5,35 +5,50 @@ import Link from 'next/link';
 
 import { useI18n } from '@/i18n/provider';
 import { LOCALES, LOCALE_LABELS, type Locale } from '@/i18n/config';
-import { TECHNICAL_QUESTIONS, type DiagnosticQuestion } from '@/data/questions';
+import type { AssessmentQuestion } from '@/lib/types';
 import { submitAttempt } from '@/lib/api-client';
 import { useProfile } from '@/components/providers/profile-provider';
 
-export function AssessmentView({
-  assessmentId = 'asmt-hydraulics-l1',
-}: {
-  assessment?: unknown;
-  assessmentId?: string;
-}) {
+export function AssessmentView({ assessmentId }: { assessment?: unknown; assessmentId: string }) {
   const { locale, setLocale, t } = useI18n();
   const { profile } = useProfile();
 
-  // Read current trade preference if present
-  let activeTrade = 'hydraulics';
-  if (typeof window !== 'undefined') {
-    try {
-      const saved = localStorage.getItem('sb_worker_trade_id');
-      if (saved) activeTrade = saved;
-    } catch {
-      // ignore
-    }
-  }
+  /**
+   * Questions come from the assessment itself, over the API.
+   *
+   * They used to be a hardcoded bank in `@/data/questions`, filtered by a trade
+   * id read out of localStorage. That made every org's assessment identical
+   * regardless of its course material, ignored which assessment was actually
+   * opened, and shipped the answer key to the browser inside the bundle. Now
+   * `GET /api/assessments?assessmentId=` returns the `ASMT#` item and the
+   * questions seeded onto it, so the content follows the org's own lessons.
+   */
+  const [questions, setQuestions] = useState<AssessmentQuestion[]>([]);
+  const [title, setTitle] = useState<string | null>(null);
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'missing'>('loading');
 
-  // Filter questions for the active trade
-  const tradeQuestions: DiagnosticQuestion[] =
-    TECHNICAL_QUESTIONS.filter((q) => q.tradeId === activeTrade).length > 0
-      ? TECHNICAL_QUESTIONS.filter((q) => q.tradeId === activeTrade)
-      : TECHNICAL_QUESTIONS.slice(0, 5);
+  useEffect(() => {
+    let cancelled = false;
+    // No synchronous setState here: the initial value is already 'loading', and
+    // the `cancelled` guard covers a changed assessmentId.
+    fetch(`/api/assessments?assessmentId=${encodeURIComponent(assessmentId)}`, {
+      cache: 'no-store',
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled) return;
+        const list: AssessmentQuestion[] = data?.assessment?.questions ?? [];
+        setQuestions(list);
+        setTitle(data?.assessment?.title ?? null);
+        setLoadState(list.length > 0 ? 'ready' : 'missing');
+      })
+      .catch(() => !cancelled && setLoadState('missing'));
+    return () => {
+      cancelled = true;
+    };
+  }, [assessmentId]);
+
+  const tradeQuestions = questions;
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -52,8 +67,8 @@ export function AssessmentView({
   const [answers, setAnswers] = useState<{ questionId: string; selectedIndex: number }[]>([]);
   const [submitState, setSubmitState] = useState<'idle' | 'sending' | 'recorded' | 'failed'>('idle');
 
-  const currentQ = tradeQuestions[currentIndex] || tradeQuestions[0];
-  const isCorrect = selectedOption === currentQ.correctIndex;
+  const currentQ = tradeQuestions[currentIndex] ?? tradeQuestions[0];
+  const isCorrect = currentQ ? selectedOption === currentQ.correctIndex : false;
 
   const handleSubmitAnswer = () => {
     if (selectedOption === null) return;
@@ -105,6 +120,41 @@ export function AssessmentView({
       .catch(() => setSubmitState('failed'));
   }, [isCompleted, assessmentId, answers, locale]);
 
+  /**
+   * Nothing to answer yet, or nothing to answer at all.
+   *
+   * The questions arrive over the network now, so there is a frame before they
+   * land, and an assessment can legitimately carry none. Rendering the quiz
+   * shell against an undefined question is how this produces a blank card with
+   * dead buttons, so both states get their own screen instead.
+   */
+  if (loadState !== 'ready' || !currentQ) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#F8FAFC] px-6">
+        <div className="max-w-md text-center">
+          {loadState === 'loading' ? (
+            <p className="text-sm text-slate-500">{t('common.loading')}</p>
+          ) : (
+            <>
+              <h1 className="text-lg font-semibold text-slate-900">
+                {title ?? t('worker.assessment')}
+              </h1>
+              <p className="mt-2 text-sm text-slate-500">
+                {t('worker.assessmentEmpty')}
+              </p>
+              <Link
+                href="/plan"
+                className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-[#0B57D0] px-5 text-sm font-semibold text-white"
+              >
+                {t('common.back')}
+              </Link>
+            </>
+          )}
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-background pb-16">
       {/* Header */}
@@ -127,7 +177,7 @@ export function AssessmentView({
                   key={code}
                   type="button"
                   onClick={() => setLocale(code as Locale)}
-                  className={`rounded-lg px-2.5 py-1 font-semibold transition-all ${
+                  className={`min-h-11 rounded-lg px-3 py-2 font-semibold transition-all ${
                     locale === code
                       ? 'bg-primary text-white'
                       : 'text-slate-500 hover:text-slate-900'

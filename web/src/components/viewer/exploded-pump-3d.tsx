@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 interface ExplodedPump3DProps {
   onSelectComponent?: (componentId: string, label: string) => void;
@@ -136,7 +137,7 @@ export function ExplodedPump3D({
   const pistonPlungersRef = useRef<{ mesh: THREE.Group; baseOffset: number; phase: number }[]>([]);
   const shaftAngleRef = useRef(0);
 
-  // Interactive UI state matching Lunchbox Sessions screenshot
+  // Interactive UI state for the exploded-view controls
   const [explodePct, setExplodePct] = useState(65);
   const explodePctRef = useRef(65);
   const [isSpinning, setIsSpinning] = useState(false);
@@ -218,12 +219,21 @@ export function ExplodedPump3D({
     updateCameraPos();
 
     // 2. High-Precision WebGL Renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    // Phones pay for antialiasing and a 2x pixel ratio in fragments, and a 6in
+    // screen shows almost none of the benefit. HANDOFF §2 items 4-5.
+    const small = window.innerWidth < 768;
+    const renderer = new THREE.WebGLRenderer({
+      antialias: !small,
+      alpha: true,
+      powerPreference: 'high-performance',
+    });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, small ? 1.5 : 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.15;
-    renderer.shadowMap.enabled = true;
+    // PCFSoftShadowMap with a directional light is the most expensive thing in
+    // this scene and contributes least at phone size, so mobile goes without.
+    renderer.shadowMap.enabled = !small;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
@@ -248,7 +258,7 @@ export function ExplodedPump3D({
     groundReflectLight.position.set(0, -25, 10);
     scene.add(groundReflectLight);
 
-    // 4. Materials Palette matching Lunchbox Sessions Photo 1
+    // 4. Materials palette: cast iron, steel and bronze surface treatments
     const castIronBump = createCastIronNoiseTexture();
 
     const tealCastIron = new THREE.MeshStandardMaterial({
@@ -316,17 +326,17 @@ export function ExplodedPump3D({
 
     // [3] Front Radial Ball Bearing
     const gBallBearing = new THREE.Group();
-    const outerRace = new THREE.Mesh(new THREE.CylinderGeometry(4.7, 4.7, 1.1, 40, 1, true), chromeSteel);
+    const outerRace = new THREE.Mesh(new THREE.CylinderGeometry(4.7, 4.7, 1.1, 24, 1, true), chromeSteel);
     outerRace.rotation.z = Math.PI / 2;
     gBallBearing.add(outerRace);
 
-    const innerRace = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 1.1, 40, 1, true), chromeSteel);
+    const innerRace = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 1.1, 24, 1, true), chromeSteel);
     innerRace.rotation.z = Math.PI / 2;
     gBallBearing.add(innerRace);
 
     for (let i = 0; i < 10; i++) {
       const a = (i * Math.PI * 2) / 10;
-      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.58, 20, 20), chromeSteel);
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.58, 14, 14), chromeSteel);
       ball.position.set(0, Math.cos(a) * 3.6, Math.sin(a) * 3.6);
       gBallBearing.add(ball);
     }
@@ -335,11 +345,11 @@ export function ExplodedPump3D({
 
     // [4] High-Pressure Shaft Seal
     const gShaftSeal = new THREE.Group();
-    const sealCase = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 4.6, 0.75, 40), blackOxide);
+    const sealCase = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 4.6, 0.75, 24), blackOxide);
     sealCase.rotation.z = Math.PI / 2;
     gShaftSeal.add(sealCase);
 
-    const sealLip = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 0.78, 36, 1, true), rubberSeal);
+    const sealLip = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 0.78, 24, 1, true), rubberSeal);
     sealLip.rotation.z = Math.PI / 2;
     gShaftSeal.add(sealLip);
     scene.add(gShaftSeal);
@@ -347,11 +357,11 @@ export function ExplodedPump3D({
 
     // [5] Tapered Roller Bearing
     const gTapered = new THREE.Group();
-    const tapInner = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.1, 1.3, 36, 1, true), chromeSteel);
+    const tapInner = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.1, 1.3, 24, 1, true), chromeSteel);
     tapInner.rotation.z = Math.PI / 2;
     gTapered.add(tapInner);
 
-    const tapOuter = new THREE.Mesh(new THREE.CylinderGeometry(4.7, 5.2, 1.3, 36, 1, true), chromeSteel);
+    const tapOuter = new THREE.Mesh(new THREE.CylinderGeometry(4.7, 5.2, 1.3, 24, 1, true), chromeSteel);
     tapOuter.rotation.z = Math.PI / 2;
     gTapered.add(tapOuter);
 
@@ -368,67 +378,91 @@ export function ExplodedPump3D({
     // [6] Main Housing Body (Teal Enamel Cutaway Shell)
     const gHousing = new THREE.Group();
 
+    /**
+     * The housing is the one part that never moves.
+     *
+     * Eleven of the twelve MECHANICAL_PARTS translate on explode; `housing` is
+     * the central reference anchor, and the spin animation drives only the
+     * shaft, swashplate and pistons. So its pieces can be baked into one
+     * geometry per material — 15 meshes become 3 draw calls — without affecting
+     * the explode, the spin or part selection, which all address the GROUP.
+     *
+     * Falls back to adding the meshes individually if the merge is refused:
+     * `mergeGeometries` returns null when attribute sets disagree, and a pump
+     * that renders slightly slower beats a pump that does not render.
+     */
+    const bake = (meshes: THREE.Mesh[], material: THREE.Material) => {
+      const geos = meshes.map((m) => {
+        m.updateMatrix();
+        return (m.geometry as THREE.BufferGeometry).clone().applyMatrix4(m.matrix);
+      });
+      const merged = mergeGeometries(geos, false);
+      geos.forEach((g) => g.dispose());
+      if (!merged) {
+        meshes.forEach((m) => gHousing.add(m));
+        return;
+      }
+      meshes.forEach((m) => (m.geometry as THREE.BufferGeometry).dispose());
+      gHousing.add(new THREE.Mesh(merged, material));
+    };
+
     // Front Bearing Snout
-    const snout = new THREE.Mesh(new THREE.CylinderGeometry(4.8, 5.4, 3.5, 40, 1, true), tealCastIron);
+    const snout = new THREE.Mesh(new THREE.CylinderGeometry(4.8, 5.4, 3.5, 24, 1, true), tealCastIron);
     snout.rotation.z = Math.PI / 2;
     snout.position.x = -3.2;
-    gHousing.add(snout);
 
     // Snout Rim Chamfer
-    const snoutRim = new THREE.Mesh(new THREE.TorusGeometry(4.8, 0.35, 16, 40), tealCastIron);
+    const snoutRim = new THREE.Mesh(new THREE.TorusGeometry(4.8, 0.35, 16, 24), tealCastIron);
     snoutRim.rotation.y = Math.PI / 2;
     snoutRim.position.x = -4.9;
-    gHousing.add(snoutRim);
 
     // Snout Machined Face
-    const snoutFace = new THREE.Mesh(new THREE.RingGeometry(2.6, 4.8, 40), machinedFace);
+    const snoutFace = new THREE.Mesh(new THREE.RingGeometry(2.6, 4.8, 24), machinedFace);
     snoutFace.rotation.y = -Math.PI / 2;
     snoutFace.position.x = -4.95;
-    gHousing.add(snoutFace);
 
     // Main Cylindrical Body Shell (Cutaway 240-deg arch so the inside swashplate is visible!)
     const bodyShell = new THREE.Mesh(
-      new THREE.CylinderGeometry(6.6, 6.6, 5.2, 40, 1, true, Math.PI * 0.25, Math.PI * 1.5),
+      new THREE.CylinderGeometry(6.6, 6.6, 5.2, 24, 1, true, Math.PI * 0.25, Math.PI * 1.5),
       tealCastIron
     );
     bodyShell.rotation.z = Math.PI / 2;
     bodyShell.position.x = 1.0;
-    gHousing.add(bodyShell);
 
     // Middle Flange Collar
-    const collar = new THREE.Mesh(new THREE.CylinderGeometry(7.4, 7.4, 1.1, 40), tealCastIron);
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(7.4, 7.4, 1.1, 24), tealCastIron);
     collar.rotation.z = Math.PI / 2;
     collar.position.x = -1.2;
-    gHousing.add(collar);
 
     // Rear Mounting Flange with Machined Face
-    const rearFlange = new THREE.Mesh(new THREE.CylinderGeometry(8.2, 8.2, 1.2, 40), tealCastIron);
+    const rearFlange = new THREE.Mesh(new THREE.CylinderGeometry(8.2, 8.2, 1.2, 24), tealCastIron);
     rearFlange.rotation.z = Math.PI / 2;
     rearFlange.position.x = 3.6;
-    gHousing.add(rearFlange);
 
-    const rearMachinedFace = new THREE.Mesh(new THREE.RingGeometry(4.6, 8.18, 40), machinedFace);
+    const rearMachinedFace = new THREE.Mesh(new THREE.RingGeometry(4.6, 8.18, 24), machinedFace);
     rearMachinedFace.rotation.y = Math.PI / 2;
     rearMachinedFace.position.x = 4.22;
-    gHousing.add(rearMachinedFace);
 
     // Perimeter Bolt Counterbores
+    const boltHoles: THREE.Mesh[] = [];
     for (let i = 0; i < 6; i++) {
       const a = (i * Math.PI * 2) / 6;
       const holeMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 1.3, 16), blackOxide);
       holeMesh.rotation.z = Math.PI / 2;
       holeMesh.position.set(3.6, Math.cos(a) * 7.1, Math.sin(a) * 7.1);
-      gHousing.add(holeMesh);
+      boltHoles.push(holeMesh);
     }
 
     // Inlet Port Boss on Housing Top
-    const inletBoss = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 2.2, 24), tealCastIron);
+    const inletBoss = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 2.2, 18), tealCastIron);
     inletBoss.position.set(0.5, 6.8, 0);
-    gHousing.add(inletBoss);
 
-    const inletHole = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 2.3, 20), blackOxide);
+    const inletHole = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 2.3, 14), blackOxide);
     inletHole.position.set(0.5, 6.8, 0);
-    gHousing.add(inletHole);
+
+    bake([snout, snoutRim, bodyShell, collar, rearFlange, inletBoss], tealCastIron);
+    bake([snoutFace, rearMachinedFace], machinedFace);
+    bake([...boltHoles, inletHole], blackOxide);
 
     scene.add(gHousing);
     groups.set('housing', gHousing);
@@ -438,7 +472,7 @@ export function ExplodedPump3D({
     shaftRotationGroupRef.current = gCamshaft;
 
     // Hardened Drive Shaft
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 18, 36), chromeSteel);
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 18, 24), chromeSteel);
     shaft.rotation.z = Math.PI / 2;
     gCamshaft.add(shaft);
 
@@ -452,12 +486,12 @@ export function ExplodedPump3D({
     swashDiscGroup.position.x = 0.6;
     swashDiscGroup.rotation.y = 0.25;
 
-    const swashPlate = new THREE.Mesh(new THREE.CylinderGeometry(5.2, 5.2, 1.4, 40), chromeSteel);
+    const swashPlate = new THREE.Mesh(new THREE.CylinderGeometry(5.2, 5.2, 1.4, 24), chromeSteel);
     swashPlate.rotation.z = Math.PI / 2;
     swashDiscGroup.add(swashPlate);
 
     const wobbleFace = new THREE.Mesh(
-      new THREE.CircleGeometry(5.15, 40),
+      new THREE.CircleGeometry(5.15, 24),
       new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.08, metalness: 0.98 })
     );
     wobbleFace.rotation.y = Math.PI / 2;
@@ -474,13 +508,13 @@ export function ExplodedPump3D({
     holdPlateGroup.position.x = 1.6;
     holdPlateGroup.rotation.y = 0.25;
 
-    const holdRing = new THREE.Mesh(new THREE.RingGeometry(2.2, 4.9, 40), bronzeSlipper);
+    const holdRing = new THREE.Mesh(new THREE.RingGeometry(2.2, 4.9, 24), bronzeSlipper);
     holdRing.rotation.y = Math.PI / 2;
     holdPlateGroup.add(holdRing);
 
     for (let i = 0; i < 7; i++) {
       const a = (i * Math.PI * 2) / 7;
-      const shoe = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.42, 24), bronzeSlipper);
+      const shoe = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.42, 18), bronzeSlipper);
       shoe.rotation.z = Math.PI / 2;
       shoe.position.set(0.2, Math.cos(a) * 3.4, Math.sin(a) * 3.4);
       holdPlateGroup.add(shoe);
@@ -497,11 +531,11 @@ export function ExplodedPump3D({
       const a = (i * Math.PI * 2) / 7;
       const pGroup = new THREE.Group();
 
-      const plunger = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.68, 5.2, 28), chromeSteel);
+      const plunger = new THREE.Mesh(new THREE.CylinderGeometry(0.68, 0.68, 5.2, 18), chromeSteel);
       plunger.rotation.z = Math.PI / 2;
       pGroup.add(plunger);
 
-      const shoe = new THREE.Mesh(new THREE.CylinderGeometry(0.88, 0.88, 0.38, 24), bronzeSlipper);
+      const shoe = new THREE.Mesh(new THREE.CylinderGeometry(0.88, 0.88, 0.38, 18), bronzeSlipper);
       shoe.rotation.z = Math.PI / 2;
       shoe.position.x = -2.7;
       pGroup.add(shoe);
@@ -524,23 +558,23 @@ export function ExplodedPump3D({
 
     // [10] Cylinder Barrel Block
     const gBarrel = new THREE.Group();
-    const barrelMesh = new THREE.Mesh(new THREE.CylinderGeometry(5.8, 5.8, 4.8, 40), tealCastIron);
+    const barrelMesh = new THREE.Mesh(new THREE.CylinderGeometry(5.8, 5.8, 4.8, 24), tealCastIron);
     barrelMesh.rotation.z = Math.PI / 2;
     gBarrel.add(barrelMesh);
 
-    const barrelFrontFace = new THREE.Mesh(new THREE.RingGeometry(1.5, 5.78, 40), machinedFace);
+    const barrelFrontFace = new THREE.Mesh(new THREE.RingGeometry(1.5, 5.78, 24), machinedFace);
     barrelFrontFace.rotation.y = -Math.PI / 2;
     barrelFrontFace.position.x = -2.42;
     gBarrel.add(barrelFrontFace);
 
-    const barrelRearFace = new THREE.Mesh(new THREE.RingGeometry(1.5, 5.78, 40), machinedFace);
+    const barrelRearFace = new THREE.Mesh(new THREE.RingGeometry(1.5, 5.78, 24), machinedFace);
     barrelRearFace.rotation.y = Math.PI / 2;
     barrelRearFace.position.x = 2.42;
     gBarrel.add(barrelRearFace);
 
     for (let i = 0; i < 7; i++) {
       const a = (i * Math.PI * 2) / 7;
-      const bore = new THREE.Mesh(new THREE.CylinderGeometry(0.74, 0.74, 4.9, 24), blackOxide);
+      const bore = new THREE.Mesh(new THREE.CylinderGeometry(0.74, 0.74, 4.9, 18), blackOxide);
       bore.rotation.z = Math.PI / 2;
       bore.position.set(0, Math.cos(a) * 3.4, Math.sin(a) * 3.4);
       gBarrel.add(bore);
@@ -571,7 +605,7 @@ export function ExplodedPump3D({
       const a = (i * Math.PI * 2) / 7;
       const valveGroup = new THREE.Group();
 
-      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.52, 20, 20), chromeSteel);
+      const ball = new THREE.Mesh(new THREE.SphereGeometry(0.52, 14, 14), chromeSteel);
       ball.position.x = -0.6;
       valveGroup.add(ball);
 
@@ -594,11 +628,11 @@ export function ExplodedPump3D({
     // [12] Full Flow Cover & Hex Clamping Bolts
     const gCover = new THREE.Group();
 
-    const coverMesh = new THREE.Mesh(new THREE.CylinderGeometry(6.4, 6.4, 4.4, 40), tealCastIron);
+    const coverMesh = new THREE.Mesh(new THREE.CylinderGeometry(6.4, 6.4, 4.4, 24), tealCastIron);
     coverMesh.rotation.z = Math.PI / 2;
     gCover.add(coverMesh);
 
-    const coverFace = new THREE.Mesh(new THREE.RingGeometry(1.6, 6.38, 40), machinedFace);
+    const coverFace = new THREE.Mesh(new THREE.RingGeometry(1.6, 6.38, 24), machinedFace);
     coverFace.rotation.y = -Math.PI / 2;
     coverFace.position.x = -2.22;
     gCover.add(coverFace);
@@ -607,11 +641,11 @@ export function ExplodedPump3D({
     plug.position.x = 2.25;
     gCover.add(plug);
 
-    const outletBoss = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.35, 2.4, 24), tealCastIron);
+    const outletBoss = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.35, 2.4, 18), tealCastIron);
     outletBoss.position.set(0, 6.8, 0);
     gCover.add(outletBoss);
 
-    const outletBore = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 2.5, 20), blackOxide);
+    const outletBore = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 2.5, 14), blackOxide);
     outletBore.position.set(0, 6.8, 0);
     gCover.add(outletBore);
 
@@ -624,7 +658,7 @@ export function ExplodedPump3D({
       shank.position.x = 2.0;
       boltAssembly.add(shank);
 
-      const head = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 1.8, 24), blackOxide);
+      const head = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 1.8, 18), blackOxide);
       head.rotation.z = Math.PI / 2;
       head.position.x = 6.2;
       boltAssembly.add(head);
@@ -649,8 +683,20 @@ export function ExplodedPump3D({
 
     // 6. Kinematic Animation Loop (Continuous 60FPS)
     let animId = 0;
+    // 54 draw calls kept running while the worker read the SOP checklist below
+    // the canvas, and in background tabs. Pure battery. HANDOFF §2 item 2.
+    let onScreen = true;
+    const io =
+      typeof IntersectionObserver !== 'undefined'
+        ? new IntersectionObserver((es) => {
+            onScreen = es.some((e) => e.isIntersecting);
+          })
+        : null;
+    io?.observe(renderer.domElement);
+
     const animate = () => {
       animId = requestAnimationFrame(animate);
+      if (!onScreen || document.visibilityState !== 'visible') return;
 
       // INTERNAL MECHANICAL SPIN ANIMATION
       // When "Start Spin" is enabled, only the drive shaft, swashplate, and pistons move!
@@ -697,7 +743,35 @@ export function ExplodedPump3D({
     return () => {
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animId);
+      io?.disconnect();
+
+      /**
+       * Walk the scene and release the GPU resources.
+       *
+       * `renderer.dispose()` alone frees the renderer's own state and nothing
+       * else: every geometry, material and texture stays resident. With 54
+       * meshes plus a generated CanvasTexture, moving between lessons a few
+       * times leaked the lot. HANDOFF §2 item 3.
+       */
+      scene.traverse((obj) => {
+        const mesh = obj as THREE.Mesh;
+        mesh.geometry?.dispose?.();
+        const mat = mesh.material as THREE.Material | THREE.Material[] | undefined;
+        for (const m of Array.isArray(mat) ? mat : mat ? [mat] : []) {
+          for (const v of Object.values(m)) {
+            if (v && typeof v === 'object' && 'isTexture' in v) {
+              (v as THREE.Texture).dispose();
+            }
+          }
+          m.dispose();
+        }
+      });
       renderer.dispose();
+      // Hand the WebGL context back now. Browsers cap live contexts per
+      // renderer (~16) and reclaim leaked ones only by GC, which is not prompt
+      // for GPU memory — once the cap is hit the OLDEST contexts are killed.
+      renderer.forceContextLoss();
+
       if (container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
       }
@@ -787,7 +861,7 @@ export function ExplodedPump3D({
   return (
     <div className="relative w-full h-[580px] sm:h-[640px] bg-white rounded-2xl overflow-hidden border border-slate-300 shadow-sm select-none">
       {/* -------------------------------------------------------------
-         TOP APP BAR (Matching Lunchbox Sessions Header)
+         TOP APP BAR
          ------------------------------------------------------------- */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 bg-[#334155]/90 backdrop-blur-xs text-white border-b border-slate-600">
         <button

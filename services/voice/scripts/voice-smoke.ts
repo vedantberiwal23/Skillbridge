@@ -5,6 +5,12 @@
  *   npm run dev                    # in another terminal
  *   npx tsx scripts/voice-smoke.ts --lang hi-IN
  *
+ * Against a deployed service, pass both the socket and an origin the service
+ * actually allows — the upgrade handler refuses anything else with a 403
+ * before it reads a frame:
+ *
+ *   npx tsx scripts/voice-smoke.ts --lang hi-IN --url wss://<host>/voice/stream --origin https://<allowed-web-origin>
+ *
  * This is the method VOICE.md prescribes: synthesise the question with Sarvam
  * TTS, resample to 16 kHz, and feed it into our own socket in 50 ms frames at
  * wall-clock speed. Playing it at real speed is the point — it is the only way
@@ -90,7 +96,11 @@ console.log(`  ${frames.length} frames (${(frames.length * 0.05).toFixed(1)}s of
 
 /* ── drive the channel ─────────────────────────────────────────────────────── */
 
-const ws = new WebSocket(url, { origin: 'http://localhost:3123' });
+// The upgrade handler checks Origin before it reads a frame, and the loopback
+// exemption is hard-gated on NODE_ENV — so against a deployed service this has
+// to present an origin that is actually in ALLOWED_ORIGINS, or the socket is
+// refused with 403 and the run never starts.
+const ws = new WebSocket(url, { origin: arg('origin', 'http://localhost:3123') });
 const send = (o: unknown) => ws.send(JSON.stringify(o));
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

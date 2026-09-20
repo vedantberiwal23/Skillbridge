@@ -44,11 +44,73 @@ export type Role = (typeof ROLES)[number];
 export const EVENT_TTL_DAYS = 90;
 
 /**
- * The Amplify deployment target. Not a git branch: the web tier deploys through
- * the Amplify deployment specification (`infra/scripts/deploy-web.mjs`), so no
- * repository is connected and Amplify never runs a build of its own.
+ * The Amplify branch, which IS a git branch and must match one that exists in
+ * the repository — this repo's default is `master`, not `main`.
+ *
+ * It was `main` while the web tier shipped through the Amplify deployment
+ * specification with no repository connected. That path does not work: AWS
+ * documents that "Amplify Hosting does not support manual deploys for
+ * server-side rendered (SSR) apps", and `CreateDeployment` silently deploys
+ * only `.amplify-hosting/static`, ignoring the compute primitive, so every
+ * route is served from S3 and the app 404s. Confirmed against three real
+ * deployments on 2026-09-19.
  */
-export const WEB_BRANCH = 'main';
+export const WEB_BRANCH = 'master';
+
+/**
+ * Origins the voice socket accepts a WebSocket upgrade from.
+ *
+ * A constant, not a context default, and that distinction is load-bearing.
+ * `skillbridge-web` depends on `skillbridge-compute` for the voice endpoint, so
+ * `cdk deploy skillbridge-web` deploys compute too — and any deploy that omitted
+ * `-c allowedOrigins` silently reverted this to localhost only, which refuses
+ * every browser socket from the deployed app while curl and the smoke test still
+ * pass. That happened once and cost a debugging cycle.
+ *
+ * The Amplify domain is `<branch>.<appId>.amplifyapp.com`. The app id is
+ * generated, but stable for the life of the app, so it is written down here
+ * rather than passed by hand on every deploy.
+ */
+export const ALLOWED_WEB_ORIGINS = [
+  `https://${WEB_BRANCH}.d20i2hklonrt3y.amplifyapp.com`,
+  'http://localhost:3000',
+].join(',');
+
+/** The repository Amplify builds the web tier from. */
+export const WEB_REPOSITORY = 'https://github.com/rxshabN/first-commit-lockedin';
+
+/**
+ * The GitHub personal access token Amplify uses to clone and to register its
+ * webhook, resolved by CloudFormation at deploy time so the value never enters
+ * this repository, the template or a CDK context file.
+ *
+ * `AWS::Amplify::App.AccessToken` is write-only, so it is never readable back
+ * out of the stack either.
+ *
+ * Referenced by NAME rather than by ARN, unlike `SARVAM_SECRET_ARN`. Secrets
+ * Manager appends a random six-character suffix to every ARN, so an ARN for a
+ * secret this repository does not create cannot be written down correctly in
+ * advance — and a `{{resolve:}}` reference accepts the bare name for a secret in
+ * the same account and region. App Runner has no such shortcut, which is why
+ * the Sarvam key is pinned to its full ARN instead.
+ */
+export const GITHUB_TOKEN_SECRET = process.env.GITHUB_TOKEN_SECRET ?? 'github-amplify';
+
+/**
+ * The field inside the secret's JSON, which is what the console's "Key/value"
+ * type produces. Set `GITHUB_TOKEN_SECRET_JSON_KEY=''` if the secret is ever
+ * replaced with a plaintext one — a `{{resolve:}}` reference with a key suffix
+ * against a plaintext secret fails the deploy, and without the suffix against a
+ * JSON secret Amplify receives the whole document as the token.
+ */
+export const GITHUB_TOKEN_SECRET_JSON_KEY =
+  process.env.GITHUB_TOKEN_SECRET_JSON_KEY ?? 'GithubAmplifyToken';
+
+/** `{{resolve:secretsmanager:<secret>:SecretString[:<key>]}}`, per the above. */
+export const githubTokenRef = () =>
+  GITHUB_TOKEN_SECRET_JSON_KEY
+    ? `{{resolve:secretsmanager:${GITHUB_TOKEN_SECRET}:SecretString:${GITHUB_TOKEN_SECRET_JSON_KEY}}}`
+    : `{{resolve:secretsmanager:${GITHUB_TOKEN_SECRET}:SecretString}}`;
 
 /**
  * Embedding model for the per-org Knowledge Bases.
@@ -75,3 +137,20 @@ export const EMBEDDING_MODELS = [
 ] as const;
 
 export const VECTOR_BUCKET = `${APP_NAME}-vectors`;
+
+/**
+ * The Sarvam API key, the only vendor credential in the system.
+ *
+ * Created by hand rather than by CDK, so the six-character suffix is not
+ * derivable and the complete ARN has to be named here: App Runner rejects the
+ * wildcard ARN that `Secret.fromSecretNameV2` produces. The value is never read
+ * by this repository — App Runner resolves it at container start and injects it
+ * as an environment variable.
+ *
+ * `SARVAM_SECRET_JSON_KEY` is the field inside the secret's JSON, which is what
+ * the console's "Key/value" secret type produces. Set it to `undefined` if the
+ * secret is ever replaced with a plaintext one.
+ */
+export const SARVAM_SECRET_ARN =
+  'arn:aws:secretsmanager:ap-northeast-1:975585942816:secret:Sarvam-Gdl7YQ';
+export const SARVAM_SECRET_JSON_KEY = 'SARVAM_API_KEY';

@@ -67,7 +67,7 @@ test('the compute role can reach the table, its indexes and the CMK', () => {
   expect(actions).toEqual(expect.arrayContaining(['kms:Decrypt', 'kms:GenerateDataKey*']));
 });
 
-test('the compute role gets exactly the Cognito admin actions the app uses', () => {
+test('the compute role gets exactly the five Cognito admin actions the routes use', () => {
   const policies = synth().findResources('AWS::IAM::Policy');
   const cognito = Object.values(policies)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -75,8 +75,9 @@ test('the compute role gets exactly the Cognito admin actions the app uses', () 
     .flatMap((s: { Action: string | string[] }) => ([] as string[]).concat(s.Action))
     .filter((a: string) => a.startsWith('cognito-idp:'));
 
-  // Four for invite redemption, plus AdminUpdateUserAttributes, which keeps
-  // custom:deptId in step when the console moves someone between departments.
+  // Four for invite redemption, plus AdminUpdateUserAttributes so a department
+  // move in the console can keep custom:deptId in step. An exact list, not
+  // arrayContaining: the point of this test is to catch a widened grant.
   expect(cognito.sort()).toEqual([
     'cognito-idp:AdminAddUserToGroup',
     'cognito-idp:AdminCreateUser',
@@ -86,12 +87,31 @@ test('the compute role gets exactly the Cognito admin actions the app uses', () 
   ]);
 });
 
-test('no repository connection is wired yet — that is a held decision, not an oversight', () => {
+test('the repository is connected and its token never reaches the template', () => {
   const apps = synth().findResources('AWS::Amplify::App');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const props = Object.values(apps).map((a) => (a as any).Properties)[0];
 
-  expect(props.Repository).toBeUndefined();
-  expect(props.AccessToken).toBeUndefined();
+  // A connection is required, not optional: Amplify Hosting does not support
+  // manual deploys for SSR apps, so a repository build is the only route to the
+  // compute primitive. Deploying without it serves every route from S3.
+  expect(props.Repository).toBe('https://github.com/rxshabN/first-commit-lockedin');
+
+  // The token is a CloudFormation dynamic reference, resolved at deploy time.
+  // If this ever becomes a literal, the credential is sitting in the synthesised
+  // template and in cdk.out — which is the failure this test exists to catch.
+  expect(props.AccessToken).toMatch(/^\{\{resolve:secretsmanager:[^}]+\}\}$/);
+  expect(props.AccessToken).not.toMatch(/ghp_|github_pat_/);
   expect(props.OauthToken).toBeUndefined();
+});
+
+test('the branch tracks a ref that exists in the repository', () => {
+  const branches = synth().findResources('AWS::Amplify::Branch');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const props = Object.values(branches).map((b) => (b as any).Properties)[0];
+
+  // The repository's default branch is `master`. Naming a branch Amplify cannot
+  // find connects cleanly and then fails every build on a missing ref.
+  expect(props.BranchName).toBe('master');
+  expect(props.EnableAutoBuild).toBe(true);
 });

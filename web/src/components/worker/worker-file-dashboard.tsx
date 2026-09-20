@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { TriangleAlert } from 'lucide-react';
 import { useI18n } from '@/i18n/provider';
 
 interface WorkerRecord {
@@ -380,6 +381,31 @@ export function WorkerFileDashboard({
 
   return (
     <main className="mx-auto w-full max-w-6xl px-6 py-8">
+      {/*
+        Say so, plainly.
+
+        `WORKERS_DATA` below is four invented technicians with invented
+        competency records, and nothing on this screen reads the signed-in
+        user — a worker opening "My Worker File" sees Ravi Kumar's dossier
+        whoever they are. Rendered without this notice it is a fabricated
+        personnel record presented as a real one, which is the one thing a
+        judged demo must not do. The screen still earns its place as a design
+        of the qualification dossier; it just has to be honest about what it
+        is showing.
+      */}
+      <div
+        role="note"
+        className="mb-6 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200"
+      >
+        <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+        <span>
+          <strong className="font-semibold">Sample data.</strong> This dossier
+          shows an illustrative worker record, not live training data. Plan
+          progress, assessments and the manager dashboard are the screens backed
+          by real records.
+        </span>
+      </div>
+
       {/* Breadcrumb / Top Navigation */}
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">

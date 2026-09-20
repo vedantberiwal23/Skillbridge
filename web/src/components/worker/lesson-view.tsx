@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { InteractiveSimulation } from '@/components/viewer/interactive-simulation';
 import { AskPanel } from '@/components/worker/ask-panel';
@@ -16,9 +16,31 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
   const { locale, setLocale, t } = useI18n();
 
   // Selected hotspot for voice questions
-  const [selectedPart, setSelectedPart] = useState<{ id: string; label: string }>({
-    id: lesson.simulationConfig.components[0]?.id || 'pump',
-    label: lesson.simulationConfig.components[0]?.label || 'Hydraulic Pump',
+  /**
+   * `?component=<id>` opens the simulation on a specific part.
+   *
+   * This is what joins the two halves of a Machine Twin: the reconstructed
+   * exterior of the customer's own machine, and the authored internals for that
+   * machine type. Selecting a part on the twin links here, and the worker lands
+   * on the same part rather than at the top of the lesson.
+   *
+   * Seeded in a lazy initialiser rather than an effect so there is no frame
+   * showing the wrong part, and no setState-in-effect. An unknown or absent id
+   * falls back to the lesson's own first component.
+   */
+  const searchParams = useSearchParams();
+  const requestedComponentId = searchParams.get('component');
+
+  const [selectedPart, setSelectedPart] = useState<{ id: string; label: string }>(() => {
+    const components = lesson.simulationConfig.components;
+    const requested = requestedComponentId
+      ? components.find((component) => component.id === requestedComponentId)
+      : undefined;
+    const chosen = requested ?? components[0];
+    return {
+      id: chosen?.id || 'pump',
+      label: chosen?.label || 'Hydraulic Pump',
+    };
   });
   const ask = useVoiceAsk(locale, selectedPart.label);
 
@@ -77,7 +99,7 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
                   key={code}
                   type="button"
                   onClick={() => setLocale(code as Locale)}
-                  className={`rounded-lg px-2.5 py-1 font-semibold transition-all ${
+                  className={`min-h-11 rounded-lg px-3 py-2 font-semibold transition-all ${
                     locale === code
                       ? 'bg-primary text-white'
                       : 'text-slate-500 hover:text-slate-900'
@@ -269,6 +291,7 @@ export function LessonView({ lesson }: { lesson: LessonContent }) {
             channelState={ask.channel}
             error={ask.error}
             empty={ask.empty}
+            grounded={ask.grounded}
           />
         </div>
 

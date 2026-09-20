@@ -41,6 +41,14 @@ export interface TurnOptions {
   /** Injected in tests; Bedrock otherwise. */
   readonly streamText?: StreamFn;
   /**
+   * A TYPED question. When set, no recognition socket is opened and nothing is
+   * transcribed: this text is the final transcript, in `language`. Everything
+   * after that — grounding, the model, the streamed voice — is the same path a
+   * spoken question takes, so a typed question gets a real answer rather than a
+   * second, separately-maintained one.
+   */
+  readonly text?: string | null;
+  /**
    * Called once per ANSWERED turn, immediately after the reply is sent.
    *
    * Identity and persistence are channel.ts's business: this module knows what
@@ -95,6 +103,9 @@ const TTS_MAX_MS = 120_000;
 const SPOKEN_CHARS_PER_SEC = 11;
 
 const DEBUG_TIMING = process.env.VOICE_DEBUG_TIMING === '1';
+
+/** A typed question is context in a prompt; clamp it like any client text. */
+const MAX_TYPED_CHARS = 500;
 
 /** Case, punctuation and spacing differ between partials of the SAME words. */
 const norm = (s: string) =>
@@ -267,30 +278,34 @@ export function createTurn(options: TurnOptions): Turn {
     specCount++;
   };
 
-  const stt = openRealtimeStt({
-    language: 'auto',
-    onPartial: (text, lang) => {
-      // The screen shows exactly what the recogniser just said, replays
-      // included. Only the model's input is protected from them.
-      send({ t: 'partial', text });
-      if (isReplayOf(text, partial.text)) {
-        if (DEBUG_TIMING) marks.partial_replays = ((marks.partial_replays as number) ?? 0) + 1;
-        return;
-      }
-      partial = { text, language: lang ?? partial.language };
-      if (released) return;
-      // New words make an older speculation wrong; stop it spending tokens.
-      if (spec && !isReplayOf(spec.input, text)) {
-        spec.abort();
-        spec = null;
-      }
-      // The clock restarts only when the transcript genuinely moved.
-      clearTimeout(stableTimer);
-      stableTimer = setTimeout(considerSpeculating, SPEC_STABLE_MS);
-    },
-    onFinal: (text, lang) => send({ t: 'final', text, language: lang }),
-    onError: (message) => fail(message, 'STT'),
-  });
+  const typed = typeof options.text === 'string' ? options.text.trim().slice(0, MAX_TYPED_CHARS) : '';
+  // A typed turn has nothing to recognise, so it opens no recognition socket.
+  const stt = typed
+    ? null
+    : openRealtimeStt({
+        language: 'auto',
+        onPartial: (text, lang) => {
+          // The screen shows exactly what the recogniser just said, replays
+          // included. Only the model's input is protected from them.
+          send({ t: 'partial', text });
+          if (isReplayOf(text, partial.text)) {
+            if (DEBUG_TIMING) marks.partial_replays = ((marks.partial_replays as number) ?? 0) + 1;
+            return;
+          }
+          partial = { text, language: lang ?? partial.language };
+          if (released) return;
+          // New words make an older speculation wrong; stop it spending tokens.
+          if (spec && !isReplayOf(spec.input, text)) {
+            spec.abort();
+            spec = null;
+          }
+          // The clock restarts only when the transcript genuinely moved.
+          clearTimeout(stableTimer);
+          stableTimer = setTimeout(considerSpeculating, SPEC_STABLE_MS);
+        },
+        onFinal: (text, lang) => send({ t: 'final', text, language: lang }),
+        onError: (message) => fail(message, 'STT'),
+      });
 
   /* ── speech out: opened NOW so the handshake overlaps the question ── */
   let seq = 0;
@@ -325,12 +340,12 @@ export function createTurn(options: TurnOptions): Turn {
   const cleanup = () => {
     clearTimeout(stableTimer);
     spec?.abort();
-    stt.close();
+    stt?.close();
     tts.close();
   };
 
   return {
-    sendAudio: (b64) => stt.sendAudio(b64),
+    sendAudio: (b64) => stt?.sendAudio(b64),
 
     cancel() {
       cancelled = true;
@@ -358,9 +373,11 @@ export function createTurn(options: TurnOptions): Turn {
         specCount++;
       }
 
-      const heard = await stt.finish();
+      const heard = stt
+        ? await stt.finish()
+        : { transcript: typed, language: known ?? fallbackLanguage };
       mark('transcript_final');
-      stt.close();
+      stt?.close();
       if (cancelled) {
         gen?.abort();
         return;

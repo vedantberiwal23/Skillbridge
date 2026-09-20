@@ -23,6 +23,7 @@ interface SttScript {
 let sttScript: SttScript;
 let sttFramesReceived = 0;
 let sttHandshakeDelayMs = 0;
+let sttConnections = 0;
 const ttsTexts: string[] = [];
 let ttsConfig: Record<string, unknown> | null = null;
 
@@ -34,6 +35,7 @@ vendor.on('upgrade', async (req, socket, head) => {
   const path = new URL(req.url ?? '', 'http://x').pathname;
   if (path === '/stt') {
     if (sttHandshakeDelayMs) await sleep(sttHandshakeDelayMs);
+    sttConnections++;
     sttWss.handleUpgrade(req, socket, head, (ws) => {
       let frames = 0;
       let next = 0;
@@ -526,4 +528,52 @@ test('the EVT# item satisfies the fanout and profiler contracts', async () => {
   assert.equal(s.SK, 'SESSION#2026-09-19T09:00:00.000Z#s1');
   assert.ok(!('ttl' in s), 'the 90-day sweep is for EVT# items only');
   assert.equal(s.orgId, 'org-acme');
+});
+
+test('a typed question gets the real answer: no recogniser, same model, voice and grounding', async () => {
+  reset();
+  const sttBefore = sttConnections;
+  modelReply = () => HINDI_REPLY;
+  const c = connect();
+  await c.opened;
+  c.send({ t: 'start', token: 'good:worker-typed' });
+  await c.waitFor((f) => f.t === 'ready');
+
+  // A client-supplied orgId is ignored here too.
+  c.send({ t: 'ask', text: 'pump kholne se pehle kya karein?', language: 'hi-IN', part: 'Relief valve', history: [], orgId: 'org-evil' });
+  const reply = await c.waitFor((f) => f.t === 'reply');
+  await c.waitFor((f) => f.t === 'done');
+
+  assert.equal(sttConnections, sttBefore, 'a typed turn must not open a recognition socket');
+  assert.equal(modelCalls.length, 1);
+  // Verbatim, with the tapped part as context, and told the app's language.
+  assert.match(modelCalls[0]!.messages.at(-1)!.content, /pump kholne se pehle kya karein\?/);
+  assert.match(modelCalls[0]!.messages.at(-1)!.content, /Relief valve/);
+  assert.match(modelCalls[0]!.system, /speaking Hindi/);
+  assert.match(modelCalls[0]!.system, /SOP-7/);
+  assert.equal(reply.transcript, 'pump kholne se pehle kya karein?');
+  assert.equal(reply.grounded, true);
+  assert.ok(c.frames.some((f) => f.t === 'audio'), 'typed answers are spoken too');
+  for (const t of ttsTexts) assert.match(t, /[\p{L}\p{M}]/u);
+  assert.equal(recordedTurns.length, 1);
+  assert.equal(recordedTurns[0]!.orgId, 'org-acme');
+
+  // The channel is reusable after a typed turn.
+  c.send({ t: 'begin', language: 'hi-IN', history: [] });
+  await c.waitFor((f) => f.t === 'listening');
+  c.send({ t: 'cancel' });
+  c.ws.close();
+});
+
+test('a typed question with no letters is not answered', async () => {
+  reset();
+  const c = connect();
+  await c.opened;
+  c.send({ t: 'start', token: 'good:worker-typed-2' });
+  await c.waitFor((f) => f.t === 'ready');
+  c.send({ t: 'ask', text: '  ?? ', language: 'en-IN' });
+  await c.waitFor((f) => f.t === 'empty');
+  await c.waitFor((f) => f.t === 'done');
+  assert.equal(modelCalls.length, 0);
+  c.ws.close();
 });

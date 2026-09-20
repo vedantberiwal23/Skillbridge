@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { attachGlLifecycle } from "./gl-lifecycle"
 import { useEffect, useRef } from "react"
 
 const MAX_DPR = 2
@@ -312,6 +313,8 @@ function CloudSkyBase(props: Props) {
             return
         }
 
+        const life = attachGlLifecycle(canvas, gl)
+
         const vs = compile(gl, gl.VERTEX_SHADER, VERT_SRC)
         const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG_SRC)
         if (!vs || !fs) return
@@ -357,6 +360,14 @@ function CloudSkyBase(props: Props) {
             const k = 1 - Math.exp(-(v.damping as number) * 0.12 * dt)
             leanX += ((p.inside ? p.x : 0) - leanX) * k
             leanY += ((p.inside ? p.y : 0) - leanY) * k
+
+            // Offscreen, hidden tab, or a lost context: keep the loop alive but do
+            // no GL work. Two full-screen shaders drawing forever is what put the
+            // renderer under enough pressure to crash.
+            if (!life.shouldRender()) {
+                raf = requestAnimationFrame(render)
+                return
+            }
 
             const gust = 1 + leanX * (v.wind as number)
             const rate = (v.speed as number) * gust
@@ -422,6 +433,7 @@ function CloudSkyBase(props: Props) {
             canvas.removeEventListener("pointermove", track)
             canvas.removeEventListener("pointerenter", track)
             canvas.removeEventListener("pointerleave", onLeave)
+            life.dispose()
         }
     }, [])
 

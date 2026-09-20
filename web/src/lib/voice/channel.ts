@@ -30,9 +30,17 @@ export function voiceStreamUrl(): string {
  * in the first FRAME, never the URL: query strings land in proxy logs and
  * browser history.
  */
+/** Never let a hung auth call strand the channel at "connecting" with no socket. */
+const TOKEN_TIMEOUT_MS = 6000;
+
 async function idToken(): Promise<string | null> {
   try {
-    let session = await fetchAuthSession();
+    let session = await Promise.race([
+      fetchAuthSession(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('auth timed out')), TOKEN_TIMEOUT_MS)
+      ),
+    ]);
     const exp = session.tokens?.idToken?.payload.exp;
     if (!exp || exp - Date.now() / 1000 < EXPIRY_MARGIN_S) session = await fetchAuthSession({ forceRefresh: true });
     return session.tokens?.idToken?.toString() ?? 'dev-token';
@@ -81,6 +89,13 @@ export interface VoiceChannel {
   state(): ChannelState;
   /** Call SYNCHRONOUSLY from the press handler — it unlocks audio on mobile. */
   startTurn(options: TurnOptions, handlers: TurnHandlers): VoiceTurn;
+  /**
+   * A typed question on the same channel: answered, grounded and SPOKEN exactly
+   * like a spoken one, with no microphone. Call from a click handler — it
+   * unlocks audio playback like startTurn. Returns false if the channel is not
+   * ready or a turn is already running (onError is called with NOT_READY).
+   */
+  ask(text: string, options: TurnOptions, handlers: TurnHandlers): boolean;
   close(): void;
 }
 
@@ -280,6 +295,28 @@ export function openVoiceChannel(opts: {
           }
         },
       };
+    },
+
+    ask(text, options, h) {
+      // Before any await: this must run inside the click gesture.
+      player.unlockAudio();
+      player.stopSpeech();
+      const sock = ws;
+      if (!sock || state !== 'ready' || handlers) {
+        h.onError?.('NOT_READY', 'voice is not connected');
+        return false;
+      }
+      handlers = h;
+      sock.send(
+        JSON.stringify({
+          t: 'ask',
+          text,
+          language: options.language,
+          history: options.history ?? [],
+          part: options.part ?? null,
+        })
+      );
+      return true;
     },
 
     close() {

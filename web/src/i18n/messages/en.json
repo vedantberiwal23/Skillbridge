@@ -115,6 +115,8 @@
     "backToPlan": "Back to training plan",
     "voiceConnecting": "Connecting…",
     "voiceUnavailable": "The voice tutor is not reachable right now.",
+    "assessmentEmpty": "No questions have been set for this assessment yet.",
+    "fromYourSop": "From your company's SOP",
     "heardNothing": "I did not catch that. Hold the button and speak again."
   },
   "assessment": {

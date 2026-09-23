@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { signIn } from 'aws-amplify/auth';
+import { signIn, signOut } from 'aws-amplify/auth';
 import { ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { cn } from 'cn';
 
@@ -27,6 +27,24 @@ import { LOCALES, LOCALE_LABELS, type Locale } from '@/i18n/config';
 
 type Tab = 'invite' | 'password';
 type IdKind = 'phone' | 'email';
+
+/**
+ * The Cognito errors that really do mean "those credentials are not valid".
+ *
+ * Everything else that can come out of `signIn` — an unconfigured pool, an
+ * offline browser, a throttle — is our problem, not the person's, and telling
+ * them to check a password that was never wrong sends them round a loop with no
+ * way out.
+ */
+const CREDENTIAL_ERRORS = new Set([
+  'NotAuthorizedException',
+  'UserNotFoundException',
+  'UserNotConfirmedException',
+  'PasswordResetRequiredException',
+]);
+
+const isCredentialRejection = (err: unknown) =>
+  err instanceof Error && CREDENTIAL_ERRORS.has(err.name);
 
 /** Matches the pool: phone sign-in is E.164, and bare Indian numbers get +91. */
 function toUsername(kind: IdKind, raw: string) {
@@ -69,11 +87,33 @@ export default function LoginPage() {
     try {
       setLoading(true);
       configureAmplify();
+
+      /**
+       * Drop any session still in cookie storage before asking for a new one.
+       *
+       * Amplify will not sign a second user in over a first: `signIn` runs its
+       * own precondition check and throws `UserAlreadyAuthenticatedException`
+       * before it ever reaches Cognito. So once anyone has signed in on this
+       * browser, every later attempt fails with *no network request at all* --
+       * the form says the password is wrong and the network tab shows nothing
+       * to contradict it, for correct credentials. Reaching this line means the
+       * person is deliberately signing in, so discarding the old session is
+       * precisely what they are asking for.
+       *
+       * Its own failure is ignored on purpose: there is frequently nothing to
+       * sign out of, and a token revocation that does not land must not block
+       * the sign-in it was only clearing the way for.
+       */
+      await signOut().catch(() => undefined);
+
       const output = await signIn({ username: toUsername(idKind, identifier), password });
       if (output.isSignedIn) router.push('/');
       else setError(t('auth.invalidCredentials'));
-    } catch {
-      setError(t('auth.invalidCredentials'));
+    } catch (err) {
+      // Logged unconditionally: the blanket catch this replaces is what kept
+      // the bug above invisible for as long as it was.
+      console.error('[login] sign-in failed:', err);
+      setError(isCredentialRejection(err) ? t('auth.invalidCredentials') : t('common.error'));
     } finally {
       setLoading(false);
     }
